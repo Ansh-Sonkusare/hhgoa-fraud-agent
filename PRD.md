@@ -127,7 +127,7 @@ Every row must be green before submission. "Accept" is a concrete check.
               raw wide columns: DuckDB (data/), accessed via a tool
 ```
 
-Stack — **TypeScript end to end, no Python anywhere**: Node.js 20+, npm workspaces monorepo, `tsx` to run TS directly (no build step during dev). Ingestion/admin against TigerGraph via its REST API and the `gsql` CLI (both language-agnostic — no pyTigerGraph needed). Agent-side MCP client: `@modelcontextprotocol/sdk` (official TS SDK). LLM: `@anthropic-ai/sdk` (official TS SDK). Validation: `zod` (the TS equivalent of pydantic). API: Fastify (small, fast, native SSE support). Wide-column lookups: `duckdb` npm package (official Node bindings — same DuckDB, just called from TS). Embeddings: `@xenova/transformers` (`transformers.js`) running a small model fully locally in Node — no Python, no extra API key. UI: Next.js + TypeScript + Tailwind, react-force-graph.
+Stack — **TypeScript end to end, no Python anywhere**: Node.js 20+, pnpm workspaces monorepo orchestrated with Turborepo, `tsx` to run TS directly (no build step during dev). Ingestion/admin against TigerGraph via its REST API and the `gsql` CLI (both language-agnostic — no pyTigerGraph needed). Agent-side MCP client: `@modelcontextprotocol/sdk` (official TS SDK). LLM: `@anthropic-ai/sdk` (official TS SDK). Validation: `zod` (the TS equivalent of pydantic). API: Fastify (small, fast, native SSE support). Wide-column lookups: `duckdb` npm package (official Node bindings — same DuckDB, just called from TS). Embeddings: `@xenova/transformers` (`transformers.js`) running a small model fully locally in Node — no Python, no extra API key. UI: Next.js + TypeScript + Tailwind, react-force-graph.
 The one non-TypeScript language in this project is GSQL itself (`.gsql` files) — that's TigerGraph's own query language, unavoidable regardless of stack, and it's not general-purpose Python, just query syntax you paste into files.
 
 Agent framework: custom state machine (no LangChain/LangGraph). Reason: full control of budgets, policy gate and checkpoints, which are graded.
@@ -152,7 +152,7 @@ submission/    WS8   demo_script.md, blog.md, social.md
 tests/         each WS adds tests/<ws>/ only (vitest)
 data/          gitignored raw dataset
 ```
-Each directory (`graph/`, `gsql/`, `rag/`, `agent/`, `policy/`, `api/`, `eval/`) is its own npm workspace package with its own `package.json`, all wired together at the root so `npm install` once at the top sets everything up.
+Each directory (`graph/`, `gsql/`, `rag/`, `agent/`, `policy/`, `api/`, `eval/`) is its own pnpm workspace package with its own `package.json`, listed in root `pnpm-workspace.yaml` and wired into `turbo.json`'s task graph, so `pnpm install` once at the top sets everything up.
 
 ## 7. Graph data model (WS1 owns; refine from README)
 
@@ -531,7 +531,7 @@ Merge order: WS0 -> WS1/WS3 -> WS2 -> WS4/WS5 -> WS6 -> WS7. Rebase onto main da
 - Code against `contracts/` and fakes. Never change `contracts/` after tag m0.
 - All graph/RAG/memory tools take `as_of`. Never return unbounded rows.
 - Commands: `make test`, `make lint`, `make verify-graph`, `make run-case CASE=<id>`, `make run-all`, `make validate-answers`.
-- TypeScript only, no Python anywhere. Node 20+, npm workspaces, `tsx` to run files directly, zod for validation, vitest for tests. Strict mode, no `any` without a comment saying why. Tests in `tests/<ws>/`.
+- TypeScript only, no Python anywhere. Node 20+, pnpm workspaces + Turborepo, `tsx` to run files directly, zod for validation, vitest for tests. Strict mode, no `any` without a comment saying why. Tests in `tests/<ws>/`.
 - Secrets only via `.env`. Never commit raw data.
 - Finish by running your workstream's definition-of-done checks and summarizing what passed.
 
@@ -539,7 +539,7 @@ Merge order: WS0 -> WS1/WS3 -> WS2 -> WS4/WS5 -> WS6 -> WS7. Rebase onto main da
 
 WS0:
 ```
-If the dataset (folder/zip containing the IEEE-CIS-derived transactions, closed cases, policy docs, and README) is not already present in this working directory, stop and ask for it before doing anything else. Once present: read PRD.md fully and the dataset README. This project is TypeScript only end to end (no Python) — Node 20+, npm workspaces, tsx, zod, vitest. Do WS0: write docs/DATA_MAP.md (every file/column/answer format/case mechanics), fill all [README] placeholders in PRD.md as an "Amendments" section, create contracts/ (zod schemas + TS types, tool catalog, AgentEvent, fakes, examples), fixtures/ (2 recorded case runs), root package.json + tsconfig.base.json as an npm workspace, Makefile (thin wrapper over npm scripts), CLAUDE.md, .env.example. Freeze and tag m0 when make test-contracts passes.
+If the dataset (folder/zip containing the IEEE-CIS-derived transactions, closed cases, policy docs, and README) is not already present in this working directory, stop and ask for it before doing anything else. Once present: read PRD.md fully and the dataset README. This project is TypeScript only end to end (no Python) — Node 20+, pnpm workspaces + Turborepo, tsx, zod, vitest. Do WS0: write docs/DATA_MAP.md (every file/column/answer format/case mechanics), fill all [README] placeholders in PRD.md as an "Amendments" section, create contracts/ (zod schemas + TS types, tool catalog, AgentEvent, fakes, examples), fixtures/ (2 recorded case runs), root package.json + pnpm-workspace.yaml + turbo.json + tsconfig.base.json, Makefile (thin wrapper over pnpm/turbo scripts), CLAUDE.md, .env.example. Freeze and tag m0 when make test-contracts passes.
 ```
 WS1:
 ```

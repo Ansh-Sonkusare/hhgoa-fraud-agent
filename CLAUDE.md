@@ -39,7 +39,7 @@ OpenCode delegation is planned but not active yet — it will be reintroduced la
 * TypeScript end to end.
 * No Python.
 * Node 20+.
-* npm workspaces.
+* pnpm workspaces, orchestrated with Turborepo.
 * `tsx` for running files directly during development.
 * No build step required for development.
 * `zod` for validation.
