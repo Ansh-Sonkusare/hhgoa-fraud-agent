@@ -1,0 +1,12 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "pc_r5_card_testing",
+      "text": "R5. Card testing. Three or more small online authorizations on one card within an hour, followed by a larger purchase: recommend DECLINE_TRANSACTION and STEP_UP_AUTH. If a purchase over $100 has already cleared, recommend BLOCK_CARD.",
+      "source_doc": "Fraud Policy",
+      "pattern_id": "card_testing"
+    }
+  ],
+  "required_evidence": ["txn_behavior", "device_identity"],
+  "permitted_actions": ["DECLINE_TRANSACTION", "STEP_UP_AUTH", "BLOCK_CARD"]
+}

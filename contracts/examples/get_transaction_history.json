@@ -1,0 +1,9 @@
+{
+  "rows": [
+    { "txn_id": "9900001", "ts": "2016-11-11T23:58:00Z", "amount_usd": 1.5, "product_cd": "W", "channel": "online", "risk_score": 0.2 },
+    { "txn_id": "9900002", "ts": "2016-11-11T23:59:10Z", "amount_usd": 2.25, "product_cd": "W", "channel": "online", "risk_score": 0.25 },
+    { "txn_id": "9900003", "ts": "2016-11-12T00:00:20Z", "amount_usd": 0.99, "product_cd": "W", "channel": "online", "risk_score": 0.3 },
+    { "txn_id": "9900004", "ts": "2016-11-12T00:31:00Z", "amount_usd": 259.98, "product_cd": "C", "channel": "online", "risk_score": 0.57 }
+  ],
+  "stats": { "count": 4, "total_amount_usd": 264.72, "window": "2h" }
+}

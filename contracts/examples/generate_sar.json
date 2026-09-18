@@ -1,0 +1,8 @@
+{
+  "file": true,
+  "reason": "R2: confirmed unauthorized use linked by a shared device to a second compromised card",
+  "narrative": "On 2016-11-12 between 23:58 and 00:31, card C09001-K1 belonging to customer C09001 was used for three online authorizations under $3 followed by a $259.98 purchase, all from a device profile shared with card C09002-K1. The cardholder denied making these purchases. Total unauthorized amount: $264.72.",
+  "subjects": ["C09001", "C09001-K1", "C09002-K1"],
+  "total_amount_usd": 264.72,
+  "activity_dates": ["2016-11-11", "2016-11-12"]
+}

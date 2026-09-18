@@ -1,0 +1,9 @@
+{
+  "entity": { "type": "Card", "id": "C09001-K1" },
+  "attributes": {
+    "card_network": "visa",
+    "card_type": "credit",
+    "first_seen_ts": "2016-07-05T10:00:00Z",
+    "customer_id": "C09001"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    { "type": "Card", "id": "C09001-K1" },
+    { "type": "Device", "id": "D000731" },
+    { "type": "Card", "id": "C09002-K1" }
+  ],
+  "edges": [
+    { "type": "USED_DEVICE", "from": "C09001-K1", "to": "D000731" },
+    { "type": "USED_DEVICE", "from": "C09002-K1", "to": "D000731" }
+  ]
+}

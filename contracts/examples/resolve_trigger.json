@@ -1,0 +1,6 @@
+{
+  "txn": { "type": "Transaction", "id": "9900004" },
+  "card": { "type": "Card", "id": "C09001-K1" },
+  "customer": { "type": "Customer", "id": "C09001" },
+  "identity": { "type": "Identity", "id": "ID-C09001" }
+}

@@ -1,0 +1,6 @@
+{
+  "patterns": [
+    { "pattern_id": "card_testing", "score": 0.82, "evidence": ["9900001", "9900002", "9900003", "9900004"] },
+    { "pattern_id": "card_not_present_new_device", "score": 0.41, "evidence": ["9900004"] }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "request_type": "customer_validation",
+  "responded": true,
+  "response_text": "Customer states they did not make these purchases and still has the card",
+  "evidence": {
+    "id": "ev_req_001",
+    "category": "customer_response",
+    "summary": "Customer denied making the flagged purchases",
+    "entities": [{ "type": "Customer", "id": "C09001" }],
+    "source_tool": "request_evidence",
+    "weight_hint": 0.6,
+    "supports": ["card_testing"],
+    "contradicts": [],
+    "ts": "2016-11-12T09:00:00Z"
+  }
+}

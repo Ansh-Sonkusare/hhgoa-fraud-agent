@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "case_id": "CC-0500",
+      "score": 0.87,
+      "outcome": "confirmed_fraud",
+      "overlap_reason": "shared device profile D000731"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "rings": [
+    {
+      "shared_type": "device",
+      "shared_id": "D000731",
+      "card_ids": ["C09001-K1", "C09002-K1"],
+      "community_id": "comm_017"
+    }
+  ]
+}

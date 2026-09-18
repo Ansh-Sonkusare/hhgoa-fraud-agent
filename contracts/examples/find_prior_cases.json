@@ -1,0 +1,6 @@
+{
+  "cases": [
+    { "case_id": "CC-0500", "outcome": "confirmed_fraud", "pattern": "card_testing" },
+    { "case_id": "CC-0501", "outcome": "cleared", "pattern": "none" }
+  ]
+}
