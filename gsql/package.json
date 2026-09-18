@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/gsql",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS2: GSQL toolkit and discovery (queries/*.gsql, install.ts, detectors/, discovery/). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'gsql: no tests yet (WS2)' && exit 0"
+  }
+}

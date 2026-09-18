@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/eval",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS7: eval and export (backtest.ts, runBenchmark.ts, exportAnswers.ts, validateAnswers.ts, metrics.ts). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'eval: no tests yet (WS7)' && exit 0"
+  }
+}

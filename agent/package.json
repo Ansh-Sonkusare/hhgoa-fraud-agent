@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/agent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS4: agent core (machine.ts, prompts/, llm.ts, mcpClient.ts, toolsRegistry.ts, assess.ts, explain.ts). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'agent: no tests yet (WS4)' && exit 0"
+  }
+}

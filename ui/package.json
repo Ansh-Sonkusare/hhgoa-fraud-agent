@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS6: Next.js UI. Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'ui: no tests yet (WS6)' && exit 0"
+  }
+}

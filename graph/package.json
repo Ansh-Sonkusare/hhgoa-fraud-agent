@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/graph",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS1: graph infra and ingestion (schema.gsql, loadingJobs/, scripts/load.ts, scripts/verify.ts). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'graph: no tests yet (WS1)' && exit 0"
+  }
+}

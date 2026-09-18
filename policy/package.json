@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/policy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS5: policy, evidence, approvals, SAR (policy.yaml, engine.ts, evidence.ts, approvals/, actionsMock.ts, sar.ts). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'policy: no tests yet (WS5)' && exit 0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/rag",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS3: GraphRAG and case memory (ingestPolicy.ts, ingestCases.ts, retrieve.ts, contextBuilder.ts, memory.ts). Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'rag: no tests yet (WS3)' && exit 0"
+  }
+}

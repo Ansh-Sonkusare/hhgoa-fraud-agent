@@ -1,0 +1,10 @@
+{
+  "name": "@hhgoa/api",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WS6: Fastify API + SSE of AgentEvent. Not yet implemented.",
+  "type": "module",
+  "scripts": {
+    "test": "echo 'api: no tests yet (WS6)' && exit 0"
+  }
+}

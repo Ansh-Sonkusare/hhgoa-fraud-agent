@@ -1,0 +1,10 @@
+packages:
+  - contracts
+  - graph
+  - gsql
+  - rag
+  - agent
+  - policy
+  - api
+  - ui
+  - eval
