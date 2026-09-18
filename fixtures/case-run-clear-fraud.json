@@ -1,0 +1,126 @@
+{
+  "case_id": "HHG-910",
+  "events": [
+    { "seq": 0, "ts": "2016-11-14T10:35:00Z", "case_id": "HHG-910", "type": "state_entered", "state": "TRIGGERED", "payload": { "trigger": { "kind": "risk_score", "txn_id": "9910004", "risk_score": 0.83 } } },
+    { "seq": 1, "ts": "2016-11-14T10:35:01Z", "case_id": "HHG-910", "type": "state_entered", "state": "CASE_OPENED", "payload": {} },
+    { "seq": 2, "ts": "2016-11-14T10:35:01Z", "case_id": "HHG-910", "type": "tool_call", "state": "CASE_OPENED", "payload": { "tool": "case_open", "args": { "trigger": { "kind": "risk_score", "txn_id": "9910004", "risk_score": 0.83 }, "as_of": "2016-11-14T10:35:00Z" } } },
+    { "seq": 3, "ts": "2016-11-14T10:35:02Z", "case_id": "HHG-910", "type": "tool_result", "state": "CASE_OPENED", "payload": { "tool": "case_open", "result": { "case_id": "HHG-910", "graph_case_id": "CASE-2016-9101" } } },
+    { "seq": 4, "ts": "2016-11-14T10:35:02Z", "case_id": "HHG-910", "type": "state_entered", "state": "INVESTIGATING", "payload": {} },
+    { "seq": 5, "ts": "2016-11-14T10:35:03Z", "case_id": "HHG-910", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "get_transaction_history", "args": { "entity": { "type": "Card", "id": "C09101-K1" }, "window": { "hours": 2 }, "as_of": "2016-11-14T10:35:00Z" } } },
+    { "seq": 6, "ts": "2016-11-14T10:35:03Z", "case_id": "HHG-910", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "get_transaction_history", "rows": [
+      { "txn_id": "9910001", "ts": "2016-11-14T09:12:10Z", "amount_usd": 2.1, "product_cd": "W", "channel": "online", "risk_score": 0.31 },
+      { "txn_id": "9910002", "ts": "2016-11-14T09:24:40Z", "amount_usd": 1.75, "product_cd": "W", "channel": "online", "risk_score": 0.34 },
+      { "txn_id": "9910003", "ts": "2016-11-14T09:41:05Z", "amount_usd": 3.4, "product_cd": "W", "channel": "online", "risk_score": 0.4 },
+      { "txn_id": "9910004", "ts": "2016-11-14T09:52:20Z", "amount_usd": 259.99, "product_cd": "C", "channel": "online", "risk_score": 0.83 }
+    ] } },
+    { "seq": 7, "ts": "2016-11-14T10:35:04Z", "case_id": "HHG-910", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_001", "category": "txn_behavior",
+      "summary": "Three online authorizations under $4 within 40 minutes on card C09101-K1, followed by a $259.99 purchase in a product code this card has never used",
+      "entities": [{ "type": "Card", "id": "C09101-K1" }],
+      "source_tool": "get_transaction_history", "weight_hint": 0.7,
+      "supports": ["card_testing"], "contradicts": [], "ts": "2016-11-14T10:35:04Z"
+    } } },
+    { "seq": 8, "ts": "2016-11-14T10:35:05Z", "case_id": "HHG-910", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "find_shared_entity_rings", "args": { "entity": { "type": "Card", "id": "C09101-K1" }, "as_of": "2016-11-14T10:35:00Z" } } },
+    { "seq": 9, "ts": "2016-11-14T10:35:05Z", "case_id": "HHG-910", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "find_shared_entity_rings", "rings": [
+      { "shared_type": "device", "shared_id": "D-9101", "card_ids": ["C09101-K1", "C09102-K1"], "community_id": "comm_910" }
+    ] } },
+    { "seq": 10, "ts": "2016-11-14T10:35:06Z", "case_id": "HHG-910", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_002", "category": "device_identity",
+      "summary": "All four transactions came from a device profile marked New for this account, also seen on card C09102-K1 this month",
+      "entities": [{ "type": "Device", "id": "D-9101" }, { "type": "Card", "id": "C09102-K1" }],
+      "source_tool": "find_shared_entity_rings", "weight_hint": 0.65,
+      "supports": ["card_testing"], "contradicts": [], "ts": "2016-11-14T10:35:06Z"
+    } } },
+    { "seq": 11, "ts": "2016-11-14T10:35:07Z", "case_id": "HHG-910", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "find_prior_cases", "args": { "entity": { "type": "Card", "id": "C09101-K1" }, "as_of": "2016-11-14T10:35:00Z" } } },
+    { "seq": 12, "ts": "2016-11-14T10:35:07Z", "case_id": "HHG-910", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "find_prior_cases", "cases": [
+      { "case_id": "CC-0910", "outcome": "confirmed_fraud", "pattern": "card_testing" }
+    ] } },
+    { "seq": 13, "ts": "2016-11-14T10:35:08Z", "case_id": "HHG-910", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_003", "category": "prior_cases",
+      "summary": "Closed case CC-0910 confirmed the same device profile as card-testing fraud in August 2016",
+      "entities": [{ "type": "ClosedCase", "id": "CC-0910" }],
+      "source_tool": "find_prior_cases", "weight_hint": 0.5,
+      "supports": ["card_testing"], "contradicts": [], "ts": "2016-11-14T10:35:08Z"
+    } } },
+    { "seq": 14, "ts": "2016-11-14T10:35:09Z", "case_id": "HHG-910", "type": "state_entered", "state": "ASSESSING", "payload": {} },
+    { "seq": 15, "ts": "2016-11-14T10:35:10Z", "case_id": "HHG-910", "type": "assessment_updated", "state": "ASSESSING", "payload": { "assessment": {
+      "hypotheses": [
+        { "fraud_type": "card_testing", "probability": 0.82, "supporting": ["ev_001", "ev_002", "ev_003"], "contradicting": [] },
+        { "fraud_type": "legitimate", "probability": 0.08, "supporting": [], "contradicting": ["ev_001", "ev_002"] }
+      ],
+      "risk_level": "HIGH", "risk_score": 0.83, "confidence": 0.8,
+      "sufficiency": { "sufficient": true, "missing": [], "stop_reason": "sufficient_evidence" },
+      "legit_hypothesis_probability": 0.08
+    } } },
+    { "seq": 16, "ts": "2016-11-14T10:35:11Z", "case_id": "HHG-910", "type": "state_entered", "state": "DECIDING", "payload": {} },
+    { "seq": 17, "ts": "2016-11-14T10:35:11Z", "case_id": "HHG-910", "type": "state_entered", "state": "APPROVAL_ROUTING", "payload": {} },
+    { "seq": 18, "ts": "2016-11-14T10:35:12Z", "case_id": "HHG-910", "type": "approval_requested", "state": "APPROVAL_ROUTING", "payload": { "action": "BLOCK_CARD", "route": "L1", "reason": "R5: card-testing sequence with a $259.99 purchase already cleared; exposure $267.24 is under $2,500" } },
+    { "seq": 19, "ts": "2016-11-14T10:35:12Z", "case_id": "HHG-910", "type": "approval_requested", "state": "APPROVAL_ROUTING", "payload": { "action": "FILE_REPORT", "route": "L2", "reason": "R6: shared device profile links this card-testing episode to card C09102-K1" } },
+    { "seq": 20, "ts": "2016-11-14T10:35:13Z", "case_id": "HHG-910", "type": "action_result", "state": "APPROVAL_ROUTING", "payload": { "action": "CREATE_CASE", "result": "EXECUTED" } },
+    { "seq": 21, "ts": "2016-11-14T10:35:13Z", "case_id": "HHG-910", "type": "action_result", "state": "APPROVAL_ROUTING", "payload": { "action": "MONITOR_CONNECTED_CARDS", "result": "EXECUTED" } },
+    { "seq": 22, "ts": "2016-11-14T10:35:14Z", "case_id": "HHG-910", "type": "state_entered", "state": "EXPLAINING", "payload": {} },
+    { "seq": 23, "ts": "2016-11-14T10:35:15Z", "case_id": "HHG-910", "type": "explanation", "state": "EXPLAINING", "payload": {
+      "evidence_used": ["ev_001: card-testing sequence then large purchase", "ev_002: shared new device with C09102-K1", "ev_003: matches closed case CC-0910"],
+      "why_more_evidence": null,
+      "why_actions": { "BLOCK_CARD": "R5", "CREATE_CASE": "R6 / §3a", "FILE_REPORT": "R6", "MONITOR_CONNECTED_CARDS": "R6" },
+      "remaining_uncertainty": "Whether C09102-K1 has itself already been used fraudulently is not yet confirmed, only that it shares the same device.",
+      "what_would_change_the_decision": "Evidence that C09101-K1's owner made these purchases (e.g. a customer confirmation) would clear the case; none is expected given the pattern strength."
+    } },
+    { "seq": 24, "ts": "2016-11-14T10:35:15Z", "case_id": "HHG-910", "type": "state_entered", "state": "MEMORY_UPDATE", "payload": {} },
+    { "seq": 25, "ts": "2016-11-14T10:35:16Z", "case_id": "HHG-910", "type": "memory_written", "state": "MEMORY_UPDATE", "payload": { "graph_case_id": "CASE-2016-9101" } },
+    { "seq": 26, "ts": "2016-11-14T10:35:16Z", "case_id": "HHG-910", "type": "state_entered", "state": "DONE", "payload": {} },
+    { "seq": 27, "ts": "2016-11-14T10:35:17Z", "case_id": "HHG-910", "type": "done", "state": "DONE", "payload": { "stop_reason": "Fraud probability 0.82 with three independent evidence categories clears the 0.75 confidence threshold; further investigation would not change the decision." } }
+  ],
+  "answer": {
+    "case_id": "HHG-910",
+    "case": {
+      "status": "escalated",
+      "verdict": "fraud",
+      "fraud_probability": 0.82,
+      "pattern": "card_testing",
+      "pattern_description": "",
+      "affected_txn_ids": ["9910001", "9910002", "9910003", "9910004"],
+      "first_suspicious_txn_id": "9910001",
+      "connected_card_ids": ["C09102-K1"],
+      "connected_device_profiles": ["SAMSUNG SM-G960F Build/PPR1.180610.011 | Android 9 | chrome mobile 71 | 2960x1440"],
+      "exposure_usd": 267.24,
+      "evidence": [
+        { "claim": "Three online authorizations under $4 within 40 minutes on card C09101-K1, followed by a $259.99 purchase under a product code this card has never used", "source": "graph", "ref": "query:get_transaction_history(entity=C09101-K1,window=2h)", "entity_ids": ["9910001", "9910002", "9910003", "9910004"] },
+        { "claim": "All four transactions came from a device profile marked New for this account, also seen on card C09102-K1 this month and on closed case CC-0910 (confirmed card-testing fraud, August 2016)", "source": "graph", "ref": "query:find_shared_entity_rings(entity=C09101-K1)", "entity_ids": ["C09102-K1", "CC-0910"] },
+        { "claim": "Closed case CC-0910 confirmed the same device profile as card-testing fraud", "source": "graph", "ref": "query:find_prior_cases(entity=C09101-K1)", "entity_ids": ["CC-0910"] }
+      ],
+      "similar_prior_cases": ["CC-0910"],
+      "summary": "Card testing on C09101-K1: three sub-$4 online authorizations in 40 minutes, then a $259.99 purchase in a category the cardholder has never used. All four share a device profile marked New for this account, also used on card C09102-K1 this month and matched to closed case CC-0910. High-confidence card-testing fraud; the second card is likely compromised through the same device.",
+      "written_to_graph": true,
+      "graph_case_id": "CASE-2016-9101"
+    },
+    "evidence_requests": [],
+    "next_best_actions": {
+      "initial": [
+        { "action": "BLOCK_CARD", "route": "L1", "reason": "R5: card-testing sequence with a $259.99 purchase already cleared; exposure $267.24 is under $2,500 so L1 approves" },
+        { "action": "CREATE_CASE", "route": "auto", "reason": "R6 / §3a: shared device with another card; a case is opened once fraud probability reaches 0.30" },
+        { "action": "FILE_REPORT", "route": "L2", "reason": "R6: shared device profile links this to card C09102-K1, so a report is required regardless of exposure" },
+        { "action": "MONITOR_CONNECTED_CARDS", "route": "auto", "reason": "R6: same device profile also used on C09102-K1" }
+      ],
+      "final": [
+        { "action": "BLOCK_CARD", "route": "L1", "reason": "R5: card-testing sequence with a $259.99 purchase already cleared; exposure $267.24 is under $2,500 so L1 approves" },
+        { "action": "CREATE_CASE", "route": "auto", "reason": "R6 / §3a: shared device with another card; a case is opened once fraud probability reaches 0.30" },
+        { "action": "FILE_REPORT", "route": "L2", "reason": "R6: shared device profile links this to card C09102-K1, so a report is required regardless of exposure" },
+        { "action": "MONITOR_CONNECTED_CARDS", "route": "auto", "reason": "R6: same device profile also used on C09102-K1" }
+      ],
+      "what_changed": "nothing"
+    },
+    "sar": {
+      "file": true,
+      "reason": "R6: shared device profile links this card-testing episode to another card's fraud, so a report is required regardless of exposure",
+      "narrative": "Between 2016-11-14 09:12 and 09:52, card C09101-K1 belonging to customer C09101 was used for three online authorizations of $2.10, $1.75, and $3.40, followed at 09:52 by a $259.99 online purchase under a product code the card had never used. All four transactions came from a device profile marked New for this account (Android 9, Chrome Mobile 71, 2960x1440). The same device profile was used on card C09102-K1 this month and matches a device recorded on closed case CC-0910, confirmed card-testing fraud in August 2016. The sequence of small authorizations followed by a larger purchase is consistent with testing of a card number prior to use, and the shared device indicates a common actor across at least two cardholders. Total unauthorized amount: $267.24. Card C09101-K1 has been recommended for block and reissue; card C09102-K1 has been placed under monitoring.",
+      "subjects": ["C09101", "C09101-K1", "C09102-K1"],
+      "total_amount_usd": 267.24,
+      "activity_dates": ["2016-11-14", "2016-11-14"]
+    },
+    "stop_reason": "Fraud probability 0.82 with three independent evidence categories (txn_behavior, device_identity, prior_cases) clears the 0.75 confidence threshold; further investigation would not change the decision.",
+    "tool_calls": 7,
+    "tokens": 4300,
+    "latency_s": 12.4
+  }
+}

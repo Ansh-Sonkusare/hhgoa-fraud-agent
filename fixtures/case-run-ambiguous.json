@@ -1,0 +1,152 @@
+{
+  "case_id": "HHG-920",
+  "events": [
+    { "seq": 0, "ts": "2016-12-03T08:10:00Z", "case_id": "HHG-920", "type": "state_entered", "state": "TRIGGERED", "payload": { "trigger": { "kind": "risk_score", "txn_id": "9920001", "risk_score": 0.58 } } },
+    { "seq": 1, "ts": "2016-12-03T08:10:01Z", "case_id": "HHG-920", "type": "state_entered", "state": "CASE_OPENED", "payload": {} },
+    { "seq": 2, "ts": "2016-12-03T08:10:01Z", "case_id": "HHG-920", "type": "tool_call", "state": "CASE_OPENED", "payload": { "tool": "case_open", "args": { "trigger": { "kind": "risk_score", "txn_id": "9920001", "risk_score": 0.58 }, "as_of": "2016-12-03T08:10:00Z" } } },
+    { "seq": 3, "ts": "2016-12-03T08:10:02Z", "case_id": "HHG-920", "type": "tool_result", "state": "CASE_OPENED", "payload": { "tool": "case_open", "result": { "case_id": "HHG-920", "graph_case_id": "CASE-2016-9201" } } },
+    { "seq": 4, "ts": "2016-12-03T08:10:02Z", "case_id": "HHG-920", "type": "state_entered", "state": "INVESTIGATING", "payload": {} },
+    { "seq": 5, "ts": "2016-12-03T08:10:03Z", "case_id": "HHG-920", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "get_transaction_history", "args": { "entity": { "type": "Card", "id": "C09201-K1" }, "window": { "days": 30 }, "as_of": "2016-12-03T08:10:00Z" } } },
+    { "seq": 6, "ts": "2016-12-03T08:10:03Z", "case_id": "HHG-920", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "get_transaction_history", "rows": [
+      { "txn_id": "9919990", "ts": "2016-11-20T18:02:00Z", "amount_usd": 42.10, "product_cd": "W", "channel": "online", "risk_score": 0.12 },
+      { "txn_id": "9919995", "ts": "2016-11-28T12:15:00Z", "amount_usd": 38.60, "product_cd": "W", "channel": "online", "risk_score": 0.10 },
+      { "txn_id": "9920001", "ts": "2016-12-03T08:05:00Z", "amount_usd": 128.50, "product_cd": "H", "channel": "online", "risk_score": 0.58 }
+    ], "stats": { "count": 3, "total_amount_usd": 209.20, "window": "30d" } } },
+    { "seq": 7, "ts": "2016-12-03T08:10:04Z", "case_id": "HHG-920", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_001", "category": "txn_behavior",
+      "summary": "Single $128.50 online purchase in a product code (H) this card has not used in its prior 30 days of activity; no burst, no other unusual transactions around it",
+      "entities": [{ "type": "Transaction", "id": "9920001" }],
+      "source_tool": "get_transaction_history", "weight_hint": 0.4,
+      "supports": ["card_not_present_fraud"], "contradicts": [], "ts": "2016-12-03T08:10:04Z"
+    } } },
+    { "seq": 8, "ts": "2016-12-03T08:10:05Z", "case_id": "HHG-920", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "get_baseline_deviation", "args": { "txn": { "type": "Transaction", "id": "9920001" }, "as_of": "2016-12-03T08:10:00Z" } } },
+    { "seq": 9, "ts": "2016-12-03T08:10:05Z", "case_id": "HHG-920", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "get_baseline_deviation", "result": { "amount_z": 1.8, "geo_z": 0.2, "device_z": 0.3, "time_z": 0.5 } } },
+    { "seq": 10, "ts": "2016-12-03T08:10:06Z", "case_id": "HHG-920", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "find_shared_entity_rings", "args": { "entity": { "type": "Card", "id": "C09201-K1" }, "as_of": "2016-12-03T08:10:00Z" } } },
+    { "seq": 11, "ts": "2016-12-03T08:10:06Z", "case_id": "HHG-920", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "find_shared_entity_rings", "result": { "rings": [] } } },
+    { "seq": 12, "ts": "2016-12-03T08:10:07Z", "case_id": "HHG-920", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_002", "category": "device_identity",
+      "summary": "Amount deviates 1.8 standard deviations from the cardholder's baseline, but no shared device, address, or email links this card to any other account",
+      "entities": [{ "type": "Card", "id": "C09201-K1" }],
+      "source_tool": "find_shared_entity_rings", "weight_hint": 0.2,
+      "supports": ["legitimate"], "contradicts": ["card_not_present_fraud"], "ts": "2016-12-03T08:10:07Z"
+    } } },
+    { "seq": 13, "ts": "2016-12-03T08:10:08Z", "case_id": "HHG-920", "type": "tool_call", "state": "INVESTIGATING", "payload": { "tool": "find_prior_cases", "args": { "entity": { "type": "Card", "id": "C09201-K1" }, "as_of": "2016-12-03T08:10:00Z" } } },
+    { "seq": 14, "ts": "2016-12-03T08:10:08Z", "case_id": "HHG-920", "type": "tool_result", "state": "INVESTIGATING", "payload": { "tool": "find_prior_cases", "result": { "cases": [] } } },
+    { "seq": 15, "ts": "2016-12-03T08:10:09Z", "case_id": "HHG-920", "type": "evidence_added", "state": "INVESTIGATING", "payload": { "evidence": {
+      "id": "ev_003", "category": "prior_cases",
+      "summary": "No prior fraud or cleared cases found for this customer or card",
+      "entities": [{ "type": "Customer", "id": "C09201" }],
+      "source_tool": "find_prior_cases", "weight_hint": 0.1,
+      "supports": [], "contradicts": [], "ts": "2016-12-03T08:10:09Z"
+    } } },
+    { "seq": 16, "ts": "2016-12-03T08:10:10Z", "case_id": "HHG-920", "type": "state_entered", "state": "ASSESSING", "payload": {} },
+    { "seq": 17, "ts": "2016-12-03T08:10:11Z", "case_id": "HHG-920", "type": "assessment_updated", "state": "ASSESSING", "payload": { "assessment": {
+      "hypotheses": [
+        { "fraud_type": "card_not_present_fraud", "probability": 0.50, "supporting": ["ev_001"], "contradicting": ["ev_002", "ev_003"] },
+        { "fraud_type": "legitimate", "probability": 0.42, "supporting": ["ev_002", "ev_003"], "contradicting": ["ev_001"] }
+      ],
+      "risk_level": "MEDIUM", "risk_score": 0.58, "confidence": 0.5,
+      "sufficiency": { "sufficient": false, "missing": [
+        { "what": "Whether the cardholder recognizes this purchase", "why": "Probability sits at 0.50 on a single ambiguous signal with no corroborating device or prior-case evidence; policy R1 requires verification before any block when probability is below 0.70 on a weak signal", "would_change_decision": true }
+      ], "stop_reason": null },
+      "legit_hypothesis_probability": 0.42
+    } } },
+    { "seq": 18, "ts": "2016-12-03T08:10:12Z", "case_id": "HHG-920", "type": "state_entered", "state": "EVIDENCE_PLANNING", "payload": {} },
+    { "seq": 19, "ts": "2016-12-03T08:10:13Z", "case_id": "HHG-920", "type": "tool_call", "state": "EVIDENCE_PLANNING", "payload": { "tool": "request_evidence", "args": { "type": "customer_validation", "target": { "type": "Customer", "id": "C09201" }, "reason": "R1: probability 0.50 on a single signal — verify before any block" } } },
+    { "seq": 20, "ts": "2016-12-03T08:10:13Z", "case_id": "HHG-920", "type": "evidence_requested", "state": "EVIDENCE_PLANNING", "payload": { "type": "customer_validation", "target": { "type": "Customer", "id": "C09201" }, "reason": "R1: probability 0.50 on a single signal — verify before any block", "discrimination_score": 0.42, "friction_cost": 2 } },
+    { "seq": 21, "ts": "2016-12-03T08:10:14Z", "case_id": "HHG-920", "type": "state_entered", "state": "AWAITING_EVIDENCE", "payload": {} },
+    { "seq": 22, "ts": "2016-12-03T08:10:15Z", "case_id": "HHG-920", "type": "tool_result", "state": "AWAITING_EVIDENCE", "payload": { "tool": "request_evidence", "result": {
+      "request_type": "customer_validation", "responded": true,
+      "response_text": "Customer states they do not recognize this purchase and did not make it",
+      "evidence": { "id": "ev_004", "category": "customer_response",
+        "summary": "Customer denied making the $128.50 purchase",
+        "entities": [{ "type": "Customer", "id": "C09201" }],
+        "source_tool": "request_evidence", "weight_hint": 0.6,
+        "supports": ["card_not_present_fraud"], "contradicts": ["legitimate"], "ts": "2016-12-03T08:10:15Z" }
+    } } },
+    { "seq": 23, "ts": "2016-12-03T08:10:15Z", "case_id": "HHG-920", "type": "state_entered", "state": "EVIDENCE_RECEIVED", "payload": {} },
+    { "seq": 24, "ts": "2016-12-03T08:10:16Z", "case_id": "HHG-920", "type": "evidence_added", "state": "EVIDENCE_RECEIVED", "payload": { "evidence": {
+      "id": "ev_004", "category": "customer_response",
+      "summary": "Customer denied making the $128.50 purchase",
+      "entities": [{ "type": "Customer", "id": "C09201" }],
+      "source_tool": "request_evidence", "weight_hint": 0.6,
+      "supports": ["card_not_present_fraud"], "contradicts": ["legitimate"], "ts": "2016-12-03T08:10:16Z"
+    } } },
+    { "seq": 25, "ts": "2016-12-03T08:10:17Z", "case_id": "HHG-920", "type": "state_entered", "state": "ASSESSING", "payload": {} },
+    { "seq": 26, "ts": "2016-12-03T08:10:18Z", "case_id": "HHG-920", "type": "assessment_updated", "state": "ASSESSING", "payload": { "assessment": {
+      "hypotheses": [
+        { "fraud_type": "card_not_present_fraud", "probability": 0.78, "supporting": ["ev_001", "ev_004"], "contradicting": ["ev_002"] },
+        { "fraud_type": "legitimate", "probability": 0.15, "supporting": ["ev_002", "ev_003"], "contradicting": ["ev_001", "ev_004"] }
+      ],
+      "risk_level": "HIGH", "risk_score": 0.58, "confidence": 0.75,
+      "sufficiency": { "sufficient": true, "missing": [], "stop_reason": "sufficient_evidence" },
+      "legit_hypothesis_probability": 0.15
+    } } },
+    { "seq": 27, "ts": "2016-12-03T08:10:19Z", "case_id": "HHG-920", "type": "state_entered", "state": "DECIDING", "payload": {} },
+    { "seq": 28, "ts": "2016-12-03T08:10:19Z", "case_id": "HHG-920", "type": "state_entered", "state": "APPROVAL_ROUTING", "payload": {} },
+    { "seq": 29, "ts": "2016-12-03T08:10:20Z", "case_id": "HHG-920", "type": "approval_requested", "state": "APPROVAL_ROUTING", "payload": { "action": "BLOCK_CARD", "route": "L1", "reason": "R2: customer denied the transaction; exposure $128.50 is under $2,500" } },
+    { "seq": 30, "ts": "2016-12-03T08:10:20Z", "case_id": "HHG-920", "type": "action_result", "state": "APPROVAL_ROUTING", "payload": { "action": "CREATE_CASE", "result": "EXECUTED" } },
+    { "seq": 31, "ts": "2016-12-03T08:10:21Z", "case_id": "HHG-920", "type": "state_entered", "state": "EXPLAINING", "payload": {} },
+    { "seq": 32, "ts": "2016-12-03T08:10:22Z", "case_id": "HHG-920", "type": "explanation", "state": "EXPLAINING", "payload": {
+      "evidence_used": ["ev_001: unusual single purchase for this card", "ev_002: no shared device found (weighed against fraud)", "ev_003: no prior cases", "ev_004: customer denied the purchase"],
+      "why_more_evidence": "R1: probability was 0.50 on a single ambiguous signal, below the 0.70 threshold for blocking on a weak signal, so customer validation was requested before any block.",
+      "why_actions": { "BLOCK_CARD": "R2: customer denied the transaction", "CREATE_CASE": "R2 / §3a: fraud probability reached 0.30 and a customer disputed a charge" },
+      "remaining_uncertainty": "None material — the customer's denial is the decisive signal policy R2 calls for.",
+      "what_would_change_the_decision": "If the customer had instead confirmed the purchase, R3 would apply and the case would close as legitimate instead."
+    } },
+    { "seq": 33, "ts": "2016-12-03T08:10:22Z", "case_id": "HHG-920", "type": "state_entered", "state": "MEMORY_UPDATE", "payload": {} },
+    { "seq": 34, "ts": "2016-12-03T08:10:23Z", "case_id": "HHG-920", "type": "memory_written", "state": "MEMORY_UPDATE", "payload": { "graph_case_id": "CASE-2016-9201" } },
+    { "seq": 35, "ts": "2016-12-03T08:10:23Z", "case_id": "HHG-920", "type": "state_entered", "state": "DONE", "payload": {} },
+    { "seq": 36, "ts": "2016-12-03T08:10:24Z", "case_id": "HHG-920", "type": "done", "state": "DONE", "payload": { "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision." } }
+  ],
+  "answer": {
+    "case_id": "HHG-920",
+    "case": {
+      "status": "closed_fraud",
+      "verdict": "fraud",
+      "fraud_probability": 0.78,
+      "pattern": "card_not_present_fraud",
+      "pattern_description": "",
+      "affected_txn_ids": ["9920001"],
+      "first_suspicious_txn_id": "9920001",
+      "connected_card_ids": [],
+      "connected_device_profiles": [],
+      "exposure_usd": 128.50,
+      "evidence": [
+        { "claim": "Single $128.50 online purchase in a product code this card has not used in its prior 30 days of activity, with no burst and no other unusual transactions around it", "source": "graph", "ref": "query:get_transaction_history(entity=C09201-K1,window=30d)", "entity_ids": ["9920001"] },
+        { "claim": "Amount deviates 1.8 standard deviations from the cardholder's baseline; no shared device, address, or email links this card to any other account or prior case", "source": "graph", "ref": "query:get_baseline_deviation(txn=9920001)", "entity_ids": ["9920001"] },
+        { "claim": "Customer states they do not recognize this purchase and did not make it", "source": "customer", "ref": "evidence_request:0", "entity_ids": [] }
+      ],
+      "similar_prior_cases": [],
+      "summary": "A single $128.50 online purchase in a product category the cardholder had not used in the prior 30 days, initially ambiguous (probability 0.50, no device or prior-case corroboration). The cardholder was asked to validate it and denied making the purchase, raising fraud probability to 0.78. No shared device, region, or prior fraud link was found, so the episode stands alone. Card recommended for block; case created.",
+      "written_to_graph": true,
+      "graph_case_id": "CASE-2016-9201"
+    },
+    "evidence_requests": [
+      { "type": "customer_validation", "asked_after_step": 20, "assumed_response": "Customer states they do not recognize this purchase and did not make it" }
+    ],
+    "next_best_actions": {
+      "initial": [
+        { "action": "VERIFY_WITH_CUSTOMER", "route": "auto", "reason": "R1: probability 0.50 rests on a single ambiguous signal with no corroborating device or prior-case evidence; verify before any block" },
+        { "action": "MONITOR_CARD", "route": "auto", "reason": "Precautionary monitoring while awaiting the customer's response" }
+      ],
+      "final": [
+        { "action": "BLOCK_CARD", "route": "L1", "reason": "R2: customer denied the transaction; exposure $128.50 is under $2,500 so L1 approves" },
+        { "action": "CREATE_CASE", "route": "auto", "reason": "R2 / §3a: fraud probability reached 0.30 and a customer disputed the charge" }
+      ],
+      "what_changed": "Customer denial raised fraud probability from 0.50 to 0.78 and confirmed the block. No shared device profile, region cluster, or prior fraud link was found, so R2's report threshold isn't met and no FILE_REPORT is recommended."
+    },
+    "sar": {
+      "file": false,
+      "reason": "R2: exposure $128.50 is under the $1,000 threshold and no shared device, region, or prior-fraud connection was found, so no report is required",
+      "narrative": "",
+      "subjects": [],
+      "total_amount_usd": 0,
+      "activity_dates": []
+    },
+    "stop_reason": "Customer denial settled the verdict at 0.78 with four independent evidence categories consulted; further investigation would not change the block decision.",
+    "tool_calls": 6,
+    "tokens": 5200,
+    "latency_s": 21.3
+  }
+}
