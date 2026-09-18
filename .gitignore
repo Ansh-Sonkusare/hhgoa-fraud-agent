@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Raw dataset (never committed — see PRD §16, README "Rules")
+data/
+*.csv
+
+# Secrets
+.env
+.env.local
+
+# Build / runtime artifacts
+dist/
+build/
+*.tsbuildinfo
+.cache/
+runs/
+coverage/
+
+# Editor / OS
+.DS_Store
+*.log
