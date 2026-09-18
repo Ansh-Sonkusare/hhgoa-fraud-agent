@@ -1,48 +1,44 @@
-# Live TODO
+# Todo
 
-Check items off as they land; keep this in sync with reality, not aspiration. Detailed
-per-workstream definition-of-done lives in PRD §16 — this file is the short, immediate list.
+Living task list. Check items off in place; don't delete history — move completed items to the "Done" section instead of erasing them, so this doubles as a lightweight record of what's actually finished.
 
-## STEP 0 — repo setup
+## Now (WS0 — must land before m0)
 
-- [x] `git init`, `.gitignore` (node_modules/, data/, .env, *.csv)
-- [x] Initial commit (PRD, README, CLAUDE.md, docs/)
-- [x] Private GitHub repo created and pushed (`gh repo create --private`)
+- [x] `fixtures/case-run-ambiguous.json` — the fixtures fork only delivered `case-run-clear-fraud.json`; wrote the ambiguous one by hand (case `HHG-920`), same ID conventions.
+- [x] `tests/ws0/*.test.ts` (6 files from the tests fork) + `tests/ws0/fixtures.test.ts` (written by hand — fixtures didn't exist yet when that fork ran) — covers all schemas, every `answerFile.ts` cross-field rule, all 26 fakes (envelope + `as_of` echo), both fixtures.
+- [x] `pnpm install` at repo root.
+- [x] `make test-contracts` green — 7 files, 83 tests passed.
+- [x] `pnpm --filter @hhgoa/contracts typecheck` clean.
+- [x] Reviewed both forks' unsolicited edits: `contracts/src/answerFile.ts` (`sar.file===true` requires non-empty `narrative` — correct, kept), `contracts/tsconfig.json` (`noEmit: true` — correct, kept), `contracts/vitest.config.ts` (new, needed — kept), root `package.json` (`"type": "module"` + hoisted devDeps — correct, kept). Restored `.env.example` to the fuller version after the fixtures fork trimmed it (see `docs/logs.md`).
+- [ ] Commit WS0 work in small, reviewed chunks (not one giant commit) — in progress.
+- [ ] Tag `m0`, push tags.
+- [ ] Report STEP 1 done per PRD §16's WS0 acceptance criteria.
 
-## STEP 1 — WS0 (contracts and skeleton)
+## Next (STEP 2 — after m0)
 
-- [x] Root `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`
-- [x] Placeholder `package.json` for each other workstream dir (graph/, gsql/, rag/,
-      agent/, policy/, api/, ui/, eval/) so the workspace resolves
-- [x] `Makefile`, `.env.example`
-- [x] `contracts/src/`: toolEnvelope, evidenceItem, state, agentEvent, assessment,
-      answerFile (with README cross-field rules as zod refinements), policy, tools
-      (26-tool catalog signatures), fakes (all 26 implemented), index barrel
-- [x] `contracts/examples/*.json` — one per tool (26 files), realistic fake IDs
-- [ ] `fixtures/` — 2 recorded case runs (clear-fraud, ambiguous) — **in progress**
-      (forked subagent; verify output before trusting it landed)
-- [ ] `tests/ws0/` — vitest suite covering all schemas, cross-field rules, fakes,
-      fixtures — **in progress** (forked subagent; verify before trusting)
-- [ ] `pnpm install` at root, confirm `pnpm --filter @hhgoa/contracts test` /
-      `make test-contracts` green
-- [ ] `npx tsc --noEmit` (or `pnpm --filter @hhgoa/contracts typecheck`) clean
-- [ ] Review both forked subagents' diffs by hand before committing
-- [ ] Commit remaining WS0 work in small chunks (already committed: root skeleton pieces
-      as they were written — check `git log` rather than assume)
-- [ ] Tag `m0` once `make test-contracts` is green, push tags
-- [ ] Report WS0 done per PRD §16's acceptance criteria
+- [ ] Kick off WS1 (graph/) per PRD §19.3 kickoff prompt.
+- [ ] Kick off WS2 (gsql/) once WS1's schema draft exists.
+- [ ] Kick off WS3 (rag/).
+- [ ] Kick off WS4+WS5 (agent/ + policy/) against fakes.
+- [ ] Kick off WS6 (api/ + ui/) against fixtures.
+- [ ] WS7 (eval/) once WS4 emits real events.
+- [ ] WS8 (submission/) continuous from day 1 onward per PRD §17.
 
-## STEP 2 — WS1-WS6 in parallel (after m0)
+## Standing reminders (don't re-litigate)
 
-Not started. Use `git worktree add` per PRD §19.1, one branch per workstream, kickoff
-prompts from PRD §19.3. Re-check PRD §19.4: subagents for read-only exploration inside a
-session, not for writing across workstream boundaries; a fresh review pass checks each
-merged workstream against PRD §16 before it's marked done.
-
-## Standing reminders
-
-- Never invent a field not in `README.md` or `docs/DATA_MAP.md`.
+- OpenCode delegation is paused — Claude Code implements directly until reintroduced (see `docs/decisions.md`).
 - `contracts/` is frozen after `m0` — changes after that need explicit human OK.
-- Every graph/RAG/memory tool takes `as_of` (PRD §8.1) — already encoded in
-  `contracts/src/tools.ts`'s signatures; don't relax this when real implementations land.
-- No CSVs, no `data/`, no secrets committed — check `git status` before every commit.
+- Never commit `data/` or any `*.csv`.
+- Every graph/RAG/memory tool must carry `as_of` (PRD §8.1) — already enforced in `contracts/src/tools.ts` signatures; keep it that way in real implementations.
+
+## Done
+
+- [x] STEP 0: git init, `.gitignore`, initial commit, private GitHub repo created and pushed, CSVs moved to gitignored `data/`.
+- [x] Switched monorepo tooling from npm workspaces to pnpm workspaces + Turborepo (PRD.md/CLAUDE.md text updated to match) per explicit user instruction.
+- [x] CLAUDE.md updated to pause OpenCode delegation.
+- [x] `contracts/src/*.ts` (all 9 files) + `index.ts` barrel written.
+- [x] `contracts/examples/*.json` (26 tool fixtures) written, IDs corrected to match real numeric TransactionID format after checking `data/*.csv` headers.
+- [x] Root skeleton: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `Makefile`, `.env.example`, per-workstream stub `package.json` files.
+- [x] `fixtures/case-run-clear-fraud.json` written.
+- [x] `fixtures/case-run-ambiguous.json` written.
+- [x] `tests/ws0/*.test.ts` (7 files, 83 tests) written and green; typecheck clean.

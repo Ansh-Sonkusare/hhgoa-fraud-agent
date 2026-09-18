@@ -1,70 +1,23 @@
 # Session log
 
-Append-only, most recent last. Dates/times are approximate (session-relative), meant to
-give a future reader the sequence of events, not a precise audit trail.
+Append-only, chronological, short entries. Not a changelog for users — a trail for whoever (human or agent) needs to reconstruct what happened and in what order, especially across concurrent/background work.
 
-- Read `CLAUDE.md`, `PRD.md`, `README.md`, `docs/DATA_MAP.md` in full before any action, per
-  the task's STEP 0 instructions.
-- `git init`, branch renamed to `main`, moved the four dataset CSVs (`transactions.csv`,
-  `identity.csv`, `closed_cases_history.csv`, `case_pack.csv`) from repo root into gitignored
-  `data/` (they were sitting at the root, not yet under `data/`).
-- Wrote `.gitignore` (node_modules/, data/, .env, *.csv, build artifacts).
-- First commit: PRD.md, README.md, CLAUDE.md, docs/ scaffolding, the original brief markdown.
-- `gh repo create --private --source=. --remote=origin` → private repo created; `gh auth
-  setup-git` failed (global git config is read-only in this sandbox), worked around with a
-  repo-local `credential.helper` shelling out to `gh auth token`. Pushed `main`.
-- User updated `CLAUDE.md` mid-session to add an "Agent Roles" section: Claude
-  plans/reviews, OpenCode implements. Attempted to dispatch WS0 to OpenCode via its MCP
-  tools.
-- OpenCode dispatch failures, in order: `gpt-5.3-codex-spark`, `gpt-5.4`, `gpt-5.2-codex`
-  (all OpenAI-provider models) rejected with "not supported when using Codex with a ChatGPT
-  account" — the configured OpenAI credential is a ChatGPT/Codex OAuth login, not a
-  standard API key, so it only serves a narrow OAuth-tagged model list. Switched to
-  `kiro`/`qwen3-coder-next` — the MCP server itself then disconnected mid-dispatch. User
-  redirected to `opencode`/`big-pickle`; that also hit the disconnect. After the user
-  restarted the server (`/mcp` → "Reconnected to opencode"), refired once more but the
-  submission outcome came back `unknown` (a genuine ambiguous-state case per the tool's own
-  guidance: don't blindly retry, check first) and the underlying `opencode serve` process
-  was unreachable on recheck. Rather than guess, asked the user how to proceed.
-- User decided: drop OpenCode delegation for now, implement directly. Edited `CLAUDE.md`'s
-  "Agent Roles" and "Implementation Workflow" sections accordingly (see
-  `docs/decisions.md`). Committed and pushed.
-- Began WS0 directly: root `package.json` (initially npm workspaces per PRD's original
-  wording), `tsconfig.base.json`, placeholder `package.json` for graph/gsql/rag/agent/
-  policy/api/ui/eval.
-- User asked (mid-turn) to use pnpm workspaces + Turborepo instead of npm workspaces "at
-  least". Confirmed scope via AskUserQuestion (user picked pnpm + Turborepo, not just
-  pnpm). Updated `PRD.md` (§5, §6, §19.2, §19.3 kickoff prompt) and `CLAUDE.md` to say
-  pnpm/Turborepo instead of npm workspaces; added `pnpm-workspace.yaml`, `turbo.json`;
-  rewrote root `package.json` to drop the `workspaces` field and use `turbo run` scripts;
-  added `.turbo/` to `.gitignore`.
-- Wrote `contracts/src/`: `toolEnvelope.ts`, `evidenceItem.ts`, `state.ts`, `agentEvent.ts`,
-  `assessment.ts`, `answerFile.ts` (README Answer Format schema + cross-field
-  `.superRefine()` rules), `policy.ts`, `tools.ts` (26-tool catalog signatures per PRD
-  §8.4, `as_of` on every graph/RAG/memory tool per §8.1), `fakes.ts` (in-memory
-  implementation of all 26 tools, reading `contracts/examples/*.json`), `index.ts` barrel.
-- Wrote all 26 `contracts/examples/*.json` fixtures.
-- User asked to peek at the real CSVs for ID-format realism, maintain
-  context/todo/logs/decisions docs, and parallelize the remaining work. Checked
-  `data/transactions.csv`, `identity.csv`, `closed_cases_history.csv`, `case_pack.csv`
-  headers + sample rows: confirmed transaction IDs are plain numeric strings (e.g.
-  `"3514030"`), not the `T09xxxxx` style used in an earlier delegation draft prompt — fixed
-  the 4 example files that had used that style (`sed` replace to `"9900001"`..`"9900004"`,
-  a range clearly outside the real dataset's observed ID space so it can't be mistaken for
-  a real row).
-- Ran `pnpm install` at the root (confirms workspace resolves cleanly; corepack pinned
-  pnpm to the `packageManager` field's version).
-- Wrote `Makefile` (thin wrapper over `pnpm`/`turbo`, non-implemented targets exit 0 with a
-  message) and `.env.example` (TOOLS_BACKEND, agent budgets, Anthropic key, TigerGraph
-  connection vars, MCP URL, API/UI ports, optional Discord approval webhook, embeddings
-  model).
-- Forked two subagents in parallel: one writing `tests/ws0/` (vitest suite covering all
-  schemas, cross-field rules, and the 26 fakes), one writing `fixtures/` (2 recorded case
-  runs: clear-fraud and ambiguous-with-evidence-request). Both run against the
-  already-written `contracts/src/` and `contracts/examples/`; briefed not to touch other
-  directories. Started writing `docs/context.md`, `docs/todo.md`, `docs/logs.md`,
-  `docs/decisions.md` while they run.
-- Observed (via file-change notifications) that the tests fork made a legitimate fix to
-  `contracts/src/answerFile.ts`: added a `sar.file === true` → `sar.narrative` non-empty
-  check, which README's Answer Format actually requires ("narrative ... Required when
-  `file` is true") and which the original draft had missed. Left as-is — correct per spec.
+- **STEP 0**: `git init`, `.gitignore` (covers `node_modules/`, `data/`, `.env`, `*.csv`), moved the 4 dataset CSVs from repo root into gitignored `data/`, initial commit (PRD.md, README.md, CLAUDE.md, docs/), private GitHub repo `Ansh-Sonkusare/hhgoa-fraud-agent` created via `gh repo create`, pushed. Had to configure a repo-local git credential helper (`gh auth setup-git` failed — global git config is read-only in this sandbox) shelling out to `gh auth token`.
+- User pasted a new CLAUDE.md ("Agent Roles": Claude = architect/planner, OpenCode = implementation). Began STEP 1 (WS0) by trying to delegate to OpenCode via its MCP tools.
+- OpenCode dispatch attempts failed repeatedly: every OpenAI-provider model tried (`gpt-5.3-codex-spark`, `gpt-5.4`, `gpt-5.2-codex`) rejected with "not supported when using Codex with a ChatGPT account" — the configured OpenAI credential is a ChatGPT/Codex OAuth login, not a plain API key, so it only serves a narrow model allowlist.
+- Switched to `kiro` provider / `qwen3-coder-next` — user interrupted mid-dispatch: "use big pickle in opencode". Cancelled the kiro job, switched to `opencode` provider / `big-pickle` model.
+- The `opencode` MCP server disconnected entirely mid-attempt (tool calls started erroring "server has disconnected"). User ran `/mcp`, it reconnected. Retried the fire — got back `OpenCodeSubmissionError: Submission outcome unknown`. Per the tool's own guidance, checked the job before retrying rather than blindly retrying; `opencode_job_get` also returned `unknown`, and `opencode_setup`/`opencode_session_list` showed the underlying `opencode serve` process itself was unreachable (`fetch failed`), not just an MCP link issue.
+- Asked the user how to proceed rather than guessing (restart server / do it myself / keep polling) — user instead said: change CLAUDE.md to not use OpenCode for now, implement directly, add OpenCode back later. Edited CLAUDE.md's "Agent Roles" and "Implementation Workflow" sections accordingly, committed and pushed.
+- Began implementing WS0 directly: Node 24/npm 11 confirmed available, `tsx` not globally installed (expected — comes from devDependencies).
+- Wrote root skeleton as **npm workspaces** first (per PRD.md's then-current text), then user interrupted: "use turborepo or atleast pnpm-workspaces not just npm too." Confirmed `pnpm` (12.3.4) and `turbo` (via npx, 2.11.1) are available locally. Asked the user how far to take it (pnpm only vs pnpm+Turborepo vs keep npm) — user chose pnpm + Turborepo. Updated PRD.md (4 locations) and CLAUDE.md (1 location) to say "pnpm workspaces + Turborepo" instead of "npm workspaces", then rebuilt `package.json`/added `pnpm-workspace.yaml`/`turbo.json`, updated `.gitignore` for `.turbo/`.
+- Wrote all of `contracts/src/*.ts` (9 files) + barrel `index.ts` by hand, directly against README.md's Answer Format section and PRD §8/§9/§10/§13.
+- Wrote all 26 `contracts/examples/*.json` tool fixtures by hand.
+- User asked to check other CSVs for realistic example data. Peeked at `data/{transactions,identity,closed_cases_history,case_pack}.csv` headers + a few rows (read-only, no copying of real rows into any committed file). Found the original example JSON files used a `"T0900001"`-style transaction ID that doesn't match the real dataset's plain-numeric `TransactionID` format — fixed via `sed` across `contracts/examples/*.json` (`T0900001`→`9900001` etc.).
+- User asked to maintain `context.md`/`todo.md`/`logs.md`/`decisions.md`, and to parallelize — "this is too slow". Launched two `fork` subagents: one for `fixtures/case-run-clear-fraud.json` + `fixtures/case-run-ambiguous.json`, one for `tests/ws0/*.test.ts`. The **first** fork's dispatch returned "Fork started — processing in background" normally; the **second** fork dispatch call itself returned an error ("Fork is not available inside a forked worker. Complete your task directly using your tools.") suggesting the tool call had failed and I should do that work myself directly instead.
+- Started doing the fixtures work manually (per the error's instruction) — wrote `fixtures/case-run-clear-fraud.json` by hand. Partway through, `contracts/src/answerFile.ts` and `contracts/tsconfig.json` and `package.json` changed on disk unexpectedly (system reminders flagged this). Ran `ListAgents` to check — **both forks were actually running in the background** (`a2e075846b505649d`, `a6c73c7a6a0e15737`, both "running", 2-3 minutes old); the "Fork is not available" error on the second dispatch was misleading/spurious — the fork was created anyway. Also saw two idle unrelated peer sessions (`hhgoa-d5`, `hhgoa-e3`) — not something this session started.
+- Given both forks are genuinely in flight and may be overwriting the same files (`fixtures/case-run-clear-fraud.json` in particular — direct collision with the fixtures fork), stopped duplicating their assigned scope. Continued only with non-overlapping WS0 work: `Makefile`, `.env.example`, and these four tracking docs.
+- Reviewed the forks' unsolicited-but-in-scope edits to `contracts/src/answerFile.ts` (added: `sar.file===true` requires non-empty `narrative` — a real gap, correct fix, kept) and `contracts/tsconfig.json` (`noEmit: true` — correct, kept).
+- Both forks reported back. The **fixtures fork** (`a6c73c7a6a0e15737`) had misread its own situation — its final report referred to "the fixtures fork" in the third person and described redoing `Makefile`/`.env.example`/all four tracking docs itself "to avoid racing" a collision it perceived with the parent session (this session), even though it explicitly instructed not to touch `docs/`. It only produced `fixtures/case-run-clear-fraud.json` (good quality, kept as-is) — `fixtures/case-run-ambiguous.json` was missing, so it was written by hand in the parent session afterward, using the same ID conventions (case `HHG-920`, card `C09201-K1`, txn `9920001`+). Likely cause: forking mid-turn, right after a message containing two sibling `Agent` tool-calls, gave this fork's inherited context visibility into *both* dispatches, and it lost track of which one it was.
+  - The **tests fork** (`a2e075846b505649d`) stayed fully in scope: wrote all 6 `tests/ws0/*.test.ts` files, added `contracts/vitest.config.ts` (needed so `vitest run` from `contracts/` picks up tests physically in `../tests/ws0`), and made the same root `package.json` fix (`"type": "module"` + hoisted `typescript`/`vitest`/`zod`/`@types/node` devDependencies) independently diagnosed in the parent session moments earlier for the same reason: files under `tests/ws0` have no closer `package.json`, so without it they're treated as CommonJS (breaking `import.meta.url`) and can't resolve `contracts/`'s deps by walking up pnpm's strict per-package `node_modules`. Reported 74/74 tests green, clean typecheck.
+- Reconciliation: kept the fixtures fork's `docs/*.md` rewrites (reviewed in full — accurate, comprehensive, no factual errors, arguably better organized than the originals) rather than re-reverting them a third time; restored `.env.example` to the fuller version (the fixtures fork's rewrite had dropped `TIGERGRAPH_REST_PORT`/`GSQL_PORT`, `EMBEDDINGS_MODEL`, `API_BASE_URL`, and renamed the Discord webhook var) merged with its nicer inline-comment style. Wrote `tests/ws0/fixtures.test.ts` (validates both fixtures against `AgentEventSchema`/`AnswerFileSchema`, checks monotonic `seq` and consistent `case_id`) since fixtures didn't exist yet when the tests fork ran.
+- Final verification: `pnpm --filter @hhgoa/contracts test` → 7 files, 83 tests passed. `pnpm --filter @hhgoa/contracts typecheck` → clean. `make test-contracts` → green via `turbo run test --filter=@hhgoa/contracts`.

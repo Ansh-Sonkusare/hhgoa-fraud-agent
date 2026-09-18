@@ -1,70 +1,31 @@
-# Decisions
+# Decisions log
 
-Judgment calls made where the brief/PRD/README were silent or ambiguous, and why, so they
-aren't accidentally re-litigated or reversed without noticing.
+One entry per decision that wasn't already dictated by `PRD.md`/`README.md`. Newest first. Each entry: what was decided, why, and what it overrides (if anything).
 
-## Monorepo tooling: pnpm workspaces + Turborepo, not npm workspaces
+## 2026-09-18 — Monorepo tooling: pnpm workspaces + Turborepo, not npm workspaces
 
-PRD.md originally specified plain npm workspaces throughout (§5, §6, §19.2, §19.3). The
-user asked mid-session to use "at least pnpm-workspaces", and on being asked whether that
-meant pnpm alone or pnpm+Turborepo, chose pnpm+Turborepo. `PRD.md` and `CLAUDE.md` were
-updated in place to say pnpm/Turborepo wherever they previously said npm workspaces, so
-there's no drift between the doc and the actual root `package.json` /
-`pnpm-workspace.yaml` / `turbo.json`. Root `package.json` no longer has a `workspaces`
-field (that's npm's mechanism); `pnpm-workspace.yaml` is the source of truth for which
-directories are packages, and `turbo.json` defines the `build`/`test`/`lint`/`typecheck`
-task graph. `packageManager` is pinned in root `package.json` so corepack resolves a
-consistent pnpm version regardless of what's globally installed.
+**Decided:** switch from npm workspaces (as originally written in PRD §5/§6/§19 and CLAUDE.md) to pnpm workspaces (`pnpm-workspace.yaml`) orchestrated by Turborepo (`turbo.json`).
 
-## OpenCode delegation paused (CLAUDE.md "Agent Roles")
+**Why:** explicit user instruction mid-session, after WS0 root skeleton had already been drafted once with npm workspaces. User confirmed "pnpm workspaces + Turborepo" over "pnpm only" or "keep npm" when asked.
 
-The user's `CLAUDE.md` edit introduced a Claude-plans/OpenCode-implements split. In
-practice, every OpenAI-provider model available through the OpenCode MCP server rejected
-with "not supported when using Codex with a ChatGPT account" (the configured credential is
-a ChatGPT/Codex OAuth login, which only serves a narrow allowlist of OAuth-tagged models,
-not the full model list `opencode_provider_models` advertises). Switching to other
-providers (`kiro`/`qwen3-coder-next`, then `opencode`/`big-pickle`) ran into the MCP server
-itself disconnecting mid-dispatch, and after a reconnect, a submission with an ambiguous
-("unknown") outcome that the tool's own guidance says not to blindly retry. Rather than
-keep burning turns on a flaky integration, asked the user, who said to implement directly
-for now. `CLAUDE.md`'s "Agent Roles" and "Implementation Workflow" sections were rewritten
-to say so explicitly. This is a pause, not a reversal — re-enable OpenCode delegation later
-if asked, but don't reintroduce it unprompted just because the server reconnects.
+**What it overrides:** PRD.md §5, §6, §19.1, §19.3 (WS0 kickoff prompt) and CLAUDE.md's "Stack" section previously said "npm workspaces" explicitly — all updated in place to say "pnpm workspaces + Turborepo" so the docs and the actual repo don't diverge. Root `package.json` no longer has a `workspaces` field; package list lives in `pnpm-workspace.yaml`. Task orchestration (`test`, `lint`, etc.) goes through `turbo run <task>` instead of `npm run <task> --workspaces`.
 
-## Fake/fixture ID ranges reserved to avoid confusion with real dataset rows
+## 2026-09-18 — OpenCode delegation paused; Claude Code implements directly
 
-Real transaction IDs observed in `data/case_pack.csv` and `data/transactions.csv` are plain
-numeric strings starting around `3000001` and running up to roughly `3590000` (per the 20
-benchmark cases and the sampled rows). `contracts/examples/*.json` and (later) `fixtures/`
-use transaction IDs in the `9900000`+ / `9910000`+ ranges specifically so nobody mistakes a
-fake example for a real dataset row while skimming a diff. Card IDs (`C09001-K1` style),
-customer IDs (`C09001`), and closed-case IDs (`CC-0910` style) follow the real dataset's
-formats exactly (confirmed against `data/closed_cases_history.csv` and `data/case_pack.csv`
-headers/sample rows) — only the specific numbers are picked to be obviously out of the
-real range.
+**Decided:** CLAUDE.md's "Agent Roles" section (added by the user directly, checked into the repo) originally specified Claude as architect/planner and OpenCode as the implementation/execution agent for all substantial code changes. After repeated OpenCode MCP failures this session (model-auth errors across every OpenAI-provider model tried, then the OpenCode MCP server itself disconnecting and its local `opencode serve` process becoming unreachable), the user instructed: change CLAUDE.md to not use OpenCode for now, Claude Code implements directly, reintroduce OpenCode later.
 
-## `via` field choices in `contracts/src/fakes.ts`
+**Why:** OpenCode was unreliable in this environment at the time (auth + connectivity issues, not a fundamental rejection of the delegation model itself).
 
-The tool-result envelope's `via` enum (PRD §8.2) is `mcp|local|rag|policy`. Assignment per
-tool group, since PRD doesn't spell this out per-tool:
-- Graph tools (`resolve_trigger` through `find_prior_cases`) → `mcp` (they'll go through
-  TigerGraph MCP once real).
-- `get_wide_features` (local DuckDB) and `lookup_external` (mock/static enrichment) →
-  `local`.
-- `retrieve_policy`, `retrieve_similar_cases` → `rag`.
-- All `case_*` tools → `local` (the agent's own case-log layer, which then persists to the
-  graph as memory — the write path itself, not a read via MCP).
-- `policy_check`, `execute_action`, `request_evidence`, `generate_sar` → `policy`.
+**What it overrides:** CLAUDE.md's "Agent Roles" and "Implementation Workflow" sections were rewritten to say Claude Code does reasoning, planning, editing, running commands, and verification directly, with OpenCode delegation explicitly marked as "planned but not active" rather than removed as a concept.
 
-## Tools without `as_of`
+## 2026-09-18 — Fixture/example ID conventions
 
-PRD §8.1 says "every graph, RAG, and memory tool takes `as_of`" — read literally against
-the actual catalog in §8.4, three tools are exempt because they aren't time-travel-sensitive
-reads of dataset/graph/memory content: `get_wide_features` (local DuckDB lookup by
-already-known txn IDs), `retrieve_policy` (static policy/regulatory text, not time-varying),
-and `lookup_external` (external/mock enrichment, real-time by nature). `policy_check`,
-`execute_action`, `request_evidence`, `generate_sar` are policy/action tools, not
-graph/RAG/memory reads, so they're exempt too. This matches the exact function signatures
-given in PRD §8.4 (`retrieve_policy(query, pattern_id?, k)` has no `as_of` there, while
-`retrieve_similar_cases(fingerprint, as_of, k)` does) — `contracts/src/tools.ts` mirrors
-this precisely rather than adding `as_of` everywhere "to be safe."
+**Decided:** synthetic IDs in `contracts/examples/*.json` and `fixtures/*.json` use formats that match the real dataset's structure (confirmed by inspecting `data/*.csv` headers directly — plain numeric `TransactionID`, `C#####` customer ids, `C#####-K#` card ids, `CC-####` closed-case ids) but fall in numeric ranges clearly outside anything seen in the real files (e.g. transaction ids `"991xxxx"`/`"992xxxx"`, customers `"C0910x"`, closed cases `"CC-09xx"`), so nobody mistakes a fixture for a real dataset row or accidentally treats a fixture ID as resolvable against the real graph once it's loaded.
+
+**Why:** initial draft used a `"T0900001"`-style prefix that doesn't match any real column (`TransactionID` is plain numeric) — caught by checking `data/transactions.csv`'s actual header/rows before finalizing WS0's examples.
+
+## 2026-09-18 — `answerFile.ts`: SAR narrative required when `sar.file` is true
+
+**Decided (observed, not authored by the main thread — a parallel background fork made this edit while working on `tests/ws0/`; reviewed and kept):** added a `superRefine` check that `sar.file === true` requires a non-empty `sar.narrative`.
+
+**Why it's correct:** README's Answer Format table says `narrative` is "Required when `file` is true" — the original schema only encoded the inverse (`file === false` implies blank fields) and missed this direction. Keeping the fork's fix rather than reverting it.
