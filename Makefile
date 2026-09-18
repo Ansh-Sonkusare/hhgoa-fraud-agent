@@ -1,10 +1,10 @@
-.PHONY: test test-contracts lint verify-graph run-case run-all validate-answers
+.PHONY: test lint verify-graph run-case run-all validate-answers test-contracts
 
 test:
 	pnpm turbo run test
 
 test-contracts:
-	pnpm --filter @hhgoa/contracts test
+	pnpm turbo run test --filter=@hhgoa/contracts
 
 lint:
 	pnpm turbo run lint
