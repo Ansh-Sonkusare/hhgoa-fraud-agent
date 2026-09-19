@@ -43,7 +43,7 @@ The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 
 - [ ] WS7 (eval/) NOT STARTED — `eval/` is a `package.json` stub; `cases/` doesn't exist; `Makefile` `run-case`/`run-all`/`validate-answers` are stubs. D3 (`make validate-answers` green) unmet.
 - [ ] WS8 (submission/) NOT STARTED — `submission/` doesn't exist (demo script, blog, social draft).
 - [ ] Real-time vs static: **PRD §2 lists "real-time streaming" as an explicit NON-GOAL.** Data is the static IEEE-CIS-derived `data/*.csv`. The SSE stream is agent-event streaming of a (fixture/replay) run, NOT live transaction data. Nothing to implement.
-- [ ] Ollama: still not running (deferred to WS4); `LLM_BACKEND=ollama` path in `llm.ts` is untested end-to-end.
+- [x] Ollama: installed & tested — `qwen2.5:1.5b` pulled, server running on `:11434`, `OLLAMA_MODEL` set in `.env`, full 32-event agent run driven end-to-end (291375f). Cloud models (gemma4:31b etc.) were attempted but the local binary 0.30.5 pulls them as local registry lookups and they're not usable via the `/api/chat` path — local small model works, stick with it. Also fixed `llm.ts` to read `OLLAMA_HOST` (repo convention) + env-loader inline-comment parsing.
 - [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
 
 ## Standing reminders (don't re-litigate)
