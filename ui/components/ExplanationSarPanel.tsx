@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react";
 import type { Sar } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -12,7 +13,9 @@ export interface ExplanationPayload {
 export function ExplanationSarPanel({ explanation, sar }: { explanation: ExplanationPayload | null; sar: Sar | null }) {
   return (
     <div className="panel space-y-4">
-      <h2 className="panel-title">Explanation and SAR</h2>
+      <h2 className="panel-title">
+        <FileText size={14} /> Explanation and SAR
+      </h2>
 
       {!explanation ? (
         <EmptyState title="No explanation yet" />

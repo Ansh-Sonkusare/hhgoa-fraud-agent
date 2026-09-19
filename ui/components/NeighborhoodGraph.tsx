@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
+import { Network } from "lucide-react";
 import type { AgentEvent, EvidenceItem } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -77,7 +78,9 @@ export function NeighborhoodGraph({ caseId, events }: { caseId: string; events: 
 
   return (
     <div className="panel">
-      <h2 className="panel-title">Neighborhood graph</h2>
+      <h2 className="panel-title">
+        <Network size={14} /> Neighborhood graph
+      </h2>
       {graph.nodes.length <= 1 ? (
         <EmptyState title="No connected entities yet" hint="Graph evidence (shared devices, rings, cards) appears here." />
       ) : (

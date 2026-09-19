@@ -1,3 +1,4 @@
+import { Activity } from "lucide-react";
 import type { AgentEvent } from "../lib/types";
 
 function str(v: unknown, fallback = ""): string {
@@ -75,19 +76,27 @@ function describeEvent(event: AgentEvent): string {
 export function Timeline({ events }: { events: AgentEvent[] }) {
   return (
     <div className="panel">
-      <h2 className="panel-title">Live investigation timeline ({events.length} events)</h2>
+      <h2 className="panel-title">
+        <Activity size={14} /> Live investigation timeline <span className="font-normal normal-case text-slate-400">({events.length} events)</span>
+      </h2>
       <ol className="max-h-[32rem] space-y-2 overflow-y-auto pr-1 text-sm">
-        {events.map((event) => (
-          <li key={`${event.seq}-${event.type}`} className="flex items-start gap-2">
-            <span className={`mt-1.5 h-2 w-2 flex-none rounded-full ${TYPE_DOT[event.type] ?? "bg-slate-400"}`} />
-            <div>
-              <p className="text-xs text-slate-400">
-                #{event.seq} · {TYPE_LABEL[event.type] ?? event.type} · {event.state}
-              </p>
-              <p className="text-slate-800">{describeEvent(event)}</p>
-            </div>
-          </li>
-        ))}
+        {events.map((event, i) => {
+          const isLast = i === events.length - 1;
+          return (
+            <li key={`${event.seq}-${event.type}`} className="relative flex items-start gap-2.5 pl-4">
+              <span aria-hidden className={`absolute left-0.5 top-3 w-px bg-slate-200 ${isLast ? "h-0" : "h-full"}`} />
+              <span
+                className={`absolute left-0 top-1.5 z-10 h-2.5 w-2.5 flex-none rounded-full border-2 border-white ring-1 ring-slate-200 ${TYPE_DOT[event.type] ?? "bg-slate-400"}`}
+              />
+              <div className="rounded-lg px-1.5 py-0.5 transition hover:bg-slate-50">
+                <p className="text-xs text-slate-400">
+                  #{event.seq} · {TYPE_LABEL[event.type] ?? event.type} · {event.state}
+                </p>
+                <p className="text-slate-800">{describeEvent(event)}</p>
+              </div>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );

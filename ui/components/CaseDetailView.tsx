@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, HelpCircle, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { fetchCaseDetail, subscribeToCaseEvents } from "../lib/api";
 import type {
   AgentEvent,
@@ -19,10 +21,16 @@ import { SimilarCasesPanel } from "./SimilarCasesPanel";
 import { ExplanationSarPanel, type ExplanationPayload } from "./ExplanationSarPanel";
 import { ErrorState } from "./EmptyState";
 
+const VERDICT_BANNER = {
+  fraud: { label: "Fraud confirmed", icon: ShieldAlert, classes: "border-red-200 bg-red-50 text-red-900" },
+  legitimate: { label: "Legitimate activity", icon: ShieldCheck, classes: "border-emerald-200 bg-emerald-50 text-emerald-900" },
+  uncertain: { label: "Needs a human review", icon: HelpCircle, classes: "border-amber-200 bg-amber-50 text-amber-900" },
+} as const;
+
 /**
  * The main demo screen (PRD §14 item 2). Owns the live SSE subscription for
  * one case and renders every panel from the emitted AgentEvents plus the
- * final AnswerFile once the replay reaches DONE.
+ * final AnswerFile once the run reaches DONE.
  */
 export function CaseDetailView({ caseId }: { caseId: string }) {
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof fetchCaseDetail>> | null>(null);
@@ -65,6 +73,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
   }, [caseId, loadDetail]);
 
   const latestState = events.at(-1)?.state ?? null;
+  const running = !streamDone && (events.length > 0 || detail?.session?.status === "running");
 
   const evidenceItems = useMemo(() => {
     const seen = new Map<string, EvidenceItem>();
@@ -107,14 +116,35 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     ((detail?.adhoc_trigger as { kind?: string } | undefined)?.kind ?? null);
 
   if (!detail && !detailError) {
-    return <p className="text-sm text-slate-500">Loading case {caseId}…</p>;
+    return (
+      <div className="space-y-3">
+        <div className="skeleton h-5 w-40" />
+        <div className="panel space-y-3">
+          <div className="skeleton h-5 w-48" />
+          <div className="skeleton h-3 w-72" />
+          <div className="skeleton h-40 w-full" />
+          <div className="grid grid-cols-3 gap-4">
+            <div className="skeleton h-32" />
+            <div className="skeleton h-32" />
+            <div className="skeleton h-32" />
+          </div>
+        </div>
+      </div>
+    );
   }
+
+  const banner = answer ? VERDICT_BANNER[answer.case.verdict] ?? null : null;
 
   return (
     <div className="space-y-4">
+      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-slate-900">
+        <ArrowLeft size={15} /> Case queue
+      </Link>
+
       <CaseHeader
         caseId={caseId}
         state={latestState}
+        status={detail?.session?.status}
         answer={answer}
         latestRiskLevel={assessment?.risk_level ?? null}
         latestConfidence={assessment?.confidence ?? null}
@@ -123,18 +153,40 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
         triggerText={detail?.case_pack_entry?.trigger_text}
       />
 
-      {streamDone ? (
-        <p className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+      {running ? (
+        <p className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <Loader2 size={13} className="animate-spin" />
+          The agent is investigating — events stream in live below.
+        </p>
+      ) : null}
+
+      {streamDone && !answer ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
           Investigation complete.
         </p>
       ) : null}
+
+      {banner && answer ? (
+        <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${banner.classes}`}>
+          <banner.icon size={22} />
+          <div>
+            <p className="text-sm font-semibold">{banner.label}</p>
+            <p className="text-xs opacity-80">
+              verdict {answer.case.verdict} · pattern {answer.case.pattern} · P(fraud){" "}
+              {answer.case.fraud_probability.toFixed(2)} · exposure ${answer.case.exposure_usd.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       {detail?.session?.status === "error" ? (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
           This run failed (the agent errored mid-investigation). Reopening the case retries it.
         </p>
       ) : null}
+
       {detail?.has_recording === false ? (
-        <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           No run is available for this case yet — there's no recorded fixture and the current run
           source can't investigate it.
         </p>

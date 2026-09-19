@@ -25,14 +25,16 @@ const targets = [
   {
     name: "ws6-live-case-hhg-001",
     path: "/cases/HHG-001",
-    waitFor: "text=Investigation complete",
-    extraWaitMs: 3500,
+    // The verdict banner replaces the transient "complete" text once the
+    // answer refetches, so wait on the banner itself.
+    waitFor: "text=Fraud confirmed",
+    extraWaitMs: 2500,
   },
   {
     name: "ws6-live-streaming",
     // A case nobody has opened yet → screenshot while its real agent run is
     // mid-stream (~1.4s in; runs take ~3s with the mock LLM).
-    path: "/cases/HHG-003",
+    path: "/cases/HHG-004",
     waitMs: 1400,
   },
   {

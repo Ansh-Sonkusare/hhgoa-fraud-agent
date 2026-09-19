@@ -24,6 +24,12 @@ export default function ApprovalsPage() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-slate-900">Approvals inbox</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          L1/L2 actions that need a human decision before the agent executes them.
+        </p>
+      </div>
       {error ? <ErrorState message={error} /> : null}
       {pending ? <ApprovalsInboxTable pending={pending} onDecided={load} /> : <p className="text-sm text-slate-500">Loading…</p>}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ListChecks } from "lucide-react";
 import type { AgentEvent, AnswerFile, NextBestAction } from "../lib/types";
 import { postApprovalDecision } from "../lib/api";
 import { RouteChip } from "./StatusChip";
@@ -101,7 +102,9 @@ export function ActionsPanel({
 
   return (
     <div className="panel space-y-4">
-      <h2 className="panel-title">Recommended actions</h2>
+      <h2 className="panel-title">
+        <ListChecks size={14} /> Recommended actions
+      </h2>
 
       {liveActions.length === 0 ? (
         <EmptyState title="No actions recommended yet" />

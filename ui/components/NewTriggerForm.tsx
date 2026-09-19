@@ -1,8 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { FlaskConical, FileText, Eye, Rocket, Check } from "lucide-react";
 import { postNewTrigger } from "../lib/api";
 import type { TriggerType } from "../lib/types";
+
+const KINDS: { kind: TriggerType; label: string; icon: typeof Eye; hint: string }[] = [
+  { kind: "risk_score", label: "Risk score", icon: Rocket, hint: "A transaction flagged by the model." },
+  { kind: "customer_report", label: "Customer report", icon: FileText, hint: "A cardholder contacts the bank." },
+  { kind: "analyst_request", label: "Analyst request", icon: Eye, hint: "An analyst opens an investigation." },
+];
+
+const EXAMPLES: Record<TriggerType, Record<string, string>> = {
+  risk_score: { txnId: "3514030", cardId: "C11891-K1", riskScore: "0.79" },
+  customer_report: { customerId: "C1001234", txnId: "3514030", text: "I didn't make these purchases" },
+  analyst_request: { cardId: "C11891-K1", question: "Is this card part of a larger fraud ring?" },
+};
 
 export function NewTriggerForm({ onCreated }: { onCreated: (caseId: string) => void }) {
   const [kind, setKind] = useState<TriggerType>("risk_score");
@@ -15,6 +28,18 @@ export function NewTriggerForm({ onCreated }: { onCreated: (caseId: string) => v
   const [submitting, setSubmitting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function fillExample() {
+    const ex = EXAMPLES[kind];
+    setTxnId(ex.txnId ?? "");
+    setCardId(ex.cardId ?? "");
+    setCustomerId(ex.customerId ?? "");
+    setRiskScore(ex.riskScore ?? "0.5");
+    setText(ex.text ?? "");
+    setQuestion(ex.question ?? "");
+    setNote(null);
+    setError(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,90 +64,98 @@ export function NewTriggerForm({ onCreated }: { onCreated: (caseId: string) => v
   }
 
   return (
-    <form onSubmit={submit} className="panel space-y-3">
-      <h2 className="panel-title">New trigger (PRD §9.1 — 3 trigger types)</h2>
-      <div className="flex gap-4 text-sm">
-        {(["risk_score", "customer_report", "analyst_request"] as const).map((t) => (
-          <label key={t} className="flex items-center gap-1">
-            <input type="radio" name="kind" checked={kind === t} onChange={() => setKind(t)} />
-            {t}
-          </label>
-        ))}
+    <form onSubmit={submit} className="panel space-y-4">
+      <h2 className="panel-title">
+        <FlaskConical size={14} /> New trigger <span className="font-normal normal-case text-slate-400">· PRD §9.1 — 3 trigger types</span>
+      </h2>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        {KINDS.map(({ kind: k, label, icon: Icon, hint }) => {
+          const selected = kind === k;
+          return (
+            <button
+              type="button"
+              key={k}
+              onClick={() => {
+                setKind(k);
+                setNote(null);
+                setError(null);
+              }}
+              className={`rounded-xl border p-3 text-left transition ${
+                selected
+                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+              }`}
+            >
+              <span className="flex items-center justify-between">
+                <Icon size={16} className={selected ? "text-white" : "text-slate-500"} />
+                {selected ? <Check size={14} className="text-emerald-400" /> : null}
+              </span>
+              <span className="mt-2 block text-sm font-semibold">{label}</span>
+              <span className={`mt-0.5 block text-xs ${selected ? "text-slate-300" : "text-slate-500"}`}>{hint}</span>
+            </button>
+          );
+        })}
       </div>
 
       {kind === "risk_score" && (
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="txn_id"
-            value={txnId}
-            onChange={(e) => setTxnId(e.target.value)}
-          />
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="card_id"
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-          />
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="risk_score (0-1)"
-            value={riskScore}
-            onChange={(e) => setRiskScore(e.target.value)}
-          />
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Transaction ID
+            <input className="input" placeholder="e.g. 3514030" value={txnId} onChange={(e) => setTxnId(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Card ID <span className="text-slate-400">(optional)</span>
+            <input className="input" placeholder="e.g. C11891-K1" value={cardId} onChange={(e) => setCardId(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Risk score 0–1
+            <input className="input" value={riskScore} onChange={(e) => setRiskScore(e.target.value)} />
+          </label>
         </div>
       )}
 
       {kind === "customer_report" && (
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="customer_id"
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-          />
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="txn_id (optional)"
-            value={txnId}
-            onChange={(e) => setTxnId(e.target.value)}
-          />
-          <textarea
-            className="col-span-2 rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="Customer message"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Customer ID
+            <input className="input" placeholder="e.g. C1001234" value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Transaction ID <span className="text-slate-400">(optional)</span>
+            <input className="input" placeholder="e.g. 3514030" value={txnId} onChange={(e) => setTxnId(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-slate-600 sm:col-span-2">
+            What the customer says
+            <textarea className="input min-h-[3.5rem]" placeholder="e.g. I didn't make these purchases" value={text} onChange={(e) => setText(e.target.value)} />
+          </label>
         </div>
       )}
 
       {kind === "analyst_request" && (
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="card_id"
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-          />
-          <input
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-            placeholder="Analyst question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-          />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Card ID
+            <input className="input" placeholder="e.g. C11891-K1" value={cardId} onChange={(e) => setCardId(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-slate-600">
+            Question
+            <input className="input" placeholder="e.g. Is this card part of a larger ring?" value={question} onChange={(e) => setQuestion(e.target.value)} />
+          </label>
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {submitting ? "Submitting…" : "Submit trigger"}
-      </button>
+      <div className="flex items-center gap-2">
+        <button type="submit" disabled={submitting} className="btn-primary">
+          {submitting ? "Submitting…" : "Start investigation"}
+        </button>
+        <button type="button" onClick={fillExample} className="btn-ghost">
+          Use example input
+        </button>
+      </div>
 
-      {note ? <p className="text-xs text-slate-500">{note}</p> : null}
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {note ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{note}</p> : null}
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">{error}</p> : null}
     </form>
   );
 }

@@ -1,3 +1,4 @@
+import { MessageCircleQuestion } from "lucide-react";
 import type { AgentEvent } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -50,7 +51,9 @@ export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
 
   return (
     <div className="panel">
-      <h2 className="panel-title">Evidence requests ({requests.length})</h2>
+      <h2 className="panel-title">
+        <MessageCircleQuestion size={14} /> Evidence requests <span className="font-normal normal-case text-slate-400">({requests.length})</span>
+      </h2>
       {requests.length === 0 ? (
         <EmptyState title="No evidence requested" hint="R1/R3-tier requests (customer validation, step-up auth, analyst info) appear here." />
       ) : (

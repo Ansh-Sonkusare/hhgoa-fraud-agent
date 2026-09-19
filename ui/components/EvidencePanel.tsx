@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import type { EvidenceItem } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -21,7 +22,9 @@ export function EvidencePanel({ evidence }: { evidence: EvidenceItem[] }) {
 
   return (
     <div className="panel">
-      <h2 className="panel-title">Evidence ({evidence.length})</h2>
+      <h2 className="panel-title">
+        <Search size={14} /> Evidence <span className="font-normal normal-case text-slate-400">({evidence.length})</span>
+      </h2>
       {evidence.length === 0 ? (
         <EmptyState title="No evidence gathered yet" hint="Evidence appears here as the agent investigates." />
       ) : (

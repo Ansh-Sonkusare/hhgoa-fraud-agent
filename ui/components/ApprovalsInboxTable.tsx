@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Inbox } from "lucide-react";
 import type { PendingApproval } from "../lib/types";
 import { postApprovalDecision } from "../lib/api";
 import { RouteChip } from "./StatusChip";
@@ -23,7 +24,9 @@ export function ApprovalsInboxTable({ pending, onDecided }: { pending: PendingAp
 
   return (
     <div className="panel">
-      <h2 className="panel-title">Approvals inbox ({pending.length} pending)</h2>
+      <h2 className="panel-title">
+        <Inbox size={14} /> Approvals inbox <span className="font-normal normal-case text-slate-400">({pending.length} pending)</span>
+      </h2>
       {pending.length === 0 ? (
         <EmptyState title="Nothing waiting on a human" hint="L1/L2 actions from active investigations show up here." />
       ) : (
@@ -42,14 +45,14 @@ export function ApprovalsInboxTable({ pending, onDecided }: { pending: PendingAp
                   <button
                     onClick={() => decide(p, "approved")}
                     disabled={busy === key}
-                    className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    className="btn-emerald !px-2.5 !py-1"
                   >
                     Approve
                   </button>
                   <button
                     onClick={() => decide(p, "rejected")}
                     disabled={busy === key}
-                    className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    className="btn-red !px-2.5 !py-1"
                   >
                     Reject
                   </button>

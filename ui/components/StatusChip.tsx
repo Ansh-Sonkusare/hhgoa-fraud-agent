@@ -19,10 +19,13 @@ const STATUS_STYLES: Record<string, string> = {
   error: "bg-red-100 text-red-800 border-red-200",
 };
 
-function Chip({ label, className }: { label: string; className: string }) {
+type Tone = { dot: string; text: string };
+
+function Chip({ label, className, tone }: { label: string; className: string; tone?: Tone }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}>
-      {label}
+    <span className={`${className} inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium`}>
+      {tone ? <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} /> : null}
+      <span className={tone?.text}>{label}</span>
     </span>
   );
 }
@@ -39,7 +42,15 @@ export function RiskChip({ level }: { level: string | null | undefined }) {
 
 export function StatusChip({ status }: { status: string }) {
   const label = status === "no_recording" ? "not run" : status;
-  return <Chip label={label} className={STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700 border-slate-200"} />;
+  const tone: Tone | undefined =
+    status === "running"
+      ? { dot: "bg-blue-500 animate-pulse", text: "text-blue-800" }
+      : status === "error"
+        ? { dot: "bg-red-500", text: "text-red-800" }
+        : status === "done"
+          ? { dot: "bg-emerald-500", text: "text-slate-700" }
+          : undefined;
+  return <Chip label={label} className={STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700 border-slate-200"} tone={tone} />;
 }
 
 export function RouteChip({ route }: { route: string }) {

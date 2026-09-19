@@ -1,3 +1,4 @@
+import { Gauge } from "lucide-react";
 import type { Assessment } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -10,7 +11,9 @@ export function UncertaintyPanel({
 }) {
   return (
     <div className="panel">
-      <h2 className="panel-title">Uncertainty</h2>
+      <h2 className="panel-title">
+        <Gauge size={14} /> Uncertainty
+      </h2>
       {!assessment ? (
         <EmptyState title="No assessment yet" hint="The agent hasn't produced a hypothesis ranking yet." />
       ) : (

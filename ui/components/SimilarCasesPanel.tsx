@@ -1,3 +1,4 @@
+import { Layers } from "lucide-react";
 import type { EvidenceItem } from "../lib/types";
 import { EmptyState } from "./EmptyState";
 
@@ -15,7 +16,9 @@ export function SimilarCasesPanel({
 
   return (
     <div className="panel">
-      <h2 className="panel-title">Similar prior cases ({ids.length})</h2>
+      <h2 className="panel-title">
+        <Layers size={14} /> Similar prior cases <span className="font-normal normal-case text-slate-400">({ids.length})</span>
+      </h2>
       {ids.length === 0 ? (
         <EmptyState title="No similar prior cases retrieved" hint="Case memory (rag/) found nothing overlapping yet." />
       ) : (
