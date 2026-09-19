@@ -31,6 +31,22 @@ describe("community_lookup", () => {
     expect(r.community_id.length).toBeGreaterThan(0);
   });
 
+  // PRD sec.12 requires "community-level stats (size, velocity,
+  // shared-device density, risk-score distribution)" -- velocity and
+  // shared_device_density are finite, non-negative numbers; a lone card
+  // (no txns/devices) reports 0 for both rather than NaN/undefined.
+  it("reports velocity and shared_device_density as finite, non-negative numbers", async () => {
+    const r = await runQuery<{ velocity: number; shared_device_density: number; avg_risk_score: number }>(
+      "community_lookup",
+      { card_id: KNOWN.txnCardId, as_of: KNOWN.lateAsOf, ...COMMUNITY_PARAMS },
+    );
+    expect(Number.isFinite(r.velocity)).toBe(true);
+    expect(r.velocity).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(r.shared_device_density)).toBe(true);
+    expect(r.shared_device_density).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(r.avg_risk_score)).toBe(true);
+  });
+
   // The community id is the hash-min WCC label, i.e. the lexicographically
   // smallest member card id. Looking up from the key card must therefore
   // return that same card as the id.

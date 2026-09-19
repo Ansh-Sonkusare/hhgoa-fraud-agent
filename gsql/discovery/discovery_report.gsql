@@ -9,11 +9,28 @@
 // vertex id within one query silently nets to a deletion on this build).
 // gsql/install.ts does this automatically.
 //
-// "capped at 3h" (kickoff brief) is read here as "top 3 qualifying
-// communities" -- the brief's phrasing is ambiguous between a 3-hour temporal
-// window and a top-3 cap; there is no natural "3 hour" temporal cutoff for a
-// batch discovery pass over already-closed cases, so top-3 was chosen. See
-// docs/decisions.md for this judgment call.
+// "Cap at 3 hours; hardcode what works" (PRD sec.12, verbatim) is read as a
+// TIME-BOX INSTRUCTION TO THE IMPLEMENTER, not a runtime behavior spec --
+// i.e. "don't over-engineer this discovery pass, spend at most 3 hours and
+// hardcode reasonable thresholds." An earlier revision of this comment
+// mis-cited it as a "capped at 3h" data/runtime parameter and read it as
+// "top 3 by confirmed-fraud rate"; that was a misreading of a paraphrased
+// kickoff brief, not the actual PRD text (caught on review). The top-3 cap
+// on @@top_components below is kept regardless, on its own merits (a small,
+// reviewable list of the strongest qualifying communities), not because the
+// PRD mandates exactly 3. See docs/decisions.md.
+//
+// "community-level stats (size, velocity, shared-device density,
+// risk-score distribution)" (PRD sec.12) -- all four are computed below and
+// on get_community/community_lookup.gsql: size = component cardinality;
+// velocity = txns/day over the component's active window; shared-device
+// density = device-touches per distinct device among members; risk-score
+// distribution is represented by avg_risk_score (community_lookup.gsql) --
+// a full distribution doesn't fit this query's flat stats shape
+// (contracts/src/tools.ts CommunityData.stats: Record<string, number>), so
+// the mean is used as the summary statistic, consistent with how
+// baseline_deviation.gsql/det_*.gsql summarize distributions elsewhere in
+// this codebase.
 //
 // "without a matching detector" is read as a structural claim, not a
 // literal case.pattern=="undocumented" filter: only 4 of 5,565 closed
@@ -61,7 +78,7 @@
 // community_id community_lookup.gsql computes for the same cluster -- which
 // holds only because that query now computes the identical relation.
 CREATE QUERY discovery_report(DATETIME as_of, INT max_hub_degree, INT min_overlap_pct, INT min_confirmed_pct) FOR GRAPH hhgoa_fraud {
-  TYPEDEF TUPLE<STRING comp_id, INT size, INT n_cases, INT n_confirmed, INT n_undocumented> CompStatT;
+  TYPEDEF TUPLE<STRING comp_id, INT size, INT n_cases, INT n_confirmed, INT n_undocumented, DOUBLE velocity, DOUBLE shared_device_density, DOUBLE avg_risk_score> CompStatT;
 
   MinAccum<STRING> @label;
   SumAccum<INT>    @degree;
@@ -180,10 +197,33 @@ CREATE QUERY discovery_report(DATETIME as_of, INT max_hub_degree, INT min_overla
               @@comp_undoc += (c.@label -> 1)
             END;
 
+  // Per-component transaction stats (PRD sec.12's "community-level
+  // stats... velocity") and shared-device stats ("shared-device density").
+  // Device touches reuse the same entity-side hub guard (d.@degree,
+  // populated by DevAll above) so a sentinel/default device doesn't
+  // inflate this the way it inflated the old single-guard WCC.
+  MapAccum<STRING, SumAccum<INT>>     @@comp_txns;
+  MapAccum<STRING, MinAccum<DATETIME>> @@comp_min_ts;
+  MapAccum<STRING, MaxAccum<DATETIME>> @@comp_max_ts;
+  MapAccum<STRING, SumAccum<DOUBLE>>  @@comp_risk_sum;
+  MapAccum<STRING, SumAccum<INT>>     @@comp_device_touches;
+  MapAccum<STRING, SetAccum<STRING>>  @@comp_devices;
+  TxnAgg = SELECT t FROM AllCards:c-(MADE)-:t
+           WHERE t.ts <= as_of
+           ACCUM @@comp_txns += (c.@label -> 1),
+                 @@comp_min_ts += (c.@label -> t.ts),
+                 @@comp_max_ts += (c.@label -> t.ts),
+                 @@comp_risk_sum += (c.@label -> t.risk_score);
+  DeviceAgg = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+              WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+              ACCUM @@comp_device_touches += (c.@label -> 1),
+                    @@comp_devices += (c.@label -> d.id);
+
   FOREACH (compId, size) IN @@comp_size DO
     INT nCases;
     INT nConfirmed;
     INT nUndoc;
+    INT nTxns;
     IF @@comp_cases.containsKey(compId) THEN
       nCases = @@comp_cases.get(compId);
     ELSE
@@ -199,9 +239,48 @@ CREATE QUERY discovery_report(DATETIME as_of, INT max_hub_degree, INT min_overla
     ELSE
       nUndoc = 0;
     END;
+    IF @@comp_txns.containsKey(compId) THEN
+      nTxns = @@comp_txns.get(compId);
+    ELSE
+      nTxns = 0;
+    END;
+
+    // Velocity: transactions per day of activity spanned by this
+    // component's members. A single-day (or single-txn) component
+    // reports its raw txn count rather than dividing by a near-zero span.
+    DOUBLE velocity;
+    IF nTxns > 0 THEN
+      DOUBLE daysSpan;
+      daysSpan = (datetime_to_epoch(@@comp_max_ts.get(compId)) - datetime_to_epoch(@@comp_min_ts.get(compId))) / 86400.0;
+      IF daysSpan < 1.0 THEN
+        daysSpan = 1.0;
+      END;
+      velocity = nTxns * 1.0 / daysSpan;
+    ELSE
+      velocity = 0.0;
+    END;
+
+    // Shared-device density: touches per distinct device among this
+    // component's members. 1.0 means every touched device is used by only
+    // one member (no internal reuse); higher means devices are shared.
+    DOUBLE sharedDeviceDensity;
+    IF @@comp_devices.containsKey(compId) AND @@comp_devices.get(compId).size() > 0 THEN
+      sharedDeviceDensity = @@comp_device_touches.get(compId) * 1.0 / @@comp_devices.get(compId).size();
+    ELSE
+      sharedDeviceDensity = 0.0;
+    END;
+
+    // Risk-score distribution, summarized as the mean (see header comment).
+    DOUBLE avgRiskScore;
+    IF nTxns > 0 THEN
+      avgRiskScore = @@comp_risk_sum.get(compId) / nTxns;
+    ELSE
+      avgRiskScore = 0.0;
+    END;
+
     IF size >= 2 AND nCases >= 2 THEN
       IF nConfirmed * 100 >= min_confirmed_pct * nCases THEN
-        @@top_components += CompStatT(compId, size, nCases, nConfirmed, nUndoc);
+        @@top_components += CompStatT(compId, size, nCases, nConfirmed, nUndoc, velocity, sharedDeviceDensity, avgRiskScore);
       END;
     END;
   END;
@@ -219,7 +298,9 @@ CREATE QUERY discovery_report(DATETIME as_of, INT max_hub_degree, INT min_overla
       "Discovered community of " + to_string(comp.size) + " cards linked by shared devices/billing regions/recipient email domains (2+ distinct entity types and >= " +
         to_string(min_overlap_pct) + "% footprint overlap per link), with " +
         to_string(comp.n_confirmed) + " of " + to_string(comp.n_cases) +
-        " connected cases confirmed fraud -- against an 83.2% dataset-wide baseline."
+        " connected cases confirmed fraud -- against an 83.2% dataset-wide baseline. Velocity " +
+        to_string(comp.velocity) + " txns/day, shared-device density " + to_string(comp.shared_device_density) +
+        ", avg risk score " + to_string(comp.avg_risk_score) + "."
     );
   END;
 

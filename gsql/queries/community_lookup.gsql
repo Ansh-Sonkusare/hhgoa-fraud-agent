@@ -61,6 +61,10 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
   SumAccum<INT>    @@n_cases;
   SumAccum<INT>    @@n_confirmed;
   SumAccum<INT>    @@size;
+  MinAccum<DATETIME> @@min_ts;
+  MaxAccum<DATETIME> @@max_ts;
+  SumAccum<INT>    @@device_touches;
+  SetAccum<STRING> @@distinct_devices;
 
   AllCards = {Card.*};
   Init = SELECT c FROM AllCards:c
@@ -152,13 +156,22 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
             POST-ACCUM @@size += 1;
   Txns = SELECT t FROM Members:c-(MADE)-:t
          WHERE t.ts <= as_of
-         ACCUM @@sum_risk += t.risk_score, @@n_txns += 1;
+         ACCUM @@sum_risk += t.risk_score, @@n_txns += 1,
+               @@min_ts += t.ts, @@max_ts += t.ts;
   Cases = SELECT f FROM Members:c-(reverse_ABOUT:e)-:f
           WHERE e.ts <= as_of
           ACCUM @@n_cases += 1,
                 IF f.outcome == "confirmed_fraud" THEN
                   @@n_confirmed += 1
                 END;
+  // Shared-device density: how much of this community's device footprint
+  // is actually reused across members, vs. each member touching mostly
+  // distinct devices. Reuses the same entity-side hub guard (d.@degree,
+  // already populated above) so a sentinel/default device doesn't inflate
+  // this the way it inflated the old single-guard WCC (docs/decisions.md).
+  MemberDevices = SELECT d FROM Members:c-(CARD_DEVICE:e)-:d
+                  WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+                  ACCUM @@device_touches += 1, @@distinct_devices += d.id;
 
   DOUBLE avg_risk_score;
   IF @@n_txns > 0 THEN
@@ -172,9 +185,36 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
   ELSE
     confirmed_fraud_rate = 0.0;
   END;
+  // Velocity: transactions per day of activity spanned by this community's
+  // members (PRD sec.12's "community-level stats... velocity"). A
+  // single-day (or single-txn) community reports its raw txn count rather
+  // than dividing by a near-zero span.
+  DOUBLE velocity;
+  DOUBLE days_span;
+  IF @@n_txns > 0 THEN
+    days_span = (datetime_to_epoch(@@max_ts) - datetime_to_epoch(@@min_ts)) / 86400.0;
+    IF days_span < 1.0 THEN
+      days_span = 1.0;
+    END;
+    velocity = @@n_txns * 1.0 / days_span;
+  ELSE
+    velocity = 0.0;
+  END;
+  // Shared-device density: touches per distinct device among this
+  // community's members (PRD sec.12's "shared-device density"). 1.0 means
+  // every touched device is used by only one member (no internal reuse);
+  // higher means devices are shared across multiple members.
+  DOUBLE shared_device_density;
+  IF @@distinct_devices.size() > 0 THEN
+    shared_device_density = @@device_touches * 1.0 / @@distinct_devices.size();
+  ELSE
+    shared_device_density = 0.0;
+  END;
 
   PRINT ("comm_" + @@seed_label) AS community_id,
         @@size AS size,
         avg_risk_score AS avg_risk_score,
-        confirmed_fraud_rate AS confirmed_fraud_rate;
+        confirmed_fraud_rate AS confirmed_fraud_rate,
+        velocity AS velocity,
+        shared_device_density AS shared_device_density;
 }

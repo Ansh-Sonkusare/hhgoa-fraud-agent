@@ -158,6 +158,24 @@ describe("discovery_report", () => {
     }
   });
 
+  // PRD sec.12 requires "community-level stats (size, velocity,
+  // shared-device density, risk-score distribution)" joined with closed-case
+  // outcomes -- velocity/shared_device_density/avg_risk_score must be
+  // present and finite on every reported component.
+  it("every discovered component reports velocity, shared_device_density, and avg_risk_score", async () => {
+    const r = await runQuery<{
+      top_discovered_components: { velocity: number; shared_device_density: number; avg_risk_score: number }[];
+    }>("discovery_report", params);
+    expect(r.top_discovered_components.length).toBeGreaterThan(0);
+    for (const c of r.top_discovered_components) {
+      expect(Number.isFinite(c.velocity)).toBe(true);
+      expect(c.velocity).toBeGreaterThan(0);
+      expect(Number.isFinite(c.shared_device_density)).toBe(true);
+      expect(c.shared_device_density).toBeGreaterThan(0);
+      expect(Number.isFinite(c.avg_risk_score)).toBe(true);
+    }
+  });
+
   it("actually discovers something on the real dataset", async () => {
     const r = await runQuery<{ top_discovered_components: unknown[] }>("discovery_report", params);
     expect(r.top_discovered_components.length).toBeGreaterThan(0);
