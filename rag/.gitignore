@@ -1,0 +1,4 @@
+# Built local index (embeddings + case memory + regulatory cache). Derived
+# data, not source — regenerate with `pnpm --filter @hhgoa/rag run ingest`.
+# Not raw dataset per se, but treated the same way: never committed.
+.data/

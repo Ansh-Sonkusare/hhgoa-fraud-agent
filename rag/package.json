@@ -2,9 +2,24 @@
   "name": "@hhgoa/rag",
   "private": true,
   "version": "0.1.0",
-  "description": "WS3: GraphRAG and case memory (ingestPolicy.ts, ingestCases.ts, retrieve.ts, contextBuilder.ts, memory.ts). Not yet implemented.",
+  "description": "WS3: GraphRAG and case memory — chunk+embed policy/pattern/regulatory text, closed-case fingerprinted memory, hybrid retrieval, context_builder, memory write path.",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "test": "echo 'rag: no tests yet (WS3)' && exit 0"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "ingest": "tsx scripts/ingest.ts"
+  },
+  "dependencies": {
+    "@hhgoa/contracts": "workspace:*",
+    "@xenova/transformers": "^2.17.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "tsx": "^4.19.1",
+    "vitest": "^2.1.1",
+    "@types/node": "^22.10.2"
   }
 }
