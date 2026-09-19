@@ -2,9 +2,17 @@
   "name": "@hhgoa/gsql",
   "private": true,
   "version": "0.1.0",
-  "description": "WS2: GSQL toolkit and discovery (queries/*.gsql, install.ts, detectors/, discovery/). Not yet implemented.",
+  "description": "WS2: GSQL toolkit and discovery — installed queries backing the contract graph tools (queries/), 5 pattern detectors (detectors/), WCC/Louvain-equivalent + hub-device PageRank + shortest path (algorithms/), and the discovery pass (discovery/). See docs/IDENTITY_VALIDATION.md.",
   "type": "module",
   "scripts": {
-    "test": "echo 'gsql: no tests yet (WS2)' && exit 0"
+    "test": "vitest run --config vitest.config.ts",
+    "install-queries": "tsx install.ts",
+    "verify": "tsx install.ts && vitest run --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }

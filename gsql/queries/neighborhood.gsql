@@ -1,0 +1,71 @@
+// gsql/queries/neighborhood.gsql -- WS2, backs contract tool `get_neighborhood`
+// (contracts/src/tools.ts GetNeighborhood). entity_type/entity_id identify
+// the seed Card; hops in {1,2,3} controls expansion depth over the
+// Card-Device-Address-RecipientEmail projection (CARD_DEVICE, CARD_ADDRESS,
+// CARD_RECIPIENT_EMAIL and their reverses), which is the projection the
+// contract's SharedEntityRing / community tools also use. Edges are only
+// followed if established at or before as_of (edge first_ts <= as_of).
+//
+// This build has no multi-hop (-..-) pattern support, so each hop is an
+// explicit, separately-named SELECT step; "hops" bounds how many of those
+// steps actually run.
+CREATE QUERY neighborhood(STRING entity_id, INT hops, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING vtype, STRING vid> NodeT;
+  TYPEDEF TUPLE<STRING etype, STRING efrom, STRING eto> EdgeT;
+
+  SetAccum<NodeT> @@nodes;
+  SetAccum<EdgeT> @@edges;
+
+  Cards = {Card.*};
+  Seed = SELECT c FROM Cards:c WHERE c.id == entity_id
+         ACCUM @@nodes += NodeT("Card", c.id);
+
+  // Hop 1: Card -> Device/Address/EmailDomain
+  Dev1 = SELECT d FROM Seed:c-(CARD_DEVICE:e)-:d
+         WHERE e.first_ts <= as_of
+         ACCUM @@nodes += NodeT("Device", d.id),
+               @@edges += EdgeT("USED_DEVICE", c.id, d.id);
+  Addr1 = SELECT a FROM Seed:c-(CARD_ADDRESS:e)-:a
+          WHERE e.first_ts <= as_of
+          ACCUM @@nodes += NodeT("Address", a.id),
+                @@edges += EdgeT("BILLED_TO", c.id, a.id);
+  Em1 = SELECT x FROM Seed:c-(CARD_RECIPIENT_EMAIL:e)-:x
+        WHERE e.first_ts <= as_of
+        ACCUM @@nodes += NodeT("EmailDomain", x.id),
+              @@edges += EdgeT("RECIPIENT_EMAIL", c.id, x.id);
+
+  IF hops >= 2 THEN
+    // Hop 2: back out from those Device/Address/EmailDomain nodes to other cards.
+    Cards2d = SELECT c2 FROM Dev1:d-(reverse_CARD_DEVICE:e)-:c2
+              WHERE e.first_ts <= as_of AND c2.id != entity_id
+              ACCUM @@nodes += NodeT("Card", c2.id),
+                    @@edges += EdgeT("USED_DEVICE", c2.id, d.id);
+    Cards2a = SELECT c2 FROM Addr1:a-(reverse_CARD_ADDRESS:e)-:c2
+              WHERE e.first_ts <= as_of AND c2.id != entity_id
+              ACCUM @@nodes += NodeT("Card", c2.id),
+                    @@edges += EdgeT("BILLED_TO", c2.id, a.id);
+    Cards2e = SELECT c2 FROM Em1:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+              WHERE e.first_ts <= as_of AND c2.id != entity_id
+              ACCUM @@nodes += NodeT("Card", c2.id),
+                    @@edges += EdgeT("RECIPIENT_EMAIL", c2.id, x.id);
+
+    IF hops >= 3 THEN
+      // Hop 3: those second-ring cards' own devices/addresses/emails.
+      Dev3 = SELECT d FROM Cards2d:c2-(CARD_DEVICE:e)-:d
+             WHERE e.first_ts <= as_of
+             ACCUM @@nodes += NodeT("Device", d.id),
+                   @@edges += EdgeT("USED_DEVICE", c2.id, d.id);
+      Addr3 = SELECT a FROM Cards2a:c2-(CARD_ADDRESS:e)-:a
+              WHERE e.first_ts <= as_of
+              ACCUM @@nodes += NodeT("Address", a.id),
+                    @@edges += EdgeT("BILLED_TO", c2.id, a.id);
+      Em3 = SELECT x FROM Cards2e:c2-(CARD_RECIPIENT_EMAIL:e)-:x
+            WHERE e.first_ts <= as_of
+            ACCUM @@nodes += NodeT("EmailDomain", x.id),
+                  @@edges += EdgeT("RECIPIENT_EMAIL", c2.id, x.id);
+    END;
+  END;
+
+  PRINT @@nodes AS nodes;
+  PRINT @@edges AS edges;
+}

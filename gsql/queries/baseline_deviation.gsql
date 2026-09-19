@@ -1,0 +1,119 @@
+// gsql/queries/baseline_deviation.gsql -- WS2, backs contract tool
+// `get_baseline_deviation` (contracts/src/tools.ts GetBaselineDeviation).
+// For a txn, compare it against its card's own PRIOR history (ts < as_of,
+// PRD sec.8.1 -- prior activity only, the txn itself never counts as its own
+// baseline) on four axes:
+//   amount_z  - (txn.amount_usd - mean prior amount) / population stddev
+//   geo_z     - 0 if txn.addr1 seen before on this card, else 1 (binary
+//               "new region" signal -- no continuous geo distance available
+//               in the loaded schema, see docs/DATA_MAP.md)
+//   device_z  - 0 if txn's device seen before on this card, else 1
+//   time_z    - 0 if the txn falls in the card's more common half-of-day
+//               (00-11 vs 12-23), else 1 -- a coarse "unusual time of day"
+//               signal without a stored per-hour histogram
+// These are documented simplifications (no raw stddev/geo-distance columns
+// are loaded) -- see docs/decisions.md. Population stddev==0 or n==0 makes
+// amount_z 0 to avoid division by zero. This GSQL build has no ternary
+// operator, so all branching uses IF/ELSE on plain local variables.
+CREATE QUERY baseline_deviation(STRING txn_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  SumAccum<INT>    @@n;
+  SumAccum<DOUBLE> @@sum_amt;
+  SumAccum<DOUBLE> @@sum_amt_sq;
+  SetAccum<STRING> @@prior_addrs;
+  SetAccum<STRING> @@prior_devices;
+  SumAccum<INT>    @@hour_hist_0_11;
+  SumAccum<INT>    @@hour_hist_12_23;
+
+  MinAccum<DOUBLE> @@txn_amount;
+  MinAccum<STRING> @@txn_addr;
+  MinAccum<INT>    @@txn_hour;
+  SetAccum<STRING> @@txn_devices;
+
+  Txns = {Txn.*};
+  TxnHit = SELECT t FROM Txns:t WHERE t.id == txn_id AND t.ts <= as_of
+           ACCUM @@txn_amount += t.amount_usd,
+                 @@txn_addr += t.addr1,
+                 @@txn_hour += datetime_to_epoch(t.ts) % 86400 / 3600;
+  TxnDev = SELECT d FROM TxnHit:t-(USED_DEVICE)-:d ACCUM @@txn_devices += d.id;
+
+  Card0 = SELECT c FROM TxnHit:t-(reverse_MADE)-:c;
+  Prior = SELECT p FROM Card0:c-(MADE)-:p
+          WHERE p.ts < as_of AND p.id != txn_id
+          ACCUM @@n += 1,
+                @@sum_amt += p.amount_usd,
+                @@sum_amt_sq += p.amount_usd * p.amount_usd,
+                @@prior_addrs += p.addr1,
+                IF datetime_to_epoch(p.ts) % 86400 / 3600 < 12 THEN
+                  @@hour_hist_0_11 += 1
+                ELSE
+                  @@hour_hist_12_23 += 1
+                END;
+  PriorTxns = SELECT p FROM Card0:c-(MADE)-:p
+              WHERE p.ts < as_of AND p.id != txn_id;
+  PriorDev = SELECT d FROM PriorTxns:p-(USED_DEVICE)-:d
+             ACCUM @@prior_devices += d.id;
+
+  DOUBLE mean_amt;
+  DOUBLE var_amt;
+  DOUBLE std_amt;
+  DOUBLE amount_z;
+  IF @@n > 0 THEN
+    mean_amt = @@sum_amt / @@n;
+    var_amt = (@@sum_amt_sq / @@n) - (mean_amt * mean_amt);
+  ELSE
+    mean_amt = 0.0;
+    var_amt = 0.0;
+  END;
+  IF var_amt > 0 THEN
+    std_amt = sqrt(var_amt);
+  ELSE
+    std_amt = 0.0;
+  END;
+  IF std_amt > 0 THEN
+    amount_z = (@@txn_amount - mean_amt) / std_amt;
+  ELSE
+    amount_z = 0.0;
+  END;
+
+  DOUBLE geo_z;
+  IF @@prior_addrs.contains(@@txn_addr) OR @@n == 0 THEN
+    geo_z = 0.0;
+  ELSE
+    geo_z = 1.0;
+  END;
+
+  BOOL dev_seen;
+  dev_seen = FALSE;
+  FOREACH d IN @@txn_devices DO
+    IF @@prior_devices.contains(d) THEN
+      dev_seen = TRUE;
+    END;
+  END;
+  DOUBLE device_z;
+  IF dev_seen OR @@n == 0 THEN
+    device_z = 0.0;
+  ELSE
+    device_z = 1.0;
+  END;
+
+  BOOL txn_in_0_11;
+  IF @@txn_hour < 12 THEN
+    txn_in_0_11 = TRUE;
+  ELSE
+    txn_in_0_11 = FALSE;
+  END;
+  BOOL modal_is_0_11;
+  IF @@hour_hist_0_11 >= @@hour_hist_12_23 THEN
+    modal_is_0_11 = TRUE;
+  ELSE
+    modal_is_0_11 = FALSE;
+  END;
+  DOUBLE time_z;
+  IF txn_in_0_11 == modal_is_0_11 THEN
+    time_z = 0.0;
+  ELSE
+    time_z = 1.0;
+  END;
+
+  PRINT amount_z AS amount_z, geo_z AS geo_z, device_z AS device_z, time_z AS time_z;
+}

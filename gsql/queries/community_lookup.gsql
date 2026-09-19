@@ -1,0 +1,87 @@
+// gsql/queries/community_lookup.gsql -- WS2, backs contract tool
+// `get_community` (contracts/src/tools.ts GetCommunity).
+//
+// Schema note (docs/decisions.md "no schema extension" pivot): MATCHES_PATTERN
+// only connects FraudCase -> Pattern, not Card -> Pattern, so a discovered
+// community id can't be looked up on a Card directly. This query instead
+// computes the card's connected component ON THE FLY: bounded-hop expansion
+// (default 3 hops, same projection as algorithms/community_components.gsql)
+// over shared device/address/recipient-email, honoring as_of on every edge.
+// The component id is synthesized deterministically as the lexicographically
+// smallest member card id ("comm_<min_card_id>") so repeated lookups from
+// any member card agree on the same id without needing a persisted label.
+//
+// max_hub_degree: same hub-collapse guard as algorithms/community_components.gsql
+// (a handful of shared device/address/email values touch thousands of
+// unrelated cards in this dataset -- almost certainly a missing/default
+// sentinel, not a real shared identity). Shared vertices above this degree
+// are excluded from expansion.
+CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree) FOR GRAPH hhgoa_fraud {
+  SetAccum<STRING>  @@member_cards;
+  MinAccum<STRING>  @@min_id;
+  SumAccum<DOUBLE>  @@sum_risk;
+  SumAccum<INT>     @@n_txns;
+  SumAccum<INT>     @@n_cases;
+  SumAccum<INT>     @@n_confirmed;
+  SumAccum<INT>     @degree;
+
+  Cards = {Card.*};
+  DevAll = SELECT d FROM Cards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of
+           ACCUM d.@degree += 1;
+  AddrAll = SELECT a FROM Cards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of
+            ACCUM a.@degree += 1;
+  EmAll = SELECT x FROM Cards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of
+          ACCUM x.@degree += 1;
+
+  Frontier = SELECT c FROM Cards:c WHERE c.id == card_id
+             ACCUM @@member_cards += c.id, @@min_id += c.id;
+
+  // 3 bounded expansion rounds over the shared-entity projection.
+  WHILE Frontier.size() > 0 LIMIT 3 DO
+    Dev = SELECT d FROM Frontier:c-(CARD_DEVICE:e)-:d WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree;
+    Addr = SELECT a FROM Frontier:c-(CARD_ADDRESS:e)-:a WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree;
+    Em = SELECT x FROM Frontier:c-(CARD_RECIPIENT_EMAIL:e)-:x WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree;
+    NextByDev = SELECT c2 FROM Dev:d-(reverse_CARD_DEVICE:e)-:c2
+                WHERE e.first_ts <= as_of AND c2.id NOT IN @@member_cards
+                ACCUM @@member_cards += c2.id, @@min_id += c2.id;
+    NextByAddr = SELECT c2 FROM Addr:a-(reverse_CARD_ADDRESS:e)-:c2
+                 WHERE e.first_ts <= as_of AND c2.id NOT IN @@member_cards
+                 ACCUM @@member_cards += c2.id, @@min_id += c2.id;
+    NextByEm = SELECT c2 FROM Em:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+               WHERE e.first_ts <= as_of AND c2.id NOT IN @@member_cards
+               ACCUM @@member_cards += c2.id, @@min_id += c2.id;
+    Frontier = NextByDev UNION NextByAddr UNION NextByEm;
+  END;
+
+  Members = SELECT c FROM Cards:c WHERE c.id IN @@member_cards;
+  Txns = SELECT t FROM Members:c-(MADE)-:t
+         WHERE t.ts <= as_of
+         ACCUM @@sum_risk += t.risk_score, @@n_txns += 1;
+  Cases = SELECT f FROM Members:c-(reverse_ABOUT:e)-:f
+          WHERE e.ts <= as_of
+          ACCUM @@n_cases += 1,
+                IF f.outcome == "confirmed_fraud" THEN
+                  @@n_confirmed += 1
+                END;
+
+  DOUBLE avg_risk_score;
+  IF @@n_txns > 0 THEN
+    avg_risk_score = @@sum_risk / @@n_txns;
+  ELSE
+    avg_risk_score = 0.0;
+  END;
+  DOUBLE confirmed_fraud_rate;
+  IF @@n_cases > 0 THEN
+    confirmed_fraud_rate = @@n_confirmed * 1.0 / @@n_cases;
+  ELSE
+    confirmed_fraud_rate = 0.0;
+  END;
+
+  PRINT ("comm_" + @@min_id) AS community_id,
+        @@member_cards.size() AS size,
+        avg_risk_score AS avg_risk_score,
+        confirmed_fraud_rate AS confirmed_fraud_rate;
+}

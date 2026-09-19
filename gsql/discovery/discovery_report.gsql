@@ -1,0 +1,157 @@
+// gsql/discovery/discovery_report.gsql -- WS2 discovery pass (PRD sec.12):
+// find dense, high-confirmed-fraud communities in the shared-entity
+// projection whose FraudCases are NOT already explained by one of the five
+// documented patterns (case.pattern == "undocumented" -- README's "fits
+// none of the five" enum value), and record them as discovered Pattern
+// vertices the agent's detect_patterns/get_community tools can surface.
+//
+// "capped at 3h" (kickoff brief) is read here as "top 3, highest
+// confirmed-fraud-rate qualifying communities" -- the brief's phrasing is
+// ambiguous between a 3-hour temporal window and a top-3 cap; there is no
+// natural "3 hour" temporal cutoff for a batch discovery pass over
+// already-closed cases, so top-3-by-rate was chosen. See docs/decisions.md
+// for this judgment call.
+//
+// "without a matching detector" is read as a structural claim, not a
+// literal case.pattern=="undocumented" filter: only 4 of 5,565 closed
+// cases in the real dataset actually carry that label (verified via spike
+// query), so requiring it here would make discovery fire on essentially
+// nothing. The five detectors under detectors/ each look for a specific
+// per-transaction signature; discovery's job is the complementary
+// structural signal -- a dense shared-entity cluster with a high
+// confirmed-fraud concentration that a per-card detector call would never
+// surface, regardless of what pattern label its historical cases carry.
+// See docs/decisions.md for this judgment call.
+//
+// Qualifying community: >= 2 member cards, >= 2 connected FraudCases, and
+// confirmed_fraud_rate >= 0.5 among them (opened_at/edge ts <= as_of, PRD
+// sec.8.1).
+//
+// Recomputes the same hash-min WCC labeling as
+// algorithms/community_components.gsql inline (RUN QUERY composition
+// across installed queries is not relied upon -- unverified on this build,
+// see docs/decisions.md) with the same max_hub_degree hub-collapse guard.
+//
+// Schema note: MATCHES_PATTERN only connects FraudCase -> Pattern (not
+// Card -> Pattern -- ALTER GRAPH is unsupported on this build, so Pattern
+// is reused as-is rather than extending the schema). A discovered
+// community's Pattern id is "disc_c_<min_card_id>", matching the
+// community_id community_lookup.gsql would compute for the same cluster
+// (both use "smallest member card id" as the deterministic key).
+CREATE QUERY discovery_report(DATETIME as_of, INT max_hub_degree) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING comp_id, INT size, INT n_cases, INT n_confirmed, INT n_undocumented> CompStatT;
+
+  MinAccum<STRING> @label;
+  SumAccum<INT>    @degree;
+  SumAccum<INT>    @@round;
+  SetAccum<STRING> @@discovered_ids;
+  HeapAccum<CompStatT>(3, n_confirmed DESC) @@top_components;
+
+  AllCards = {Card.*};
+  Init = SELECT c FROM AllCards:c
+         POST-ACCUM c.@label += c.id;
+
+  DevAll = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of
+           ACCUM d.@degree += 1;
+  AddrAll = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of
+            ACCUM a.@degree += 1;
+  EmAll = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of
+          ACCUM x.@degree += 1;
+
+  WHILE @@round < 6 DO
+    Dev = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+          WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+          ACCUM d.@label += c.@label;
+    BackDev = SELECT c2 FROM Dev:d-(reverse_CARD_DEVICE:e)-:c2
+              WHERE e.first_ts <= as_of
+              ACCUM c2.@label += d.@label;
+
+    Addr = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+           WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree
+           ACCUM a.@label += c.@label;
+    BackAddr = SELECT c2 FROM Addr:a-(reverse_CARD_ADDRESS:e)-:c2
+               WHERE e.first_ts <= as_of
+               ACCUM c2.@label += a.@label;
+
+    Em = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+         WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree
+         ACCUM x.@label += c.@label;
+    BackEm = SELECT c2 FROM Em:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+             WHERE e.first_ts <= as_of
+             ACCUM c2.@label += x.@label;
+
+    @@round += 1;
+  END;
+
+  // Component membership size, keyed by label.
+  MapAccum<STRING, SumAccum<INT>> @@comp_size;
+  Summ = SELECT c FROM AllCards:c
+         ACCUM @@comp_size += (c.@label -> 1);
+
+  // Per-component case stats: total connected cases, confirmed_fraud count,
+  // undocumented-pattern count.
+  MapAccum<STRING, SumAccum<INT>> @@comp_cases;
+  MapAccum<STRING, SumAccum<INT>> @@comp_confirmed;
+  MapAccum<STRING, SumAccum<INT>> @@comp_undoc;
+  Cases = SELECT f FROM AllCards:c-(reverse_ABOUT:e)-:f
+          WHERE e.ts <= as_of AND f.opened_at <= as_of
+          ACCUM
+            @@comp_cases += (c.@label -> 1),
+            IF f.outcome == "confirmed_fraud" THEN
+              @@comp_confirmed += (c.@label -> 1)
+            END,
+            IF f.pattern == "undocumented" THEN
+              @@comp_undoc += (c.@label -> 1)
+            END;
+
+  FOREACH (compId, size) IN @@comp_size DO
+    INT nCases;
+    INT nConfirmed;
+    INT nUndoc;
+    IF @@comp_cases.containsKey(compId) THEN
+      nCases = @@comp_cases.get(compId);
+    ELSE
+      nCases = 0;
+    END;
+    IF @@comp_confirmed.containsKey(compId) THEN
+      nConfirmed = @@comp_confirmed.get(compId);
+    ELSE
+      nConfirmed = 0;
+    END;
+    IF @@comp_undoc.containsKey(compId) THEN
+      nUndoc = @@comp_undoc.get(compId);
+    ELSE
+      nUndoc = 0;
+    END;
+    IF size >= 2 AND nCases >= 2 THEN
+      IF nConfirmed * 2 >= nCases THEN
+        @@top_components += CompStatT(compId, size, nCases, nConfirmed, nUndoc);
+      END;
+    END;
+  END;
+
+  // Write: upsert one discovered Pattern per qualifying (top-3) component,
+  // then connect every qualifying FraudCase in that component to it via
+  // MATCHES_PATTERN (score = the component's confirmed-fraud rate).
+  SetAccum<STRING> @@qualifying;
+  FOREACH comp IN @@top_components DO
+    @@qualifying += comp.comp_id;
+    INSERT INTO Pattern VALUES(
+      "disc_c_" + comp.comp_id,
+      "Discovered cluster " + comp.comp_id,
+      "discovered",
+      "Discovered community of " + to_string(comp.size) + " cards sharing a device/address/recipient email, with " +
+        to_string(comp.n_confirmed) + " of " + to_string(comp.n_cases) +
+        " connected cases confirmed fraud, including cases the five documented patterns don't explain."
+    );
+  END;
+
+  CasesToLink = SELECT f FROM AllCards:c-(reverse_ABOUT:e)-:f
+                WHERE e.ts <= as_of AND f.opened_at <= as_of AND @@qualifying.contains(c.@label)
+                ACCUM INSERT INTO MATCHES_PATTERN VALUES(f.id, "disc_c_" + c.@label, 1.0);
+
+  PRINT @@top_components AS top_discovered_components;
+}

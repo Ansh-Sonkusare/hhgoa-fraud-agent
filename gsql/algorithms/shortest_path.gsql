@@ -1,0 +1,70 @@
+// gsql/algorithms/shortest_path.gsql -- WS2. Shortest path between two
+// cards over the Card-Device-Address-RecipientEmail sharing projection,
+// honoring as_of (PRD sec.8.1). Bounded BFS (max_hops, default/typical 4 --
+// each "hop" here is one card-to-card step through a shared entity, i.e.
+// two graph edges). Returns found=true/false, the hop count, and the
+// sequence of card ids on the first shortest path discovered.
+//
+// max_hub_degree: same hub-collapse guard as algorithms/community_components.gsql
+// -- a handful of shared device/address/email values touch thousands of
+// unrelated cards in this dataset, which would otherwise make almost any
+// two cards "adjacent." Shared vertices above this degree are excluded.
+CREATE QUERY shortest_path(STRING from_card_id, STRING to_card_id, INT max_hops, INT max_hub_degree, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  MinAccum<STRING> @parent;
+  OrAccum @visited;
+  SumAccum<INT>    @degree;
+  SumAccum<INT>    @@found_at_hop;
+
+  @@found_at_hop = -1;
+
+  Cards = {Card.*};
+  DevAll = SELECT d FROM Cards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of
+           ACCUM d.@degree += 1;
+  AddrAll = SELECT a FROM Cards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of
+            ACCUM a.@degree += 1;
+  EmAll = SELECT x FROM Cards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of
+          ACCUM x.@degree += 1;
+
+  Frontier = SELECT c FROM Cards:c WHERE c.id == from_card_id
+             POST-ACCUM c.@visited += TRUE;
+
+  SumAccum<INT> @@hop;
+  @@hop = 0;
+  WHILE Frontier.size() > 0 AND @@hop < max_hops AND @@found_at_hop == -1 DO
+    @@hop += 1;
+    Dev = SELECT d FROM Frontier:c-(CARD_DEVICE:e)-:d WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree;
+    Addr = SELECT a FROM Frontier:c-(CARD_ADDRESS:e)-:a WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree;
+    Em = SELECT x FROM Frontier:c-(CARD_RECIPIENT_EMAIL:e)-:x WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree;
+
+    NextByDev = SELECT c2 FROM Dev:d-(reverse_CARD_DEVICE:e)-:c2
+                WHERE e.first_ts <= as_of AND c2.@visited == FALSE
+                ACCUM c2.@parent += d.id
+                POST-ACCUM c2.@visited += TRUE;
+    NextByAddr = SELECT c2 FROM Addr:a-(reverse_CARD_ADDRESS:e)-:c2
+                 WHERE e.first_ts <= as_of AND c2.@visited == FALSE
+                 ACCUM c2.@parent += a.id
+                 POST-ACCUM c2.@visited += TRUE;
+    NextByEm = SELECT c2 FROM Em:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+               WHERE e.first_ts <= as_of AND c2.@visited == FALSE
+               ACCUM c2.@parent += x.id
+               POST-ACCUM c2.@visited += TRUE;
+
+    Frontier = NextByDev UNION NextByAddr UNION NextByEm;
+    Hit = SELECT c FROM Frontier:c WHERE c.id == to_card_id;
+    IF Hit.size() > 0 THEN
+      @@found_at_hop = @@hop;
+    END;
+  END;
+
+  BOOL found;
+  IF @@found_at_hop >= 0 THEN
+    found = TRUE;
+  ELSE
+    found = FALSE;
+  END;
+
+  PRINT found AS found, @@found_at_hop AS hops;
+}

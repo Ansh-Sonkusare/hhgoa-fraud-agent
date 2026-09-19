@@ -1,0 +1,47 @@
+// gsql/queries/find_prior_cases.gsql -- WS2, backs contract tool
+// `find_prior_cases` (contracts/src/tools.ts FindPriorCases). Prior
+// (opened_at <= as_of, PRD sec.8.1) FraudCases connected to `card_id`.
+//
+// Card-id mismatch reality (docs/decisions.md): a closed case's `card_id`
+// column can be a *stub* distinct from the real card the fraud txn was
+// actually MADE on, while its `customer_id` column is the real customer.
+// The loading job's ABOUT edges cover both TO Card and TO Customer, so
+// matching via the resolved customer_id (not just the given card_id)
+// recovers cases that only reference the stub card by id. Three match
+// branches, all deduplicated by case id:
+//   1. FraudCase -CONNECTED_TO-> this exact card_id (ring membership)
+//   2. FraudCase -ABOUT-> this exact card_id
+//   3. FraudCase -ABOUT-> the customer who owns this card_id
+CREATE QUERY find_prior_cases(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING case_id, STRING outcome, STRING pattern> CaseRowT;
+
+  SetAccum<STRING> @@case_ids;
+  HeapAccum<CaseRowT>(200, case_id ASC) @@rows;
+  MinAccum<STRING> @@customer_id;
+
+  Cards = {Card.*};
+  CardHit = SELECT c FROM Cards:c WHERE c.id == card_id;
+  CustHit = SELECT u FROM CardHit:c-(reverse_OWNS)-:u ACCUM @@customer_id += u.id;
+
+  ByConn = SELECT c FROM CardHit:card-(reverse_CONNECTED_TO)-:c
+           WHERE c.opened_at <= as_of
+           ACCUM @@case_ids += c.id;
+
+  ByAboutCard = SELECT f FROM CardHit:card-(reverse_ABOUT:e)-:f
+                WHERE e.ts <= as_of AND f.opened_at <= as_of
+                ACCUM @@case_ids += f.id;
+
+  IF @@customer_id != "" THEN
+    CustV = {Customer.*};
+    CustV2 = SELECT u FROM CustV:u WHERE u.id == @@customer_id;
+    ByAboutCust = SELECT f FROM CustV2:u-(reverse_ABOUT:e)-:f
+                  WHERE e.ts <= as_of AND f.opened_at <= as_of
+                  ACCUM @@case_ids += f.id;
+  END;
+
+  AllCases = {FraudCase.*};
+  Matched = SELECT f FROM AllCases:f WHERE f.id IN @@case_ids
+            ACCUM @@rows += CaseRowT(f.id, f.outcome, f.pattern);
+
+  PRINT @@rows AS cases;
+}

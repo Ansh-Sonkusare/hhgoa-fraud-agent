@@ -1,0 +1,43 @@
+// gsql/queries/shared_rings.gsql -- WS2, backs contract tool
+// `find_shared_entity_rings` (contracts/src/tools.ts FindSharedEntityRings).
+// For the given card, every device/address/recipient-email it shares with
+// other cards (edge first_ts <= as_of, PRD sec.8.1), grouped by shared
+// entity id -> the set of cards sharing it (including the seed card). One
+// MapAccum<STRING shared_id, SetAccum<STRING card_id>> per shared_type,
+// since this GSQL build's TUPLE fields must be scalar (no accumulator-typed
+// tuple fields) -- the caller assembles the contract's flat
+// `{shared_type, shared_id, card_ids[]}[]` shape from these three maps.
+//
+// The synthetic "community_id" the contract type allows ("dev_<id>" /
+// "addr_<id>" / "email_<id>") is just the shared_id itself, scoped to this
+// single shared entity -- NOT the full WCC component id from
+// algorithms/community_components.gsql (that would require a transitive
+// closure this per-card, single-hop query does not compute). Callers
+// wanting the full component should follow up with community_lookup.gsql.
+CREATE QUERY shared_rings(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  MapAccum<STRING, SetAccum<STRING>> @@device_rings;
+  MapAccum<STRING, SetAccum<STRING>> @@address_rings;
+  MapAccum<STRING, SetAccum<STRING>> @@email_rings;
+
+  Cards = {Card.*};
+  Seed = SELECT c FROM Cards:c WHERE c.id == card_id;
+
+  Devs = SELECT d FROM Seed:c-(CARD_DEVICE:e)-:d WHERE e.first_ts <= as_of;
+  DevRing = SELECT oc FROM Devs:d-(reverse_CARD_DEVICE:e)-:oc
+            WHERE e.first_ts <= as_of
+            ACCUM @@device_rings += (d.id -> oc.id);
+
+  Addrs = SELECT a FROM Seed:c-(CARD_ADDRESS:e)-:a WHERE e.first_ts <= as_of;
+  AddrRing = SELECT oc FROM Addrs:a-(reverse_CARD_ADDRESS:e)-:oc
+             WHERE e.first_ts <= as_of
+             ACCUM @@address_rings += (a.id -> oc.id);
+
+  Ems = SELECT x FROM Seed:c-(CARD_RECIPIENT_EMAIL:e)-:x WHERE e.first_ts <= as_of;
+  EmRing = SELECT oc FROM Ems:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:oc
+           WHERE e.first_ts <= as_of
+           ACCUM @@email_rings += (x.id -> oc.id);
+
+  PRINT @@device_rings AS device_rings;
+  PRINT @@address_rings AS address_rings;
+  PRINT @@email_rings AS email_rings;
+}

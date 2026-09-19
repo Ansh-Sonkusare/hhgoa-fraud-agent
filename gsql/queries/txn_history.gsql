@@ -1,0 +1,40 @@
+// gsql/queries/txn_history.gsql -- WS2, backs contract tool
+// `get_transaction_history` (contracts/src/tools.ts GetTransactionHistory).
+// entity_type is "card" or "customer"; window_hours 0 means "all history up
+// to as_of". Rows are ts <= as_of only (PRD sec.8.1).
+CREATE QUERY txn_history(STRING entity_type, STRING entity_id, DATETIME as_of, INT window_hours) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING txn_id, DATETIME ts, DOUBLE amount_usd, STRING product_cd, STRING channel, DOUBLE risk_score> TxnRowT;
+
+  SumAccum<INT>    @@count;
+  SumAccum<DOUBLE> @@total_amount_usd;
+  HeapAccum<TxnRowT>(500, ts ASC) @@rows;
+
+  Cards = {Card.*};
+
+  IF entity_type == "card" THEN
+    CardHit = SELECT c FROM Cards:c WHERE c.id == entity_id;
+    Txns = SELECT t FROM CardHit:c-(MADE)-:t
+           WHERE t.ts <= as_of
+             AND (window_hours == 0 OR datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - window_hours * 3600)
+           ACCUM @@count += 1,
+                 @@total_amount_usd += t.amount_usd,
+                 @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score);
+  END;
+
+  IF entity_type == "customer" THEN
+    Custs = {Customer.*};
+    CustHit = SELECT u FROM Custs:u WHERE u.id == entity_id;
+    CustCards = SELECT c FROM CustHit:u-(OWNS)-:c;
+    Txns2 = SELECT t FROM CustCards:c-(MADE)-:t
+            WHERE t.ts <= as_of
+              AND (window_hours == 0 OR datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - window_hours * 3600)
+            ACCUM @@count += 1,
+                  @@total_amount_usd += t.amount_usd,
+                  @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score);
+  END;
+
+  PRINT @@rows AS rows;
+  // "count" is a reserved word in this GSQL grammar and cannot be used as a
+  // PRINT alias (even quoted) -- aliased as txn_count instead.
+  PRINT @@count AS txn_count, @@total_amount_usd AS total_amount_usd, window_hours AS window_hours;
+}

@@ -1,0 +1,129 @@
+// gsql/queries/get_entity_profile.gsql -- WS2, backs contract tool
+// `get_entity_profile` (contracts/src/tools.ts GetEntityProfile).
+//
+// entity_type is one of "card" | "customer" | "txn" | "identity" | "device"
+// | "address" -- the caller picks it from EntityRef.type.
+//
+// Temporal correctness (PRD sec.8.1): Card/Customer carry load-time baked
+// aggregates (txn_count, total_amount_usd, first_seen_ts, last_seen_ts) that
+// summarize their WHOLE history -- returning those raw would leak
+// post-as_of information. So for "card"/"customer" this query recomputes
+// count/total/first/last from MADE edges with t.ts <= as_of instead of
+// reading the baked columns. A Txn's own ts is its temporal marker: if
+// t.ts > as_of, the txn did not exist yet as of that time and no attributes
+// are returned. Identity/Device/Address are static reference data (no
+// embedded timestamps) so they are returned as-is.
+//
+// Every entity_type branch is self-contained (its own SELECT + PRINT) so no
+// vertex-set variable is shared across branches -- this build's type
+// checker evaluates every branch statically even though only one runs, so
+// reusing a name across branches with different underlying vertex types is
+// unsafe. Single-hop patterns only (this 4.3.0-rc1 build rejects multi-hop
+// and `<-` edge patterns).
+CREATE QUERY get_entity_profile(STRING entity_type, STRING entity_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  SumAccum<INT>      @@card_txn_count;
+  SumAccum<DOUBLE>   @@card_total_amount_usd;
+  MinAccum<DATETIME> @@card_first_seen_ts;
+  MaxAccum<DATETIME> @@card_last_seen_ts;
+  MinAccum<STRING>   @@card_network;
+  MinAccum<STRING>   @@card_type;
+  MinAccum<STRING>   @@card_customer_id;
+  MinAccum<BOOL>     @@card_is_stub;
+  MinAccum<STRING>   @@card_found;
+
+  SumAccum<INT>      @@cust_txn_count;
+  SumAccum<DOUBLE>   @@cust_total_amount_usd;
+  MinAccum<DATETIME> @@cust_first_seen_ts;
+  MaxAccum<DATETIME> @@cust_last_seen_ts;
+  MinAccum<STRING>   @@cust_found;
+
+  MinAccum<STRING>   @@txn_found;
+  MinAccum<DOUBLE>   @@txn_amount_usd;
+  MinAccum<STRING>   @@txn_product_cd;
+  MinAccum<STRING>   @@txn_channel;
+  MinAccum<DOUBLE>   @@txn_risk_score;
+  MinAccum<STRING>   @@txn_card_id;
+  MinAccum<STRING>   @@txn_customer_id;
+
+  IF entity_type == "card" THEN
+    CardV = {Card.*};
+    CardHit = SELECT c FROM CardV:c WHERE c.id == entity_id
+              ACCUM @@card_network += c.card_network,
+                    @@card_type += c.card_type,
+                    @@card_customer_id += c.customer_id,
+                    @@card_is_stub += c.is_stub,
+                    @@card_found += c.id;
+    CardTxns = SELECT t FROM CardHit:c-(MADE)-:t
+               WHERE t.ts <= as_of
+               ACCUM @@card_txn_count += 1,
+                     @@card_total_amount_usd += t.amount_usd,
+                     @@card_first_seen_ts += t.ts,
+                     @@card_last_seen_ts += t.ts;
+    PRINT @@card_found AS entity_id,
+          "card" AS entity_type,
+          @@card_network AS card_network,
+          @@card_type AS card_type,
+          @@card_customer_id AS customer_id,
+          @@card_is_stub AS is_stub,
+          @@card_txn_count AS txn_count_as_of,
+          @@card_total_amount_usd AS total_amount_usd_as_of,
+          @@card_first_seen_ts AS first_seen_ts_as_of,
+          @@card_last_seen_ts AS last_seen_ts_as_of;
+  END;
+
+  IF entity_type == "customer" THEN
+    CustV = {Customer.*};
+    CustHit = SELECT u FROM CustV:u WHERE u.id == entity_id ACCUM @@cust_found += u.id;
+    CustCards = SELECT c FROM CustHit:u-(OWNS)-:c;
+    CustTxns = SELECT t FROM CustCards:c-(MADE)-:t
+               WHERE t.ts <= as_of
+               ACCUM @@cust_txn_count += 1,
+                     @@cust_total_amount_usd += t.amount_usd,
+                     @@cust_first_seen_ts += t.ts,
+                     @@cust_last_seen_ts += t.ts;
+    PRINT @@cust_found AS entity_id,
+          "customer" AS entity_type,
+          @@cust_txn_count AS txn_count_as_of,
+          @@cust_total_amount_usd AS total_amount_usd_as_of,
+          @@cust_first_seen_ts AS first_seen_ts_as_of,
+          @@cust_last_seen_ts AS last_seen_ts_as_of;
+  END;
+
+  IF entity_type == "txn" THEN
+    TxnV = {Txn.*};
+    TxnHit = SELECT t FROM TxnV:t WHERE t.id == entity_id AND t.ts <= as_of
+             ACCUM @@txn_found += t.id,
+                   @@txn_amount_usd += t.amount_usd,
+                   @@txn_product_cd += t.product_cd,
+                   @@txn_channel += t.channel,
+                   @@txn_risk_score += t.risk_score;
+    TxnCard = SELECT c FROM TxnHit:t-(reverse_MADE)-:c
+              ACCUM @@txn_card_id += c.id, @@txn_customer_id += c.customer_id;
+    PRINT @@txn_found AS entity_id,
+          "txn" AS entity_type,
+          @@txn_amount_usd AS amount_usd,
+          @@txn_product_cd AS product_cd,
+          @@txn_channel AS channel,
+          @@txn_risk_score AS risk_score,
+          @@txn_card_id AS card_id,
+          @@txn_customer_id AS customer_id;
+  END;
+
+  IF entity_type == "identity" THEN
+    IdV = {Identity.*};
+    IdHit = SELECT i FROM IdV:i WHERE i.id == entity_id;
+    PRINT IdHit AS entity;
+  END;
+
+  IF entity_type == "device" THEN
+    DevV = {Device.*};
+    DevHit = SELECT d FROM DevV:d WHERE d.id == entity_id;
+    PRINT DevHit AS entity;
+  END;
+
+  IF entity_type == "address" THEN
+    AddrV = {Address.*};
+    AddrHit = SELECT a FROM AddrV:a WHERE a.id == entity_id;
+    PRINT AddrHit AS entity;
+  END;
+}

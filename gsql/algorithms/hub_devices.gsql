@@ -1,0 +1,38 @@
+// gsql/algorithms/hub_devices.gsql -- WS2. Hub-device detection: degree
+// (distinct cards per device, as_of-filtered) plus a one-hop PageRank-lite
+// score (each card distributes 1 unit of weight evenly across the devices
+// it used; a device's score is the sum of weight received -- devices used
+// by many cards that themselves use few other devices score highest,
+// approximating PageRank's "important nodes are linked by many important
+// nodes" without a full iterative eigenvector computation, which needs
+// GDS/tg_pagerank not available on this Community Edition build). Top 100
+// devices by degree are printed; devices with degree 1 (one card only,
+// i.e. not a hub) are excluded.
+CREATE QUERY hub_devices(DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING device_id, INT degree, DOUBLE hub_score> HubT;
+
+  SumAccum<INT>    @cardCount;
+  SumAccum<DOUBLE> @weight;
+  HeapAccum<HubT>(100, degree DESC) @@top;
+
+  AllCards = {Card.*};
+  CardDeg = SELECT c FROM AllCards:c-(CARD_DEVICE:e)-:d
+            WHERE e.first_ts <= as_of
+            ACCUM c.@cardCount += 1;
+
+  Devs = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+         WHERE e.first_ts <= as_of
+         ACCUM
+           d.@cardCount += 1,
+           IF c.@cardCount == 0 THEN
+             d.@weight += 1.0
+           ELSE
+             d.@weight += 1.0 / c.@cardCount
+           END;
+
+  Top = SELECT d FROM Devs:d
+        WHERE d.@cardCount > 1
+        ACCUM @@top += HubT(d.id, d.@cardCount, d.@weight);
+
+  PRINT @@top AS hub_devices;
+}

@@ -116,7 +116,20 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  gsql: {}
+  gsql:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.1
+        version: 26.6.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.13
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@26.6.1)
 
   policy:
     dependencies:

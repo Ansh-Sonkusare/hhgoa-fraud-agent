@@ -1,0 +1,80 @@
+// gsql/algorithms/community_components.gsql -- WS2. Weakly-connected
+// components (WCC) over the Card-Device-Address-RecipientEmail sharing
+// projection, honoring as_of (PRD sec.8.1: only edges with first_ts <= as_of
+// participate). No GDS/tg_wcc is available on this TigerGraph Community
+// Edition build, so this is a hand-written HASH-MIN label-propagation WCC:
+// every Card starts labeled with its own id; each round, every Card pulls
+// the minimum label seen among cards reachable through one shared
+// device/address/recipient-email hop (both directions through the shared
+// vertex); after enough rounds every card in a component converges on that
+// component's smallest member id. Bounded at 6 rounds (a documented
+// simplification -- true convergence needs rounds >= the component's
+// diameter in this projection; observed fraud rings in this dataset are
+// small clusters, so 6 rounds is expected to be more than enough in
+// practice, but a pathological long chain could under-converge).
+//
+// max_hub_degree: this IEEE-CIS-derived dataset has a handful of "hub"
+// device/address/email values shared by thousands of unrelated cards --
+// almost certainly a missing/default sentinel value rather than a real
+// shared identity (observed empirically: without this cap, WCC collapses
+// ~90% of all cards into one giant component). Any shared vertex whose
+// distinct-card degree exceeds max_hub_degree is excluded from propagation
+// so components reflect genuine small shared-identity clusters instead of
+// "everyone shares the missing-value bucket." See docs/decisions.md.
+//
+// PRINT output: per-component size summary. Not installed for writes --
+// purely a computation query; discovery_report.gsql re-derives the same
+// labels itself (RUN QUERY composition/chaining is not relied upon --
+// unverified on this build) and does the actual Pattern/MATCHES_PATTERN
+// writes.
+CREATE QUERY community_components(DATETIME as_of, INT max_hub_degree) FOR GRAPH hhgoa_fraud {
+  MinAccum<STRING> @label;
+  SumAccum<INT>    @degree;
+  SumAccum<INT>    @@round;
+  MapAccum<STRING, SumAccum<INT>> @@comp_size;
+
+  AllCards = {Card.*};
+  Init = SELECT c FROM AllCards:c
+         POST-ACCUM c.@label += c.id;
+
+  // One pass to measure hub degree (distinct cards touching each shared vertex).
+  DevAll = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of
+           ACCUM d.@degree += 1;
+  AddrAll = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of
+            ACCUM a.@degree += 1;
+  EmAll = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of
+          ACCUM x.@degree += 1;
+
+  WHILE @@round < 6 DO
+    Dev = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+          WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+          ACCUM d.@label += c.@label;
+    BackDev = SELECT c2 FROM Dev:d-(reverse_CARD_DEVICE:e)-:c2
+              WHERE e.first_ts <= as_of
+              ACCUM c2.@label += d.@label;
+
+    Addr = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+           WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree
+           ACCUM a.@label += c.@label;
+    BackAddr = SELECT c2 FROM Addr:a-(reverse_CARD_ADDRESS:e)-:c2
+               WHERE e.first_ts <= as_of
+               ACCUM c2.@label += a.@label;
+
+    Em = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+         WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree
+         ACCUM x.@label += c.@label;
+    BackEm = SELECT c2 FROM Em:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+             WHERE e.first_ts <= as_of
+             ACCUM c2.@label += x.@label;
+
+    @@round += 1;
+  END;
+
+  Summ = SELECT c FROM AllCards:c
+         ACCUM @@comp_size += (c.@label -> 1);
+
+  PRINT @@comp_size AS component_sizes;
+}

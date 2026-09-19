@@ -1,0 +1,71 @@
+// gsql/queries/resolve_trigger.gsql -- WS2, backs contract tool `resolve_trigger`
+// (contracts/src/tools.ts ResolveTrigger). Given one known entity (a txn id,
+// a card id -- real or stub, a customer id, or an identity id) resolve the
+// full quad {txn, card, customer, identity} by walking the graph, honoring
+// `as_of` (PRD sec.8.1: ignore anything after as_of).
+//
+// entity_type is one of "txn" | "card" | "customer" | "identity" -- the
+// caller (agent/ real-tools bridge) picks it from the Trigger shape:
+//   risk_score trigger      -> txn_id (preferred) or card_id
+//   customer_report trigger -> customer_id
+//   analyst_request trigger -> whatever EntityRef.type the analyst gave
+//
+// Card-id mismatch reality (see docs/decisions.md): a case pack's/closed
+// case's referenced card can be a *stub* distinct from the card the actual
+// transaction was MADE on. This query only resolves the graph-true owner of
+// the given entity; matching a stub card to its real counterpart is
+// find_prior_cases's job, not this query's.
+//
+// Single-hop patterns only (this 4.3.0-rc1 build rejects multi-hop and `<-`
+// edge patterns) -- every hop is its own SELECT over the previous step.
+CREATE QUERY resolve_trigger(STRING entity_type, STRING entity_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  MinAccum<STRING> @@txn_id;
+  MinAccum<STRING> @@card_id;
+  MinAccum<STRING> @@customer_id;
+  MinAccum<STRING> @@identity_id;
+
+  Cards = {Card.*};
+
+  IF entity_type == "txn" THEN
+    @@txn_id = entity_id;
+    T0 = {Txn.*};
+    T1 = SELECT t FROM T0:t WHERE t.id == entity_id AND t.ts <= as_of;
+    R0 = SELECT c FROM T1:t-(reverse_MADE)-:c
+         ACCUM @@card_id += c.id;
+  END;
+
+  IF entity_type == "card" THEN
+    @@card_id = entity_id;
+  END;
+
+  IF entity_type == "customer" THEN
+    @@customer_id = entity_id;
+    Cust0 = {Customer.*};
+    Cust1 = SELECT u FROM Cust0:u WHERE u.id == entity_id;
+    R1 = SELECT c FROM Cust1:u-(OWNS)-:c
+         ACCUM @@card_id += c.id;
+  END;
+
+  IF entity_type == "identity" THEN
+    @@identity_id = entity_id;
+    Id0 = {Identity.*};
+    Id1 = SELECT i FROM Id0:i WHERE i.id == entity_id;
+    R2 = SELECT c FROM Id1:i-(reverse_RESOLVES_TO)-:c
+         ACCUM @@card_id += c.id;
+  END;
+
+  // From whatever card we now have (given directly, or resolved above),
+  // fill in customer and identity.
+  IF @@card_id != "" THEN
+    C0 = SELECT c FROM Cards:c WHERE c.id == @@card_id;
+    R3 = SELECT u FROM C0:c-(reverse_OWNS)-:u
+         ACCUM @@customer_id += u.id;
+    R4 = SELECT i FROM C0:c-(RESOLVES_TO)-:i
+         ACCUM @@identity_id += i.id;
+  END;
+
+  PRINT @@txn_id AS txn_id,
+        @@card_id AS card_id,
+        @@customer_id AS customer_id,
+        @@identity_id AS identity_id;
+}
