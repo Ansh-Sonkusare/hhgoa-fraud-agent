@@ -1,0 +1,22 @@
+services:
+  tigergraph:
+    # tigergraph/tigergraph is the licensed Enterprise image (needs a license key we don't have).
+    # tigergraph/community is the free Community Edition — no license required, ready immediately.
+    # Loaded locally via `docker load` from the dl.tigergraph.com CE download (no public :latest tag).
+    image: tigergraph/community:4.3.0-rc1
+    container_name: hhgoa-tigergraph
+    init: true
+    ulimits:
+      nofile:
+        soft: 1000000
+        hard: 1000000
+    ports:
+      - "14022:22"     # ssh (default password: tigergraph)
+      - "9000:9000"    # REST++ API
+      - "14240:14240"  # GraphStudio UI / GSQL
+    volumes:
+      - tigergraph_data:/home/tigergraph
+    restart: unless-stopped
+
+volumes:
+  tigergraph_data:

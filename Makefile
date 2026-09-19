@@ -10,7 +10,8 @@ lint:
 	pnpm turbo run lint
 
 verify-graph:
-	@echo "verify-graph: not implemented yet — owned by WS1 (graph/)"
+	pnpm --filter @hhgoa/graph verify
+	pnpm --filter @hhgoa/graph mcp:smoke
 
 run-case:
 	@echo "run-case: not implemented yet — owned by WS4/WS7 (agent/, eval/). CASE=$(CASE)"

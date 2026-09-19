@@ -2,9 +2,21 @@
   "name": "@hhgoa/graph",
   "private": true,
   "version": "0.1.0",
-  "description": "WS1: graph infra and ingestion (schema.gsql, loadingJobs/, scripts/load.ts, scripts/verify.ts). Not yet implemented.",
+  "description": "WS1: graph infra and ingestion (schema.gsql, loadingJobs/, scripts/load.ts, scripts/verify.ts).",
   "type": "module",
   "scripts": {
-    "test": "echo 'graph: no tests yet (WS1)' && exit 0"
+    "test": "echo 'graph: no unit tests (GSQL/infra workstream) — see make verify-graph' && exit 0",
+    "schema": "tsx scripts/deploySchema.ts",
+    "prepare-load": "tsx scripts/prepareLoadFiles.ts",
+    "load": "tsx scripts/load.ts",
+    "verify": "tsx scripts/verify.ts",
+    "mcp:smoke": "tsx scripts/mcpSmoke.ts",
+    "mcp:start": "node -e \"require('node:child_process').spawn(process.cwd()+'/mcp-server/venv/bin/tigergraph-mcp',['--transport','streamable-http','--host','127.0.0.1','--port','8000','--env-file','mcp-server/.env'],{stdio:'inherit'})\""
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.23.1",
+    "@types/node": "^26.6.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
   }
 }
