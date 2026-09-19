@@ -2,9 +2,30 @@
   "name": "@hhgoa/ui",
   "private": true,
   "version": "0.1.0",
-  "description": "WS6: Next.js UI. Not yet implemented.",
+  "description": "WS6: Next.js UI for case queue, live investigation timeline, evidence, uncertainty, recommendations, SAR, approvals (PRD §14). Reads UI_PORT/API_BASE_URL from .env.",
   "type": "module",
   "scripts": {
-    "test": "echo 'ui: no tests yet (WS6)' && exit 0"
+    "dev": "node scripts/run.mjs dev",
+    "build": "next build",
+    "start": "node scripts/run.mjs start",
+    "lint": "pnpm typecheck",
+    "test": "echo 'ui: no vitest suite (browser-driven verification instead — see WS6 final report)' && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hhgoa/contracts": "workspace:*",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-force-graph-2d": "^1.25.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.9.3"
   }
 }

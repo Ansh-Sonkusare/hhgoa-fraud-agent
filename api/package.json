@@ -2,9 +2,26 @@
   "name": "@hhgoa/api",
   "private": true,
   "version": "0.1.0",
-  "description": "WS6: Fastify API + SSE of AgentEvent. Not yet implemented.",
+  "description": "WS6: Fastify API + SSE of AgentEvent, replaying fixtures until WS4's agent lands.",
   "type": "module",
+  "main": "./src/index.ts",
   "scripts": {
-    "test": "echo 'api: no tests yet (WS6)' && exit 0"
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@hhgoa/contracts": "workspace:*",
+    "fastify": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }
