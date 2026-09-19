@@ -128,6 +128,10 @@ async function main(): Promise<void> {
     runInstalled("community_components", [asOfLit, hubDeg], 180);
     runInstalled("label_propagation", [asOfLit, hubDeg], 180);
     runInstalled("hub_devices", [asOfLit], 60);
+    // Must run as two separate invocations, in this order -- see
+    // discovery/discovery_clear.gsql's header comment (DELETE+INSERT of
+    // the same vertex id within one query silently nets to a deletion).
+    runInstalled("discovery_clear", [], 30);
     runInstalled("discovery_report", [asOfLit, hubDeg], 120);
   }
 

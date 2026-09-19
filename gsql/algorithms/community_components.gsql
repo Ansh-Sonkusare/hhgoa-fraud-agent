@@ -2,25 +2,39 @@
 // components (WCC) over the Card-Device-Address-RecipientEmail sharing
 // projection, honoring as_of (PRD sec.8.1: only edges with first_ts <= as_of
 // participate). No GDS/tg_wcc is available on this TigerGraph Community
-// Edition build, so this is a hand-written HASH-MIN label-propagation WCC:
-// every Card starts labeled with its own id; each round, every Card pulls
-// the minimum label seen among cards reachable through one shared
-// device/address/recipient-email hop (both directions through the shared
-// vertex); after enough rounds every card in a component converges on that
-// component's smallest member id. Bounded at 6 rounds (a documented
-// simplification -- true convergence needs rounds >= the component's
-// diameter in this projection; observed fraud rings in this dataset are
-// small clusters, so 6 rounds is expected to be more than enough in
-// practice, but a pathological long chain could under-converge).
+// Edition build, so this is a hand-written HASH-MIN label-propagation WCC.
 //
 // max_hub_degree: this IEEE-CIS-derived dataset has a handful of "hub"
 // device/address/email values shared by thousands of unrelated cards --
 // almost certainly a missing/default sentinel value rather than a real
-// shared identity (observed empirically: without this cap, WCC collapses
-// ~90% of all cards into one giant component). Any shared vertex whose
-// distinct-card degree exceeds max_hub_degree is excluded from propagation
-// so components reflect genuine small shared-identity clusters instead of
-// "everyone shares the missing-value bucket." See docs/decisions.md.
+// shared identity. Any shared vertex whose distinct-card degree exceeds
+// max_hub_degree is excluded up front.
+//
+// Two cards are only considered connected if they share AT LEAST TWO
+// DISTINCT entity types (e.g. device AND address, not just one or the
+// other) -- not merely "any single shared attribute." This was added
+// after finding that even with max_hub_degree capped as low as 3, a
+// single-shared-attribute definition still transitively chained a large
+// residual component (~1,280-3,959 cards depending on the cap) via long
+// chains of otherwise-unrelated small-degree hubs -- a classic giant-
+// component effect, not evidence of one real fraud ring. Requiring 2+
+// shared types is the standard stronger bar used in practice for this
+// kind of shared-attribute ring detection, and breaks those long chains
+// (a chain would need every consecutive pair to independently share 2
+// types, which coincidental/default-value single-attribute overlaps don't
+// produce). See docs/decisions.md for the before/after component sizes.
+//
+// Mechanics: build each card's per-type neighbor sets (@viaDevice/
+// @viaAddr/@viaEmail, hub-degree-capped, single-hop through the shared
+// vertex as usual), tally how many of the 3 sets each neighbor id appears
+// in, and keep only neighbors appearing in >= 2 as @strongNeighbors. Label
+// propagation then runs over @strongNeighbors directly (a per-vertex
+// SetAccum of card ids), pulling from a query-scoped id->label map
+// (@@globalLabel) each round rather than a further graph hop, since
+// @strongNeighbors is no longer tied to a specific edge to traverse.
+// Bounded at 6 rounds (same documented simplification as before -- true
+// convergence needs rounds >= the component's diameter in this
+// projection).
 //
 // PRINT output: per-component size summary. Not installed for writes --
 // purely a computation query; discovery_report.gsql re-derives the same
@@ -30,14 +44,22 @@
 CREATE QUERY community_components(DATETIME as_of, INT max_hub_degree) FOR GRAPH hhgoa_fraud {
   MinAccum<STRING> @label;
   SumAccum<INT>    @degree;
-  SumAccum<INT>    @@round;
+  SetAccum<STRING> @viaDevice;
+  SetAccum<STRING> @viaAddr;
+  SetAccum<STRING> @viaEmail;
+  MapAccum<STRING, SumAccum<INT>> @overlapCount;
+  SetAccum<STRING> @strongNeighbors;
+  SetAccum<STRING> @srcCards; // per-hub-vertex: cards touching this device/address/email
+
+  SumAccum<INT> @@round;
   MapAccum<STRING, SumAccum<INT>> @@comp_size;
+  MapAccum<STRING, MinAccum<STRING>> @@globalLabel;
 
   AllCards = {Card.*};
   Init = SELECT c FROM AllCards:c
-         POST-ACCUM c.@label += c.id;
+         POST-ACCUM c.@label += c.id, @@globalLabel += (c.id -> c.id);
 
-  // One pass to measure hub degree (distinct cards touching each shared vertex).
+  // Hub degree (distinct cards touching each shared vertex).
   DevAll = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
            WHERE e.first_ts <= as_of
            ACCUM d.@degree += 1;
@@ -48,28 +70,64 @@ CREATE QUERY community_components(DATETIME as_of, INT max_hub_degree) FOR GRAPH 
           WHERE e.first_ts <= as_of
           ACCUM x.@degree += 1;
 
-  WHILE @@round < 6 DO
-    Dev = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
-          WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
-          ACCUM d.@label += c.@label;
-    BackDev = SELECT c2 FROM Dev:d-(reverse_CARD_DEVICE:e)-:c2
-              WHERE e.first_ts <= as_of
-              ACCUM c2.@label += d.@label;
+  // Per-type neighbor sets, hub-degree-capped.
+  DevHub = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+           ACCUM d.@srcCards += c.id;
+  DevBack = SELECT c2 FROM DevHub:d-(reverse_CARD_DEVICE:e)-:c2
+            WHERE e.first_ts <= as_of
+            ACCUM
+              FOREACH src IN d.@srcCards DO
+                IF src != c2.id THEN
+                  c2.@viaDevice += src
+                END
+              END;
 
-    Addr = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
-           WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree
-           ACCUM a.@label += c.@label;
-    BackAddr = SELECT c2 FROM Addr:a-(reverse_CARD_ADDRESS:e)-:c2
-               WHERE e.first_ts <= as_of
-               ACCUM c2.@label += a.@label;
-
-    Em = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
-         WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree
-         ACCUM x.@label += c.@label;
-    BackEm = SELECT c2 FROM Em:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+  AddrHub = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree
+            ACCUM a.@srcCards += c.id;
+  AddrBack = SELECT c2 FROM AddrHub:a-(reverse_CARD_ADDRESS:e)-:c2
              WHERE e.first_ts <= as_of
-             ACCUM c2.@label += x.@label;
+             ACCUM
+               FOREACH src IN a.@srcCards DO
+                 IF src != c2.id THEN
+                   c2.@viaAddr += src
+                 END
+               END;
 
+  EmHub = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree
+          ACCUM x.@srcCards += c.id;
+  EmBack = SELECT c2 FROM EmHub:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+           WHERE e.first_ts <= as_of
+           ACCUM
+             FOREACH src IN x.@srcCards DO
+               IF src != c2.id THEN
+                 c2.@viaEmail += src
+               END
+             END;
+
+  // Tally per-neighbor type-overlap and keep only >= 2.
+  Overlap = SELECT c FROM AllCards:c
+            ACCUM
+              FOREACH id1 IN c.@viaDevice DO c.@overlapCount += (id1 -> 1) END,
+              FOREACH id2 IN c.@viaAddr DO c.@overlapCount += (id2 -> 1) END,
+              FOREACH id3 IN c.@viaEmail DO c.@overlapCount += (id3 -> 1) END
+            POST-ACCUM
+              FOREACH (nb, cnt) IN c.@overlapCount DO
+                IF cnt >= 2 THEN
+                  c.@strongNeighbors += nb
+                END
+              END;
+
+  // Hash-min propagation over @strongNeighbors (no further graph hop needed).
+  WHILE @@round < 6 DO
+    Prop = SELECT c FROM AllCards:c
+           ACCUM
+             FOREACH nb IN c.@strongNeighbors DO
+               c.@label += @@globalLabel.get(nb)
+             END
+           POST-ACCUM @@globalLabel += (c.id -> c.@label);
     @@round += 1;
   END;
 

@@ -1,0 +1,18 @@
+// gsql/discovery/discovery_clear.gsql -- WS2. Deletes every discovered
+// Pattern (kind == "discovered") and its MATCHES_PATTERN edges (GSQL
+// cascades edge deletes with their vertex), leaving documented patterns
+// untouched.
+//
+// MUST run as its own installed-query invocation, BEFORE discovery_report
+// runs in a separate invocation -- NOT combined with the insert logic in
+// one query. Verified empirically that DELETE and INSERT INTO targeting
+// the SAME vertex id within one query silently nets to a deletion (the
+// INSERT is dropped): a spike query that deleted-then-reinserted
+// "disc_c_C10023-K1" in one CREATE QUERY body left the Pattern count at 0,
+// not 1. Splitting into two separate RUN QUERY calls (see gsql/install.ts)
+// avoids that ordering ambiguity entirely. See docs/decisions.md.
+CREATE QUERY discovery_clear() FOR GRAPH hhgoa_fraud {
+  P = {Pattern.*};
+  ToDelete = SELECT p FROM P:p WHERE p.kind == "discovered";
+  DELETE p FROM ToDelete:p;
+}
