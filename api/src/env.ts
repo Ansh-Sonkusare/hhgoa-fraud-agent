@@ -47,6 +47,12 @@ export const FIXTURES_DIR = path.join(REPO_ROOT, "fixtures");
 export const env = {
   API_PORT: Number(process.env.API_PORT ?? 4000),
   /**
+   * Case-run source (PRD §16 WS6): "fixture" (default) replays recorded
+   * fixtures/ runs over SSE; "live" runs the real WS4 agent via
+   * `LiveRunSource` as cases are opened. `WS6_RUN_SOURCE` is a legacy alias.
+   */
+  RUN_SOURCE: (process.env.RUN_SOURCE ?? process.env.WS6_RUN_SOURCE ?? "fixture") as "fixture" | "live",
+  /**
    * Pace of fixture replay over SSE (ms between events). Kept fast enough
    * for a demo click-through but slow enough to see the timeline build up
    * live. Env-tunable so tests can set it to ~0.

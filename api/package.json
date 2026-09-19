@@ -2,7 +2,7 @@
   "name": "@hhgoa/api",
   "private": true,
   "version": "0.1.0",
-  "description": "WS6: Fastify API + SSE of AgentEvent, replaying fixtures until WS4's agent lands.",
+  "description": "WS6: Fastify API + SSE of AgentEvent — replays recorded fixtures, or runs the real WS4 agent live.",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
+    "@hhgoa/agent": "workspace:*",
     "@hhgoa/contracts": "workspace:*",
     "fastify": "^5.1.0",
     "zod": "^3.25.76"

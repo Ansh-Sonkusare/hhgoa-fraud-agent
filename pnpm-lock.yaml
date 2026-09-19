@@ -60,6 +60,9 @@ importers:
       '@fastify/cors':
         specifier: ^10.0.1
         version: 10.1.0
+      '@hhgoa/agent':
+        specifier: workspace:*
+        version: link:../agent
       '@hhgoa/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -214,6 +217,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.6.1(postcss@8.5.28)
+      playwright-core:
+        specifier: ^1.63.0
+        version: 1.63.0
       postcss:
         specifier: ^8.4.49
         version: 8.5.28
@@ -1908,6 +1914,11 @@ packages:
 
   platform@1.3.6:
     resolution: {integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==}
+
+  playwright-core@1.63.0:
+    resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   postcss-import@15.1.0:
     resolution: {integrity: sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==}
@@ -3892,6 +3903,8 @@ snapshots:
   pkce-challenge@5.0.1: {}
 
   platform@1.3.6: {}
+
+  playwright-core@1.63.0: {}
 
   postcss-import@15.1.0(postcss@8.5.28):
     dependencies:

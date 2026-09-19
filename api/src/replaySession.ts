@@ -1,8 +1,8 @@
-import type { AgentEvent } from "@hhgoa/contracts";
+import type { AgentEvent, AnswerFile } from "@hhgoa/contracts";
 import type { RunRecording } from "./runSource.js";
 import { env } from "./env.js";
 
-export type SessionStatus = "idle" | "running" | "done";
+export type SessionStatus = "idle" | "running" | "done" | "error";
 
 export interface PendingApproval {
   seq: number;
@@ -13,7 +13,38 @@ export interface PendingApproval {
   ts: string;
 }
 
-type Subscriber = (event: AgentEvent) => void;
+export type Subscriber = (event: AgentEvent) => void;
+
+/** An event written into a live feed by the API itself (seq/case_id optional — the feed fills them). */
+export type ExternalAgentEvent = Omit<AgentEvent, "seq" | "case_id"> & { seq?: number; case_id?: string };
+
+/** The session surface consumed by server routes; both ReplaySession and LiveSession implement it. */
+export interface RunSession {
+  readonly case_id: string;
+  getStatus(): SessionStatus;
+  getEmittedEvents(): AgentEvent[];
+  getAnswer(): AnswerFile | null;
+  getPendingApprovals(): PendingApproval[];
+  start(): void;
+  subscribe(send: Subscriber): () => void;
+  resolveApproval(action: string, decision: "approved" | "rejected"): PendingApproval | null;
+}
+
+/**
+ * The live half of a case's run source: a `LiveRunSource` (liveRunSource.ts)
+ * implements this so `LiveSession` can mirror `ReplaySession`'s surface over
+ * a real agent run instead of a recorded one.
+ */
+export interface LiveFeed {
+  supports(caseId: string): boolean;
+  start(caseId: string): void;
+  subscribe(caseId: string, send: Subscriber): () => void;
+  getStatus(caseId: string): SessionStatus;
+  getEvents(caseId: string): AgentEvent[];
+  getRecording(caseId: string): RunRecording | null;
+  getLastError(caseId: string): string | null;
+  pushExternalEvent(caseId: string, event: ExternalAgentEvent): void;
+}
 
 /**
  * Replays one case's recorded `AgentEvent[]` over "wall clock" time so the
@@ -32,7 +63,7 @@ type Subscriber = (event: AgentEvent) => void;
  * This is the one place fixture replay isn't purely passive — it's what
  * makes the Approve/Reject buttons in the UI do something real.
  */
-export class ReplaySession {
+export class ReplaySession implements RunSession {
   readonly case_id: string;
   private readonly recording: RunRecording;
   private cursor = 0;
@@ -145,27 +176,105 @@ export class ReplaySession {
   }
 }
 
-export class ReplaySessionRegistry {
-  private readonly sessions = new Map<string, ReplaySession>();
+export class SessionRegistry {
+  private readonly sessions = new Map<string, RunSession>();
 
-  constructor(private readonly getRecording: (caseId: string) => RunRecording | null) {}
+  constructor(private readonly factory: (caseId: string) => RunSession | null) {}
 
-  /** Returns the existing session for a case, or creates one if a recording exists. */
-  getOrCreate(caseId: string): ReplaySession | null {
+  /** Returns the existing session for a case, or creates one if the factory can. */
+  getOrCreate(caseId: string): RunSession | null {
     const existing = this.sessions.get(caseId);
     if (existing) return existing;
-    const recording = this.getRecording(caseId);
-    if (!recording) return null;
-    const session = new ReplaySession(recording);
+    const session = this.factory(caseId);
+    if (!session) return null;
     this.sessions.set(caseId, session);
     return session;
   }
 
-  get(caseId: string): ReplaySession | undefined {
+  get(caseId: string): RunSession | undefined {
     return this.sessions.get(caseId);
   }
 
-  all(): ReplaySession[] {
+  all(): RunSession[] {
     return [...this.sessions.values()];
+  }
+}
+
+/**
+ * A `RunSession` over a live agent run: delegates to a `LiveFeed` (the
+ * `LiveRunSource`) instead of a recorded array, so the server routes can
+ * drive a real investigation through exactly the same path they use for
+ * fixture replay. Pending approvals are derived by scanning the emitted
+ * stream; `resolveApproval` feeds a synthetic `action_result` back into the
+ * live feed, which broadcasts it exactly like an agent-emitted event.
+ */
+export class LiveSession implements RunSession {
+  readonly case_id: string;
+
+  constructor(
+    private readonly feed: LiveFeed,
+    caseId: string,
+  ) {
+    this.case_id = caseId;
+  }
+
+  getStatus(): SessionStatus {
+    return this.feed.getStatus(this.case_id);
+  }
+
+  getEmittedEvents(): AgentEvent[] {
+    return this.feed.getEvents(this.case_id);
+  }
+
+  getAnswer(): AnswerFile | null {
+    return this.feed.getRecording(this.case_id)?.answer ?? null;
+  }
+
+  getPendingApprovals(): PendingApproval[] {
+    const pending = new Map<string, PendingApproval>();
+    for (const event of this.feed.getEvents(this.case_id)) {
+      if (event.type === "approval_requested") {
+        const action = String(event.payload["action"] ?? "unknown");
+        pending.set(action, {
+          seq: event.seq,
+          case_id: this.case_id,
+          action,
+          route: String(event.payload["route"] ?? "unknown"),
+          reason: String(event.payload["reason"] ?? ""),
+          ts: event.ts,
+        });
+      } else if (event.type === "action_result") {
+        pending.delete(String(event.payload["action"] ?? "unknown"));
+      }
+    }
+    return [...pending.values()];
+  }
+
+  start(): void {
+    this.feed.start(this.case_id);
+  }
+
+  subscribe(send: Subscriber): () => void {
+    return this.feed.subscribe(this.case_id, send);
+  }
+
+  /** Approve/reject an L1/L2 action awaiting a human — feeds a synthetic `action_result` into the live stream. */
+  resolveApproval(action: string, decision: "approved" | "rejected"): PendingApproval | null {
+    const pending = this.getPendingApprovals().find((p) => p.action === action);
+    if (!pending) return null;
+    const events = this.feed.getEvents(this.case_id);
+    const lastState = events.at(-1)?.state ?? "APPROVAL_ROUTING";
+    this.feed.pushExternalEvent(this.case_id, {
+      ts: new Date().toISOString(),
+      type: "action_result",
+      state: lastState,
+      payload: {
+        action,
+        result: decision === "approved" ? "EXECUTED" : "DENIED",
+        synthetic: true,
+        decided_by: "ui_approval",
+      },
+    });
+    return pending;
   }
 }

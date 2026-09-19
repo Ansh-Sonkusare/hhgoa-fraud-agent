@@ -1,9 +1,12 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import { randomUUID } from "node:crypto";
+import type { Trigger } from "@hhgoa/contracts";
 import { CASE_PACK, findCasePackEntry, type CasePackEntry } from "./data/casePack.js";
 import { FixtureRunSource, type RunSource } from "./runSource.js";
-import { ReplaySessionRegistry } from "./replaySession.js";
+import { LiveRunSource } from "./liveRunSource.js";
+import { LiveSession, ReplaySession, SessionRegistry } from "./replaySession.js";
+import { env } from "./env.js";
 
 export interface BuildServerOptions {
   runSource?: RunSource;
@@ -15,14 +18,34 @@ interface AdhocTrigger {
   trigger: unknown;
 }
 
+function isObviousTrigger(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" && value !== null && typeof (value as { kind?: unknown }).kind === "string"
+  );
+}
+
 /**
  * Builds (but does not start listening on) the Fastify app. Exported so
  * `tests/ws6/*.test.ts` can exercise routes via `app.inject(...)` without
  * binding a real port, and so `src/index.ts` stays a thin entrypoint.
  */
 export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
-  const runSource = options.runSource ?? new FixtureRunSource();
-  const sessions = new ReplaySessionRegistry((caseId) => runSource.getRecording(caseId));
+  // RUN_SOURCE gating (env.ts): "fixture" (default) replays recorded
+  // fixtures; "live" runs the real WS4 agent through LiveRunSource as cases
+  // are opened. routes/ depend only on the RunSource seam, so switching the
+  // source changes nothing downstream.
+  const runSource =
+    options.runSource ??
+    (env.RUN_SOURCE === "live" ? new LiveRunSource() : new FixtureRunSource());
+  const liveFeed = runSource instanceof LiveRunSource ? runSource : null;
+  const sessions = new SessionRegistry((caseId) => {
+    if (liveFeed?.supports(caseId)) {
+      return new LiveSession(liveFeed, caseId);
+    }
+    const recording = runSource.getRecording(caseId);
+    if (!recording) return null;
+    return new ReplaySession(recording);
+  });
   const adhocTriggers = new Map<string, AdhocTrigger>();
 
   const app = Fastify({ logger: false });
@@ -37,7 +60,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     const fromPack = CASE_PACK.map((entry) => summarize(entry, "case_pack"));
     const fixtureIds = runSource
       .listKnownCaseIds()
-      .filter((id) => !findCasePackEntry(id)); // don't double-count if a fixture ever reuses a real case_id
+      // Don't double-count: pack ids already appear in fromPack, and ad-hoc
+      // triggers registered into the live source are listed via fromAdhoc.
+      .filter((id) => !findCasePackEntry(id) && !adhocTriggers.has(id));
     const fromFixtures = fixtureIds.map((id) => {
       const recording = runSource.getRecording(id);
       const trigger = recording?.events[0]?.payload["trigger"] as
@@ -55,24 +80,22 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       };
       return summarize(entry, "fixture_demo");
     });
-    const fromAdhoc = [...adhocTriggers.values()].map((t) => ({
-      case_id: t.case_id,
-      opened_at: t.created_at,
-      trigger_type: (t.trigger as { kind?: string })?.kind ?? "unknown",
-      trigger_text: "Ad-hoc trigger submitted via the UI's \"new trigger\" form.",
-      flagged_txn_id: "",
-      card_id: "",
-      customer_id: "",
-      risk_score: null,
-      source: "adhoc" as const,
-      has_recording: false,
-      status: "no_recording" as const,
-      verdict: null,
-      fraud_probability: null,
-    }));
+    const fromAdhoc = [...adhocTriggers.values()].map((t) => {
+      const entry: CasePackEntry = {
+        case_id: t.case_id,
+        opened_at: t.created_at,
+        trigger_type: ((t.trigger as { kind?: string })?.kind as CasePackEntry["trigger_type"]) ?? "risk_score",
+        flagged_txn_id: "",
+        card_id: "",
+        customer_id: "",
+        risk_score: null,
+        trigger_text: 'Ad-hoc trigger submitted via the UI\'s "new trigger" form.',
+      };
+      return summarize(entry, "adhoc");
+    });
     return { cases: [...fromPack, ...fromFixtures, ...fromAdhoc] };
 
-    function summarize(entry: CasePackEntry, source: "case_pack" | "fixture_demo") {
+    function summarize(entry: CasePackEntry, source: "case_pack" | "fixture_demo" | "adhoc") {
       const session = sessions.getOrCreate(entry.case_id);
       const answer = session?.getAnswer() ?? null;
       return {
@@ -92,15 +115,22 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: "body must be { trigger: {...} }" });
     }
     const case_id = `ADHOC-${randomUUID().slice(0, 8)}`;
+    const created_at = new Date().toISOString();
     adhocTriggers.set(case_id, {
       case_id,
-      created_at: new Date().toISOString(),
+      created_at,
       trigger: body.trigger,
     });
+    if (liveFeed && isObviousTrigger(body.trigger)) {
+      // User-supplied trigger; the machine reads it leniently. It must reach
+      // the union shape at run time — garbage re-surfaces as a run error.
+      liveFeed.registerAdhoc(case_id, body.trigger as unknown as Trigger, created_at);
+    }
     return reply.code(201).send({
       case_id,
-      note:
-        "Trigger recorded. No live agent is connected yet (WS4's agent/ isn't merged) — this case has no recorded run and /events will report that. Once a live agent lands, this same case_id becomes runnable without any API change (see runSource.ts).",
+      note: liveFeed
+        ? "Trigger recorded and registered as a live case. Open it to start a real agent run (RUN_SOURCE=live)."
+        : 'Trigger recorded. This case has no recorded run; /events will report that. To have the real agent investigate it, restart the API with RUN_SOURCE=live.',
     });
   });
 
@@ -109,13 +139,14 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     const packEntry = findCasePackEntry(caseId);
     const adhoc = adhocTriggers.get(caseId);
     const recording = runSource.getRecording(caseId);
-    if (!packEntry && !adhoc && !recording) {
+    if (!packEntry && !adhoc && !recording && !liveFeed?.supports(caseId)) {
       return reply.code(404).send({ error: `unknown case_id ${caseId}` });
     }
     const session = sessions.getOrCreate(caseId);
-    // Opening the case detail page is what "runs" a case in this fixture
-    // world — starting here (idempotent) means a client that never opens
-    // the SSE stream still sees the run progress on repeated GETs.
+    // Opening the case detail page is what "runs" a case: for fixtures it
+    // starts the paced replay, for a live source it launches the real agent.
+    // Starting here (idempotent) means a client that never opens the SSE
+    // stream still sees the run progress on repeated GETs.
     session?.start();
     return {
       case_id: caseId,
@@ -126,7 +157,8 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
         ? {
             status: session.getStatus(),
             emitted_event_count: session.getEmittedEvents().length,
-            total_event_count: recording?.events.length ?? null,
+            total_event_count:
+              recording?.events.length ?? (liveFeed ? session.getEmittedEvents().length : null),
             pending_approvals: session.getPendingApprovals(),
           }
         : null,
@@ -164,9 +196,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     if (!session) {
       reply.raw.write(
         `event: error\ndata: ${JSON.stringify({
-          message: `No recorded run for case ${caseId} yet. WS4's live agent isn't merged; only fixture-recorded cases (${runSource
+          message: `No session for case ${caseId} yet. Cases the current run source can investigate: ${runSource
             .listKnownCaseIds()
-            .join(", ")}) can be replayed today.`,
+            .join(", ")}. (Restart the API with RUN_SOURCE=live for real agent runs.)`,
         })}\n\n`,
       );
       reply.raw.end();

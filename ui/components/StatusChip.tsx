@@ -16,6 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
   idle: "bg-slate-100 text-slate-600 border-slate-200",
   running: "bg-blue-100 text-blue-800 border-blue-200",
   done: "bg-slate-100 text-slate-700 border-slate-300",
+  error: "bg-red-100 text-red-800 border-red-200",
 };
 
 function Chip({ label, className }: { label: string; className: string }) {

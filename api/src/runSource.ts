@@ -11,18 +11,14 @@ export interface RunRecording {
 }
 
 /**
- * Source of investigation runs. `FixtureRunSource` below is the only
- * implementation today, replaying `fixtures/*.json`. WS4's real agent isn't
- * merged yet (PRD §16 WS6 depends only on WS0's fixtures/AgentEvent).
+ * Source of investigation runs. `FixtureRunSource` below replays
+ * `fixtures/*.json`; `LiveRunSource` (liveRunSource.ts) runs the same seam
+ * against the real WS4 agent (PRD §16 WS6).
  *
- * The seam for plugging in a live agent later: implement this same
- * interface backed by `agent/machine.ts` (e.g. run the state machine,
- * collect/forward each `AgentEvent` as it's emitted instead of reading a
- * static array, and resolve `answer` once the run reaches DONE). Nothing
- * in `routes/` or `replaySession.ts` needs to change — they only depend on
- * `RunSource`, never on "fixture" specifically. Swap the instance
- * constructed in `server.ts` (gated by `TOOLS_BACKEND`/an equivalent
- * `RUN_SOURCE` env var) and everything downstream keeps working.
+ * The seam is what lets routes/ and replaySession.ts stay fixture-agnostic:
+ * swap the instance constructed in `server.ts` (gated by `RUN_SOURCE` in
+ * env.ts, or passed as `buildServer({ runSource })`) and everything
+ * downstream keeps working.
  */
 export interface RunSource {
   /** Case ids this source has (or can produce) a full recorded run for. */

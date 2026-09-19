@@ -29,7 +29,7 @@ export interface CaseListItem {
   risk_score: number | null;
   source: "case_pack" | "fixture_demo" | "adhoc";
   has_recording: boolean;
-  status: "idle" | "running" | "done" | "no_recording";
+  status: "idle" | "running" | "done" | "error" | "no_recording";
   verdict: AnswerFileT["case"]["verdict"] | null;
   fraud_probability: number | null;
 }
@@ -59,7 +59,7 @@ export interface CaseDetail {
   adhoc_trigger: unknown;
   has_recording: boolean;
   session: {
-    status: "idle" | "running" | "done";
+    status: "idle" | "running" | "done" | "error";
     emitted_event_count: number;
     total_event_count: number | null;
     pending_approvals: PendingApproval[];

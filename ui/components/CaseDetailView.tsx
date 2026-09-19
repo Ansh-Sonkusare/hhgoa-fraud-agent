@@ -51,7 +51,14 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
           // StrictMode may mount this effect twice in dev.
           prev.some((e) => e.seq === event.seq) ? prev : [...prev, event],
         ),
-      () => setStreamDone(true),
+      () => {
+        setStreamDone(true);
+        // Re-fetch detail now that the run is done: the AnswerFile (verdict,
+        // SAR, final recommendations) only exists server-side once the run
+        // completes, and the initial fetch in loadDetail predates it. Without
+        // this the answer panels stay empty until a manual reload.
+        loadDetail(caseId);
+      },
       (message) => setStreamError(message),
     );
     return unsubscribe;
@@ -84,7 +91,10 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     for (let i = events.length - 1; i >= 0; i--) {
       const event = events[i]!;
       if (event.type === "explanation") {
-        return event.payload as unknown as ExplanationPayload;
+        // The live machine nests the graph as payload.explanation; the WS0
+        // fixture recordings store a flat payload. Accept both.
+        const nested = event.payload["explanation"] as ExplanationPayload | undefined;
+        return nested ?? (event.payload as unknown as ExplanationPayload);
       }
     }
     return null;
@@ -115,13 +125,18 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
 
       {streamDone ? (
         <p className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-          Investigation replay complete.
+          Investigation complete.
+        </p>
+      ) : null}
+      {detail?.session?.status === "error" ? (
+        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          This run failed (the agent errored mid-investigation). Reopening the case retries it.
         </p>
       ) : null}
       {detail?.has_recording === false ? (
         <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          No recorded run for this case yet — WS4's live agent isn't merged, so it can&apos;t be
-          replayed. A live agent run will stream in on this same page with no API change.
+          No run is available for this case yet — there's no recorded fixture and the current run
+          source can't investigate it.
         </p>
       ) : null}
       {detailError ? <ErrorState message={detailError} /> : null}
