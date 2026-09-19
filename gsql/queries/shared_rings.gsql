@@ -37,7 +37,8 @@ CREATE QUERY shared_rings(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud 
            WHERE e.first_ts <= as_of
            ACCUM @@email_rings += (x.id -> oc.id);
 
-  PRINT @@device_rings AS device_rings;
-  PRINT @@address_rings AS address_rings;
-  PRINT @@email_rings AS email_rings;
+  // A single PRINT statement, not three -- multiple PRINT statements each
+  // become a SEPARATE object in the REST response's `results` array
+  // instead of merging into one object (verified empirically).
+  PRINT @@device_rings AS device_rings, @@address_rings AS address_rings, @@email_rings AS email_rings;
 }

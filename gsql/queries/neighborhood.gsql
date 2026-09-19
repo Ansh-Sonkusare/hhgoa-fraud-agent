@@ -66,6 +66,11 @@ CREATE QUERY neighborhood(STRING entity_id, INT hops, DATETIME as_of) FOR GRAPH 
     END;
   END;
 
-  PRINT @@nodes AS nodes;
-  PRINT @@edges AS edges;
+  // A single PRINT statement, not two -- multiple PRINT statements each
+  // become a SEPARATE object in the REST response's `results` array
+  // instead of merging into one object (verified empirically). "type" is
+  // also a reserved word like "count" (rejected even as a TUPLE field
+  // name), hence vtype/vid and etype/efrom/eto above instead of the
+  // contract's type/id/from/to spelling.
+  PRINT @@nodes AS nodes, @@edges AS edges;
 }

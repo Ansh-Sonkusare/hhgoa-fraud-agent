@@ -31,6 +31,13 @@ CREATE QUERY shortest_path(STRING from_card_id, STRING to_card_id, INT max_hops,
   Frontier = SELECT c FROM Cards:c WHERE c.id == from_card_id
              POST-ACCUM c.@visited += TRUE;
 
+  // A card is trivially 0 hops from itself -- check the seed against the
+  // target before the BFS loop, which only checks the frontier AFTER each
+  // expansion and would otherwise never test hop 0.
+  IF from_card_id == to_card_id THEN
+    @@found_at_hop = 0;
+  END;
+
   SumAccum<INT> @@hop;
   @@hop = 0;
   WHILE Frontier.size() > 0 AND @@hop < max_hops AND @@found_at_hop == -1 DO

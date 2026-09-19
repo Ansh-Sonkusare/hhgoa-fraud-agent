@@ -1,0 +1,63 @@
+// gsql/scripts/_identity_validation.gsql -- one-off analysis query for
+// docs/IDENTITY_VALIDATION.md. Not part of install.ts's regular pipeline
+// (ad hoc; run once, results transcribed into the doc). Measures how well
+// the Identity vertex (hash of card1/addr1/est_first_day, built by WS1's
+// loading job) matches the real Card.customer_id ground truth:
+//   purity      = for each Identity, the fraction of its member cards that
+//                 share the identity's single most common customer_id,
+//                 averaged weighted by cluster size (card-weighted mean).
+//   split_rate  = fraction of customers whose cards resolve to more than
+//                 one distinct Identity (the heuristic failed to merge
+//                 them).
+CREATE QUERY identity_validation() FOR GRAPH hhgoa_fraud {
+  MapAccum<STRING, MapAccum<STRING, SumAccum<INT>>> @@identityCustomerCounts; // identity_id -> customer_id -> n cards
+  MapAccum<STRING, SetAccum<STRING>> @@customerIdentities; // customer_id -> set of identity_ids
+  SumAccum<INT> @@totalCards;
+  SumAccum<INT> @@weightedPuritySum; // sum of (majority_count) per identity, /totalCards = card-weighted purity
+  SumAccum<INT> @@identityCount;
+  SumAccum<INT> @@multiCustomerIdentityCount; // identities spanning >1 customer
+
+  AllCards = {Card.*};
+  Pairs = SELECT i FROM AllCards:c-(RESOLVES_TO)-:i
+          ACCUM
+            @@identityCustomerCounts += (i.id -> (c.customer_id -> 1)),
+            @@customerIdentities += (c.customer_id -> i.id),
+            @@totalCards += 1;
+
+  FOREACH (identityId, custCounts) IN @@identityCustomerCounts DO
+    INT majority;
+    INT total;
+    INT distinctCustomers;
+    majority = 0;
+    total = 0;
+    distinctCustomers = 0;
+    FOREACH (custId, n) IN custCounts DO
+      total = total + n;
+      distinctCustomers = distinctCustomers + 1;
+      IF n > majority THEN
+        majority = n;
+      END;
+    END;
+    @@weightedPuritySum += majority;
+    @@identityCount += 1;
+    IF distinctCustomers > 1 THEN
+      @@multiCustomerIdentityCount += 1;
+    END;
+  END;
+
+  SumAccum<INT> @@customerCount;
+  SumAccum<INT> @@splitCustomerCount;
+  FOREACH (custId, idSet) IN @@customerIdentities DO
+    @@customerCount += 1;
+    IF idSet.size() > 1 THEN
+      @@splitCustomerCount += 1;
+    END;
+  END;
+
+  PRINT @@totalCards AS total_cards_resolved,
+        @@identityCount AS identity_count,
+        @@weightedPuritySum AS weighted_purity_sum,
+        @@multiCustomerIdentityCount AS identities_spanning_multiple_customers,
+        @@customerCount AS customer_count,
+        @@splitCustomerCount AS customers_split_across_identities;
+}

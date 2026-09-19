@@ -33,8 +33,11 @@ CREATE QUERY txn_history(STRING entity_type, STRING entity_id, DATETIME as_of, I
                   @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score);
   END;
 
-  PRINT @@rows AS rows;
+  // A single PRINT statement, not several -- multiple PRINT statements in
+  // one query each become a SEPARATE object in the REST response's
+  // `results` array instead of merging into one object (verified
+  // empirically), which callers reading a single result row would miss.
   // "count" is a reserved word in this GSQL grammar and cannot be used as a
   // PRINT alias (even quoted) -- aliased as txn_count instead.
-  PRINT @@count AS txn_count, @@total_amount_usd AS total_amount_usd, window_hours AS window_hours;
+  PRINT @@rows AS rows, @@count AS txn_count, @@total_amount_usd AS total_amount_usd, window_hours AS window_hours;
 }

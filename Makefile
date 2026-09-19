@@ -1,4 +1,4 @@
-.PHONY: test lint verify-graph run-case run-all validate-answers test-contracts
+.PHONY: test lint verify-graph verify-gsql run-case run-all validate-answers test-contracts
 
 test:
 	pnpm turbo run test
@@ -12,6 +12,9 @@ lint:
 verify-graph:
 	pnpm --filter @hhgoa/graph verify
 	pnpm --filter @hhgoa/graph mcp:smoke
+
+verify-gsql:
+	pnpm --filter @hhgoa/gsql verify
 
 run-case:
 	@echo "run-case: not implemented yet — owned by WS4/WS7 (agent/, eval/). CASE=$(CASE)"
