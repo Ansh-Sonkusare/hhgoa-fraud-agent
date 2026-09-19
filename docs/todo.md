@@ -24,23 +24,27 @@ Living task list. Check items off in place; don't delete history — move comple
 - [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
 - [ ] Flag to human before WS1 locks in MCP approach: official `tigergraph-mcp` server needs Python 3.10-3.12, conflicts with repo's "no Python" rule (see `docs/decisions.md`).
 
-## Now (STEP 2 — WS1-WS6 merged, remaining workstreams)
+## Now (STEP 2 review — what's actually merged vs PRD §16 DoD)
 
-The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 `agent/`+`policy/`, WS6 `api/`+`ui/`) were reviewed against PRD §16 and merged into `main`. `make test` is green (9/9 tasks: contracts 83, agent 71, policy 54, api 20, rag 95), typecheck clean across TS packages, and `make verify-graph` passes against the running CE container. This merge included: restoring `api/src/data/casePack.ts` (`82fe080`, it was swallowed by the broad `data/` gitignore rule) and reconciling the ws3 test suite to the contract-correct rag API (`7334b93`).
+The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 `agent/`+`policy/`, WS6 `api/`+`ui/`) were reviewed against PRD §16 and merged into `main`. `make test` is green (9/9 tasks: contracts 83, agent 71, policy 54, api 20, rag 95), typecheck clean across TS packages. **But a PRD recheck (2026-09-19) shows most DoD rows are only "merged & green on fakes/fixtures" — the real-tools wiring is largely NOT done.** Per-workstream reality:
 
-- [x] WS1 (graph/) merged — schema + queries + `make verify-graph` wiring, fast-forwarded into `main`.
-- [x] WS3 (rag/) merged — `cb50f0e`, merged via `9ffa53f` (pnpm-lock resolved with `--theirs` + `pnpm install --lockfile-only`).
-- [x] WS4+WS5 (agent/ + policy/) merged — `fab1533`, merged via `be642c6`, tests 71+54 green.
-- [x] WS6 (api/ + ui/) merged — `d53947b`, merged via `881c889`, api tests 20 green (`casePack.ts` restored after the gitignore swallow).
-- [x] One full `pnpm install` after the merges (needed to create `@hhgoa/*` workspace symlinks).
-- [x] WS3 rag suite reconciled (`7334b93`) — 95/95 green (was 12 failing / 21 TS errors from test drift vs the contract-correct implementation).
-- [x] `make test` 9/9 tasks green; `make lint`+`typecheck` clean; `make verify-graph` passes.
-- [ ] WS2 (gsql/) — PRD's recommended grouping runs it after WS1 in the same track, and it needs WS1's `schema.gsql`. **WS1's schema is now merged; WS2 is the unblocked next workstream.** It owns `gsql/`, which is outside the already-merged workstreams' boundaries.
-- [ ] WS7 (eval/) — once WS4 emits real events.
-- [ ] WS8 (submission/) — continuous per PRD §17.
-- [ ] TigerGraph MCP: the Python-exception decision and WS1's container-based `tigergraph-mcp` setup are done; confirm the running MCP server + TS-side client (`@modelcontextprotocol/sdk`) together end to end.
+- [x] WS0 (contracts/) — 83 tests green, fakes return valid envelopes, answer schema reconciled with README.
+- [x] WS1 (graph/) — schema.gsql, loading jobs, 3 sample queries (`sample_txn_explain`/`sample_card_velocity`/`sample_link_analysis`) + `graph_stats` installed in the CE container; `make verify-graph` passes; MCP server running and `mcp:smoke` (3 queries via MCP) works.
+- [ ] **WS1 repro gap: `graph/mcp-server/` (tigergraph-mcp Python venv + its `.env`) is NOT tracked in main — it only exists in the leftover WS1 worktree under `.claude/` (gitignored).** `pnpm mcp:start` from a clean main clone would fail. Restore the setup (venv build script + `.env` wiring documented in `docs/MCP_TOOLS.md`, or a setup script) before D1 (clean-clone run).
+- [ ] **WS1 DoD "counts match README" not yet proven on the full dataset** — verify ran against the smoke build (`--max-transactions 2500`). Full load (~590k txns / 13.5k customers / 5,565 closed cases) + full-dataset verify not yet run.
+- [ ] **WS2 (gsql/) NOT STARTED** — `gsql/` is only a `package.json` stub. The 8+ installed queries (neighborhood/velocity/rings/baseline/txn-history/prior-cases/pattern-detectors/community), 5 detectors, WCC/Louvain, discovery report, and `docs/IDENTITY_VALIDATION.md` are all missing. **This is the single biggest gap:** R2 (§4), the `gsql/` column of `docs/MCP_TOOLS.md`, the agent's real graph tools, and RAG's graph-expansion half all depend on it.
+- [x] WS3 (rag/) — 95 tests green; ingestPolicy/ingestCases read real `data/*.csv`; retrieve/contextBuilder (bundle ≤6k tokens)/memory implemented.
+- [ ] **WS3 DoD "memory write visible in graph" NOT met** — `rag/src/store/vectorStore.ts` is a local adapter; graph-native vectorSearch expansion + write-back are blocked on WS1 vector queries / WS2 (open WS3→WS1 REQUESTS.md item, `Resolved:` blank).
+- [x] WS4 (agent/) — state machine, MCP client wrapper, tool registry, assessor + confidence guard, VOI planner, explainer, prompts — 71 tests green against fakes.
+- [ ] **WS4 DoD "real-tools switch works" NOT met** — `agent/src/agentFactory.ts` `TOOLS_BACKEND=real` throws ("WS1/WS3 services not up yet"). Default run = MockLlmClient + contracts fakes (deterministic "clear fraud" pass on examples data).
+- [x] WS5 (policy/) — policy.yaml, engine, responders, approval channels (UI/Discord), mock actions, SAR — §10.5 tests green (54).
+- [x] WS6 (api/ + ui/) — Fastify + SSE + full Next.js UI (case queue, case detail panels, approvals inbox — see `ui/screenshots/*.png`) — 20 api tests green.
+- [ ] **WS6 DoD "runs from a real run" NOT met** — `api/src/runSource.ts` is `FixtureRunSource` only (replays `fixtures/*.json`); the live agent is not plugged into `RunSource` (straightforward seam: same interface, drive `agent/machine.ts`, gated by env). The 20 `case_pack` entries have no recordings today: their case pages open but show no timeline/evidence. Ad-hoc triggers return "no live agent connected."
+- [ ] WS7 (eval/) NOT STARTED — `eval/` is a `package.json` stub; `cases/` doesn't exist; `Makefile` `run-case`/`run-all`/`validate-answers` are stubs. D3 (`make validate-answers` green) unmet.
+- [ ] WS8 (submission/) NOT STARTED — `submission/` doesn't exist (demo script, blog, social draft).
+- [ ] Real-time vs static: **PRD §2 lists "real-time streaming" as an explicit NON-GOAL.** Data is the static IEEE-CIS-derived `data/*.csv`. The SSE stream is agent-event streaming of a (fixture/replay) run, NOT live transaction data. Nothing to implement.
+- [ ] Ollama: still not running (deferred to WS4); `LLM_BACKEND=ollama` path in `llm.ts` is untested end-to-end.
 - [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
-- [ ] Ollama: add service to `docker-compose.yml`, pull a small free model, set `OLLAMA_MODEL` — was deferred to WS4; still not running.
 
 ## Standing reminders (don't re-litigate)
 
