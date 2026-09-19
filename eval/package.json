@@ -2,9 +2,22 @@
   "name": "@hhgoa/eval",
   "private": true,
   "version": "0.1.0",
-  "description": "WS7: eval and export (backtest.ts, runBenchmark.ts, exportAnswers.ts, validateAnswers.ts, metrics.ts). Not yet implemented.",
+  "description": "WS7: eval and export (backtest.ts, runBenchmark.ts, exportAnswers.ts, validateAnswers.ts, metrics.ts).",
   "type": "module",
   "scripts": {
-    "test": "echo 'eval: no tests yet (WS7)' && exit 0"
+    "run-benchmark": "tsx src/runBenchmark.ts",
+    "run-case": "tsx src/runBenchmark.ts --case-only",
+    "validate-answers": "tsx src/validate.ts",
+    "backtest": "tsx src/backtest.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hhgoa/agent": "workspace:*",
+    "@hhgoa/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }

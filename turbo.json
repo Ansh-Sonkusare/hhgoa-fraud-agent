@@ -7,6 +7,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
+      "cache": false,
       "outputs": []
     },
     "lint": {
@@ -15,6 +16,15 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "dependsOn": ["build", "^build"],
+      "cache": false,
+      "persistent": true
     }
   }
 }

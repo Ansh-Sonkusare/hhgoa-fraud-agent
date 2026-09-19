@@ -9,7 +9,20 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "test:contracts": "turbo run test --filter=@hhgoa/contracts",
-    "lint": "turbo run lint"
+    "test:ws6": "pnpm --filter @hhgoa/api test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "dev": "turbo run dev --parallel",
+    "dev:api": "pnpm --filter @hhgoa/api dev",
+    "dev:ui": "pnpm --filter @hhgoa/ui dev",
+    "start": "turbo run start --parallel",
+    "verify-graph": "pnpm --filter @hhgoa/graph verify && pnpm --filter @hhgoa/graph mcp:smoke",
+    "verify-gsql": "pnpm --filter @hhgoa/gsql verify",
+    "mcp:up": "docker compose up -d --build tigergraph mcp-server",
+    "mcp:down": "docker compose stop tigergraph mcp-server",
+    "run-case": "make run-case",
+    "run-all": "make run-all",
+    "validate-answers": "make validate-answers"
   },
   "devDependencies": {
     "@types/node": "^26.6.1",
