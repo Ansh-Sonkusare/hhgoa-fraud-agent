@@ -48,7 +48,7 @@ The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 
 
 ## Standing reminders (don't re-litigate)
 
-- OpenCode delegation is paused — Claude Code implements directly until reintroduced (see `docs/decisions.md`).
+- OpenCode is now the active implementation agent for this project (this session runs in OpenCode / `big-pickle`). The "delegation paused → Claude Code implements directly" stance from the 2026-09-18 decision is superseded — update `CLAUDE.md`/`docs/decisions.md` if you re-adopt that stance later.
 - `contracts/` is frozen after `m0` — changes after that need explicit human OK.
 - Never commit `data/` or any `*.csv`.
 - Every graph/RAG/memory tool must carry `as_of` (PRD §8.1) — already enforced in `contracts/src/tools.ts` signatures; keep it that way in real implementations.
