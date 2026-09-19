@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeRetrieveSimilarCases, scoreSimilarCases, coerceFingerprint } from "../../rag/src/retrieve.js";
+import { explainOverlap } from "../../rag/src/fingerprint.js";
 import { AnyToolResultSchema } from "../../contracts/src/toolEnvelope.js";
 import type { VectorStore } from "../../rag/src/store/vectorStore.js";
 import type { CaseMemoryRecord } from "../../rag/src/types.js";
@@ -69,22 +70,24 @@ describe("scoreSimilarCases", () => {
     };
     const scored = await scoreSimilarCases(store, bowEmbedFn, fp, "2016-09-01 00:00:00");
     // CC-0200 (same pattern+entity, word overlap) ranks above the
-    // later-visible out-of-region case and the unrelated one.
-    expect(scored[0]!.case_id).toBe("CC-0200");
-    expect(scored[0]!.overlap_reason).toContain("same pattern");
+    // later-visible out-of-region case and the unrelated one. The raw
+    // scorer returns {record, score}; the overlap explanation is produced
+    // by explainOverlap (which is what the contract tool surfaces).
+    expect(scored[0]!.record.case_id).toBe("CC-0200");
+    expect(explainOverlap(fp, scored[0]!.record.fingerprint)).toContain("same pattern");
   });
 
   it("never returns unresolved or future records as precedent", async () => {
     const store = seedFutureAndOpenCases();
-    const scored = await scoreSimilarCases(store, bowEmbedFn, P("card_not_present_fraud"), "2016-07-01 00:00:00");
-    const ids = scored.map((s) => s.case_id);
+    const scored = await scoreSimilarCases(store, bowEmbedFn, { ...P("card_not_present_fraud") }, "2016-07-01 00:00:00");
+    const ids = scored.map((s) => s.record.case_id);
     expect(ids).not.toContain("CC-FUTURE"); // visible_from after as_of
     expect(ids).not.toContain("CC-OPEN"); // outcome unresolved
   });
 
   it("returns an empty list with a match-window explanation when nothing qualifies", async () => {
     const store = seedFutureAndOpenCases();
-    const scored = await scoreSimilarCases(store, bowEmbedFn, P("card_testing"), "2016-07-01 00:00:00");
+    const scored = await scoreSimilarCases(store, bowEmbedFn, { ...P("card_testing") }, "2016-07-01 00:00:00");
     expect(scored.length).toBe(0);
   });
 });

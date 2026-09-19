@@ -97,7 +97,7 @@ export function makeCaseMemoryRecord(
     summary_text: string;
   },
 ): CaseMemoryRecord {
-  const base: CaseMemoryRecord = {
+  const base: Omit<CaseMemoryRecord, "case_id" | "visible_from" | "summary_text"> = {
     source: "closed_case_history",
     customer_id: "C0TEST",
     card_id: "C0TEST-K1",
@@ -107,8 +107,6 @@ export function makeCaseMemoryRecord(
     exposure_usd: 200,
     opened_at: "2016-07-02 07:17:26",
     closed_at: overrides.visible_from,
-    visible_from: overrides.visible_from,
-    summary_text: overrides.summary_text,
     analyst_notes: overrides.summary_text,
     fingerprint: {
       pattern: "card_not_present_fraud",
@@ -122,9 +120,8 @@ export function makeCaseMemoryRecord(
       outcome: "confirmed_fraud",
     },
     embedding: fakeEmbedVec(overrides.summary_text),
-    ...overrides,
   };
-  return base;
+  return { ...base, ...overrides };
 }
 
 export function testFingerprint(overrides: Record<string, unknown> = {}): Record<string, unknown> {

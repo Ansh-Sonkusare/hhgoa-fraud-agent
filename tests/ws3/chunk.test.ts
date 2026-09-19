@@ -22,15 +22,22 @@ describe("chunkMarkdown", () => {
   });
 
   it("keeps chunk sizes within the ~300-500 token target", () => {
-    const md = Array.from({ length: 40 }, (_, i) => `### Section ${i}`).join("\n\n") +
-      "\n\n" +
-      "word ".repeat(2000);
+    // A section whose body is many small paragraphs must be packed into
+    // ~300-500 token chunks (PRD §11 target). Each paragraph below is well
+    // under the target, so the *stack* is what gets split at the target.
+    const paras = Array.from({ length: 30 }, (_, i) => `Paragraph ${i}: ` + "word ".repeat(20));
+    const md = `### Section big\n\n${paras.join("\n\n")}`;
     const chunks = chunkMarkdown(md);
-    // The giant paragraph block gets paragraph-packed; each output chunk
-    // may still exceed MAX_TOKENS when a single paragraph alone does, but
-    // stacked small paragraphs must be split at the target.
-    const smallSections = chunks.filter((c) => c.heading_path.startsWith("Section "));
-    expect(smallSections.every((c) => approxTokenCount(c.text) <= 500)).toBe(true);
+    const packed = chunks.filter((c) => c.heading_path.startsWith("Section big"));
+    expect(packed.length).toBeGreaterThan(1);
+    for (const c of packed) {
+      expect(approxTokenCount(c.text)).toBeLessThanOrEqual(500);
+    }
+    // A single paragraph larger than the target is left intact (can't split
+    // a sentence-body), but the stacked case above must be split.
+    const hugemd = "### Section huge\n\n" + "word ".repeat(2000);
+    const huge = chunkMarkdown(hugemd);
+    expect(huge.length).toBe(1);
   });
 
   it("aggregates small adjacent sections into distinct chunk ids", () => {

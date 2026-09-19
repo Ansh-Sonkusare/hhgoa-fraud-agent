@@ -43,7 +43,9 @@ function seededStore(): VectorStore<PolicyChunkRecord> {
       text: "Financial institutions may detect account takeover through monitoring irregularities including unusual ATM activity.",
     }),
   ];
-  for (const c of chunks) store.upsert(c.chunk_id, c.embedding, c);
+  // BOW-embed the seeded chunks so the store's cosine ranking is a true
+  // word-overlap measure against the bowEmbedFn used for queries below.
+  for (const c of chunks) store.upsert(c.chunk_id, bowEmbedVec(c.text), c);
   return store;
 }
 
@@ -53,14 +55,16 @@ describe("scorePolicyChunks (vector top-k seeds)", () => {
     const scored = await scorePolicyChunks(store, bowEmbedFn, "card testing online authorization", undefined, 3);
     expect(scored.length).toBe(3);
     // The card_testing pattern chunk + R5 rule chunk share the query's words.
-    const ids = scored.map((s) => s.id);
-    expect(ids).toContain("pc_0001");
-    expect(ids[0]!.score).toBeGreaterThanOrEqual(ids[1]!.score);
+    expect(scored.map((s) => s.id)).toContain("pc_0001");
+    expect(scored[0]!.score).toBeGreaterThanOrEqual(scored[1]!.score);
   });
 
   it("applies a pattern_id pre-filter", async () => {
     const store = seededStore();
-    const scored = await scorePolicyChunks(store, bowEmbedFn, "card testing", "card_testing", 10);
+    // k=2 (enough matches exist: pc_0001 + the R5 rule chunk) so the
+    // unfiltered backfill (which kicks in below min(k, 3) matches) does
+    // not pollute the result set with non-matching chunks.
+    const scored = await scorePolicyChunks(store, bowEmbedFn, "card testing", "card_testing", 2);
     const recordOf = (id: string) => store.get(id)!;
     for (const s of scored) {
       const rec = recordOf(s.id);
@@ -111,7 +115,7 @@ describe("retrieve_policy (hybrid: seeds + graph expansion)", () => {
   it("expands via a rule chunk's R-number even without an explicit pattern filter", async () => {
     const store = seededStore();
     // Query for the R5 rule text; no pattern_id passed.
-    const result = await makeRetrievePolicy(store, bowEmbedFn, "small online authorizations within an hour followed by larger purchase", undefined, 2);
+    const result = await makeRetrievePolicy(store, bowEmbedFn)("small online authorizations within an hour followed by larger purchase", undefined, 2);
     // The R5 chunk must be among the seeds; its heading tags R5, which
     // card_testing cites, so the expansion must reach card_testing.
     const ids = result.data.chunks.map((c) => c.chunk_id);
@@ -126,7 +130,7 @@ describe("retrieve_policy (hybrid: seeds + graph expansion)", () => {
     const store = seededStore();
     // Query mixing card-testing and out-of-region words; both patterns'
     // rule chunks can be seed chunks, so both patterns' actions appear.
-    const result = await makeRetrievePolicy(store, bowEmbedFn, "card testing billing region purchase", undefined, 4);
+    const result = await makeRetrievePolicy(store, bowEmbedFn)("card testing billing region purchase", undefined, 4);
     expect(result.data.permitted_actions).toEqual(
       expect.arrayContaining(["DECLINE_TRANSACTION", "STEP_UP_AUTH"]),
     );
@@ -134,7 +138,7 @@ describe("retrieve_policy (hybrid: seeds + graph expansion)", () => {
 
   it("envelope marks truncated when more candidates than k exist", async () => {
     const store = seededStore();
-    const result = await makeRetrievePolicy(store, bowEmbedFn, "card testing purchase authorization", undefined, 1);
+    const result = await makeRetrievePolicy(store, bowEmbedFn)("card testing purchase authorization", undefined, 1);
     expect(result.data.chunks.length).toBe(1);
     expect(result.truncated).toBe(true);
   });

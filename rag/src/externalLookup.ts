@@ -36,7 +36,10 @@ const DISPOSABLE_MARKERS = [
 ];
 
 function classifyEmailDomain(value: string): Record<string, unknown> {
-  const d = value.trim().toLowerCase();
+  const raw = value.trim().toLowerCase();
+  // Accept both a bare domain ("gmail.com") and a full address
+  // ("carol@gmail.com") — the agent may pass either for kind email_domain.
+  const d = raw.includes("@") ? (raw.split("@").pop() ?? raw) : raw;
   const isDisposable = DISPOSABLE_MARKERS.some((m) => d.includes(m));
   const isFreeWebmail = FREE_WEBMAIL_DOMAINS.has(d);
   return {

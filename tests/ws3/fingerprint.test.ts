@@ -98,8 +98,8 @@ describe("entityOverlapScore", () => {
   });
 
   it("scores same pattern and amount band", () => {
-    const a = fp({ pattern: "card_testing" });
-    const b = fp({ pattern: "card_testing" });
+    const a = fp({ pattern: "card_testing" }, "A1", "A1-K1");
+    const b = fp({ pattern: "card_testing" }, "B2", "B2-K1");
     expect(entityOverlapScore(a, b)).toBe(0.2); // 0.15 pattern + 0.05 band
   });
 

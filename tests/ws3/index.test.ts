@@ -4,23 +4,14 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRagRuntime } from "../../rag/src/index.js";
 import { AnyToolResultSchema } from "../../contracts/src/toolEnvelope.js";
-import type { CaseMemoryRecord, PolicyChunkRecord } from "../../rag/src/types.js";
-import type { VectorStore } from "../../rag/src/store/vectorStore.js";
 import {
   bowEmbedFn,
+  bowEmbedVec,
   fakeEmbedFn,
+  fakeEmbedVec,
   makeCaseMemoryRecord,
   makePolicyChunk,
 } from "./helpers.js";
-
-/** Seed a runtime's stores directly (bypasses the full 676MB transaction
- * join kept for `make ingest`) so runtime wiring tests are fast. */
-function seedStores(policyStore: VectorStore<PolicyChunkRecord>, caseStore: VectorStore<CaseMemoryRecord>): void {
-  policyStore.upsert(
-    "pc_0001",
-    bowEmbedFn(["card testing"]).then!._v ? [] : [],
-  );
-}
 
 describe("createRagRuntime wiring", () => {
   it("exposes stores, seeds, and serves the two retrieve tools with contract shapes", async () => {
@@ -31,7 +22,7 @@ describe("createRagRuntime wiring", () => {
       // Seed stores directly (fast path; full ingest is tested below).
       runtime.policyStore.upsert(
         "pc_0001",
-        bowEmbedVec2("card testing"),
+        bowEmbedVec("card testing"),
         makePolicyChunk({
           chunk_id: "pc_0001",
           pattern_id: "card_testing",
@@ -41,7 +32,7 @@ describe("createRagRuntime wiring", () => {
       );
       runtime.caseStore.upsert(
         "CC-0100",
-        bowEmbedVec2("tiny authorizations then larger purchase"),
+        bowEmbedVec("tiny authorizations then larger purchase"),
         makeCaseMemoryRecord({
           case_id: "CC-0100",
           customer_id: "C001",
@@ -79,7 +70,7 @@ describe("createRagRuntime buildAgentBundle (one-shot R4 path)", () => {
       const runtime = createRagRuntime({ dataDir, embedFn: bowEmbedFn });
       runtime.policyStore.upsert(
         "pc_0001",
-        bowEmbedVec2("card testing"),
+        bowEmbedVec("card testing"),
         makePolicyChunk({
           chunk_id: "pc_0001",
           pattern_id: "card_testing",
@@ -88,7 +79,7 @@ describe("createRagRuntime buildAgentBundle (one-shot R4 path)", () => {
       );
       runtime.caseStore.upsert(
         "CC-0100",
-        bowEmbedVec2("tiny authorizations then larger purchase"),
+        bowEmbedVec("tiny authorizations then larger purchase"),
         makeCaseMemoryRecord({
           case_id: "CC-0100",
           visible_from: "2016-07-02 00:00:00",
@@ -171,11 +162,11 @@ describe("createRagRuntime ensureIngested", () => {
     try {
       // First runtime seeds a tiny corpus and persists it.
       const first = createRagRuntime({ dataDir, embedFn: fakeEmbedFn });
-      first.policyStore.upsert("pc_x", fakeEmbedVec2("policy"), makePolicyChunk({
+      first.policyStore.upsert("pc_x", fakeEmbedVec("policy"), makePolicyChunk({
         chunk_id: "pc_x",
         text: "policy chunk text",
       }));
-      first.caseStore.upsert("CC-X", fakeEmbedVec2("case"), makeCaseMemoryRecord({
+      first.caseStore.upsert("CC-X", fakeEmbedVec("case"), makeCaseMemoryRecord({
         case_id: "CC-X",
         visible_from: "2016-07-02 00:00:00",
         summary_text: "a case narrative",
@@ -196,27 +187,3 @@ describe("createRagRuntime ensureIngested", () => {
     }
   });
 });
-
-/** Deterministic unit vectors (helpers' bow_bucket form) kept local so
- * this file doesn't depend on helpers' FAKE_DIM choices. */
-function bowEmbedVec2(text: string): number[] {
-  const v = new Array(16).fill(0);
-  for (const w of text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean)) {
-    let h = 0;
-    for (let i = 0; i < w.length; i++) h = (h * 31 + w.charCodeAt(i)) >>> 0;
-    v[h % 16] = (v[h % 16] ?? 0) + 1;
-  }
-  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
-  return v.map((x) => (norm > 0 ? x / norm : 0));
-}
-function fakeEmbedVec2(text: string): number[] {
-  const v = new Array(16).fill(0);
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  for (let i = 0; i < 16; i++) v[i] = Math.sin(h * (i + 1) + i) * 0.5 + 0.25;
-  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
-  return v.map((x) => x / norm);
-}
