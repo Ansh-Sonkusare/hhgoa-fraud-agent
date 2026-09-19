@@ -9,7 +9,7 @@ TigerGraph Hacker House Goa hackathon: an agentic fraud-investigation system ove
 ## Repo state
 
 - Private GitHub repo: `Ansh-Sonkusare/hhgoa-fraud-agent`, branch `main`, pushed (origin synced to `002ddfb`).
-- Raw dataset CSVs live in `data/` (gitignored) — never commit them. **`data/` holds the REAL dataset** (~590k txns, ~144k identity rows, 5,565 closed cases, 20 case-pack cases) — but the graph is currently loaded only with the **smoke slice** (2,500 txns), not the full data yet.
+- Raw dataset CSVs live in `data/` (gitignored) — never commit them. **`data/` holds the REAL dataset** (~590k txns, ~144k identity rows, 5,565 closed cases, 20 case-pack cases) and **the graph now holds the FULL real load** — see "Full dataset loaded" below.
 - Stack: TypeScript end to end, Node 20+, **pnpm workspaces + Turborepo** (switched from npm workspaces per user instruction — see `docs/decisions.md`), `tsx`, `zod`, `vitest`. The only non-TypeScript code is `.gsql` (WS1/WS2) and one narrow Python exception for the official `tigergraph-mcp` server — see `docs/decisions.md`.
 - **STEP-2 implementation workstreams are merged into `main` and their tests are green** — but a PRD §16 recheck (2026-09-19) found most workstreams are green only "on fakes/fixtures"; the real-tools wiring is largely NOT done. See the "STEP 2: merged — but mostly fakes/fixtures" section below for the honest gap list.
 - `make test` runs 9/9 tasks (contracts 83, agent 71, policy 54, api 20, rag 95 — all passing), typecheck clean across contracts/rag/agent/policy/api, `make verify-graph` passes. WS0 tag `m0` exists.
@@ -54,14 +54,14 @@ WS0 (STEP 1) was committed in reviewed chunks, tagged `m0`, and pushed. Infra fo
 
 Each merge's `pnpm-lock.yaml` conflict was resolved by taking the expected copy (`git checkout --theirs` + `pnpm install --lockfile-only`), then one full `pnpm install` to create the `@hhgoa/*` workspace symlinks.
 
-Remaining known edges (non-blocking, tracked in `docs/todo.md`): WS2 `gsql/` (deliberately held back until WS1's schema landed — can now start), WS7 `eval/` (after WS4 emits real events), WS8 `submission/` (continuous). The `FLAGGED_TXN=0` smoke-verification finding (all flagged case ids fall outside the loaded smoke subset) was explained and deferred, not fixed.
+Remaining known edges (non-blocking, tracked in `docs/todo.md`): WS2 `gsql/` (deliberately held back until WS1's schema landed — can now start; still the biggest gap), WS7 `eval/` (after WS4 emits real events), WS8 `submission/` (continuous). The `FLAGGED_TXN=0` smoke finding was **resolved by the full load**: `FLAGGED_TXN 20/20` now matches.
 
 ## STEP 2: merged — but mostly fakes/fixtures (recheck, 2026-09-19)
 
 PRD §16 recheck vs the merged `main`. Green-on-tests ≠ done against DoD for most workstreams:
 
 - WS0 `contracts/`: done (83 tests; fakes; answer schema reconciled with README).
-- WS1 `graph/`: smoke-grade only. Schema + loading jobs + 3 sample queries + `graph_stats` installed; `make verify-graph` passes; MCP server running and TS-side MCP smoke succeeds. **But:** full-dataset load (~590k txns) hasn't been run — the container holds the smoke slice (2,500 txns / 568 customers / 5,565 fraud cases). And `graph/mcp-server/` (the `tigergraph-mcp` Python venv + its `.env`) is **untracked** — it exists only in the leftover WS1 worktree under `.claude/` (gitignored), so a clean main clone cannot start MCP yet. Both need fixing before "counts match README" (DoD) and D1 (clean-clone run).
+- WS1 `graph/`: **FULL REAL DATASET NOW LOADED (2026-09-19) and `make verify-graph` passes on it** — 590,742 txns, 14,845 customers, 37,531 identities, 5,565 fraud cases, and the previously-deferred `FLAGGED_TXN 20/20` count now matches. Schema, loading jobs, 3 sample queries + `graph_stats` installed; MCP smoke (3 queries via tigergraph-mcp) succeeds. **Remaining WS1 repro gap:** `graph/mcp-server/` (the `tigergraph-mcp` Python venv + its `.env`) is **untracked** — it only exists in the leftover WS1 worktree under `.claude/` (gitignored), so a clean main clone can't start MCP yet. Needs a setup doc/script before D1 (clean-clone run).
 - WS2 `gsql/`: **NOT STARTED** — `gsql/` is a `package.json` stub. The 8+ installed queries, 5 pattern detectors, WCC/Louvain, discovery, and `docs/IDENTITY_VALIDATION.md` are all missing. Biggest gap: blocks R2, the agent's real graph tools, RAG's graph-expansion half, and the `gsql/` column of `docs/MCP_TOOLS.md`.
 - WS3 `rag/`: implemented (95 tests) — reads real `data/*.csv`, context bundle ≤6k tokens, memory. **But** `vectorStore.ts` is a local adapter; graph-native vector search + "memory write visible in graph" (DoD) are blocked on WS1 vector queries / WS2 (open WS3→WS1 REQUESTS.md item).
 - WS4 `agent/`: implemented against fakes (71 tests) — state machine, MCP client, tool registry, assessor, VOI planner, explainer. **`TOOLS_BACKEND=real` throws** in `agentFactory.ts`; default run = `MockLlmClient` + contracts fakes.
@@ -79,6 +79,10 @@ PRD §16 recheck vs the merged `main`. Green-on-tests ≠ done against DoD for m
 - Fixed two related bugs in `291375f`: `agent/src/llm.ts` now honors `OLLAMA_HOST` (repo convention; `.env` defines `OLLAMA_HOST`, but the client read `OLLAMA_URL`, so real non-mock runs silently defaulted to `llama3.1`), and `api/src/env.ts` now strips inline comments (e.g. `TOOLS_BACKEND=fake # fake | real`) instead of including them in the parsed value.
 - Verified end to end: a real Ollama-driven agent run completes — `HHG-920`, risk_score trigger, 32 events, 7 tool calls, verdict `fraud` / pattern `card_testing`, final state `done`.
 
+## Full real dataset loaded (2026-09-19)
+
+`pnpm --filter @hhgoa/graph prepare-load` (no `--max-transactions`) produced the full `graph/build/*.csv` (590,742 txns, 5,565 closed cases, 20 case-pack); `pnpm verify` dropped, redeployed, and loaded it (~6 min) — **every vertex/edge count matches** including `FLAGGED_TXN 20/20`; `mcp:smoke` passes against the running tigergraph-mcp server. `make verify-graph` is green on the REAL data.
+
 ## Next up (agreed with user)
 
-Load the **full real dataset** into TigerGraph (WS1 DoD "counts match README" using the real ~590k-txn slice), then start WS2 (`gsql/`). Track in `docs/todo.md`.
+Start WS2 (`gsql/`) — the 8+ production queries, pattern detectors, WCC/Louvain, discovery, `docs/IDENTITY_VALIDATION.md`. Track in `docs/todo.md`.
