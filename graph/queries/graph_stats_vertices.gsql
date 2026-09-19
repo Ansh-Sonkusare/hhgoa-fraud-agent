@@ -1,0 +1,22 @@
+// graph/queries/graph_stats_vertices.gsql - WS1 verification: VERTEX counts.
+// Kept separate from graph_stats.gsql: on this 4.3.0-rc1 build, non-edge
+// SELECT statements in the same query corrupt later edge ACCUM counts.
+CREATE QUERY graph_stats_vertices() FOR GRAPH hhgoa_fraud {
+  SumAccum<INT> @@n;
+  S0 = {Customer.*};    R0 = SELECT x FROM S0:x ACCUM @@n += 1; PRINT @@n AS customers;
+  @@n = 0; S0B = {Card.*};  R0B = SELECT x FROM S0B:x ACCUM @@n += 1; PRINT @@n AS cards;
+  @@n = 0; S0C = {Txn.*};   R0C = SELECT x FROM S0C:x ACCUM @@n += 1; PRINT @@n AS txns;
+  @@n = 0; S0D = {Identity.*}; R0D = SELECT x FROM S0D:x ACCUM @@n += 1; PRINT @@n AS identities;
+  @@n = 0; S0E = {Device.*}; R0E = SELECT x FROM S0E:x ACCUM @@n += 1; PRINT @@n AS devices;
+  @@n = 0; S0F = {EmailDomain.*}; R0F = SELECT x FROM S0F:x ACCUM @@n += 1; PRINT @@n AS email_domains;
+  @@n = 0; S0G = {Address.*}; R0G = SELECT x FROM S0G:x ACCUM @@n += 1; PRINT @@n AS addresses;
+  @@n = 0; S0H = {FraudCase.*}; R0H = SELECT x FROM S0H:x ACCUM @@n += 1; PRINT @@n AS fraud_cases;
+  @@n = 0; S0I = {CasePackEntry.*}; R0I = SELECT x FROM S0I:x ACCUM @@n += 1; PRINT @@n AS case_pack_entries;
+  @@n = 0; S0J = {Pattern.*}; R0J = SELECT x FROM S0J:x ACCUM @@n += 1; PRINT @@n AS patterns;
+  @@n = 0; S0K = {PolicyChunk.*}; R0K = SELECT x FROM S0K:x ACCUM @@n += 1; PRINT @@n AS policy_chunks;
+  @@n = 0; S0L = {EvidenceType.*}; R0L = SELECT x FROM S0L:x ACCUM @@n += 1; PRINT @@n AS evidence_types;
+  @@n = 0; S0M = {Finding.*}; R0M = SELECT x FROM S0M:x ACCUM @@n += 1; PRINT @@n AS findings;
+  @@n = 0; S0N = {ActionRecord.*}; R0N = SELECT x FROM S0N:x ACCUM @@n += 1; PRINT @@n AS action_records;
+  @@n = 0; S0O = {Decision.*}; R0O = SELECT x FROM S0O:x ACCUM @@n += 1; PRINT @@n AS decisions;
+  @@n = 0; S0P = {EvidenceItem.*}; R0P = SELECT x FROM S0P:x ACCUM @@n += 1; PRINT @@n AS evidence_items;
+}

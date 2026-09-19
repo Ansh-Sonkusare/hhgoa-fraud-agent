@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_devices FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/devices.csv";
+  LOAD f1 TO VERTEX Device VALUES ($0, $1, $2, $3, $4, $5) USING header="true", separator=",", EOL="\n";
+}

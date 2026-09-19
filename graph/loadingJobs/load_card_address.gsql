@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_card_address FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/card_address.csv";
+  LOAD f1 TO EDGE CARD_ADDRESS VALUES ($0, $1, $2, $3, $4) USING header="true", separator=",", EOL="\n";
+}

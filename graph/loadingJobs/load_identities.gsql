@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_identities FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/identities.csv";
+  LOAD f1 TO VERTEX Identity VALUES ($0, $1, $2, $3, $4) USING header="true", separator=",", EOL="\n";
+}

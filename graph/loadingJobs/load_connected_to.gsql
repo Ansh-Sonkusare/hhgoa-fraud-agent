@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_connected_to FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/connected_to.csv";
+  LOAD f1 TO EDGE CONNECTED_TO VALUES ($0, $1, $2) USING header="true", separator=",", EOL="\n";
+}

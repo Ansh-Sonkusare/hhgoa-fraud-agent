@@ -1,0 +1,49 @@
+// graph/queries/sample_txn_explain.gsql
+// WS1 sample query 1: EXPLAIN a txn as of an as_of timestamp.
+//
+// Single-hop patterns only (this 4.3.0-rc1 build rejects multi-hop and `<-`
+// edge patterns; see graph_stats.gsql). Every traversal is a separate
+// SELECT over the membership set of the previous step:
+//   - the CARD that MADE this txn        (Card -(MADE)-> Txn, filter t.id)
+//   - the CUSTOMER who OWNS that card    (Card -(reverse_OWNS)-> Customer)
+//   - the same card's PRIOR activity     (Card -(MADE)-> Txn where ts <= as_of)
+//   - linked fraud-case memory           (Card -(reverse_ABOUT)-> FraudCase)
+CREATE QUERY sample_txn_explain(STRING txn_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  SumAccum<INT>      @@txn_found;
+  SumAccum<INT>      @@txn_ts_ok;
+  SumAccum<INT>      @@prior_count;
+  SumAccum<DOUBLE>   @@prior_amount;
+  SetAccum<STRING>   @@cards;
+  SetAccum<STRING>   @@customers;
+  SetAccum<STRING>   @@cases_about;
+
+  // card(s) that made this txn (forward MADE from Card)
+  C0 = {Card.*};
+  R0 = SELECT k FROM C0:k-(MADE)-:t
+       WHERE t.id == txn_id
+       ACCUM @@txn_found += 1,
+             @@cards += k.id,
+             IF t.ts <= as_of THEN @@txn_ts_ok += 1 END;
+
+  // customer(s) that own those cards (reverse_OWNS traversed forward)
+  R1 = SELECT c FROM R0:k-(reverse_OWNS)-:c
+       ACCUM @@customers += c.id;
+
+  // prior activity on the SAME cards (forward MADE, ts <= as_of)
+  R2 = SELECT k FROM R0:k-(MADE)-:t
+       WHERE t.ts <= as_of AND t.id != txn_id
+       ACCUM @@prior_count += 1,
+             @@prior_amount += t.amount_usd;
+
+  // fraud-case memory referencing those cards (reverse_ABOUT traversed forward)
+  R3 = SELECT f FROM R0:k-(reverse_ABOUT)-:f
+       ACCUM @@cases_about += f.id;
+
+  PRINT @@txn_found AS txn_found,
+        @@txn_ts_ok  AS txn_ts_le_as_of,
+        @@cards      AS card_of_txn,
+        @@customers  AS customer_of_card,
+        @@prior_count AS prior_same_card_txns,
+        @@prior_amount AS prior_same_card_amount_usd,
+        @@cases_about AS fraud_cases_referencing_card;
+}

@@ -1,0 +1,291 @@
+// graph/schema.gsql - WS1 (graph infra and ingestion), PRD sec.7 / docs/DATA_MAP.md
+//
+// Vertex/edge types for the fraud-investigation graph. Loaded dataset vertices
+// (Customer, Card, Txn, Identity, Device, EmailDomain, Address, FraudCase
+// [closed-case history + benchmark reference], CasePackEntry) are populated by
+// graph/scripts/load.ts + graph/loadingJobs/*.gsql. FraudCase-memory vertices that
+// the running agent writes at investigation time (Finding, ActionRecord,
+// Decision, EvidenceItem, Pattern, PolicyChunk, EvidenceType) are declared
+// here so WS3 (rag/memory.ts) and WS4 (agent/) have a schema to write against,
+// but WS1 does not populate them (see graph/README.md).
+//
+// Column provenance: docs/DATA_MAP.md. V1-V339 and id_12..id_38 (except the
+// few readable ones) are NOT loaded here - DuckDB via get_wide_features per
+// PRD sec.7/sec.8.4. Every time-bearing vertex/edge carries a timestamp so `as_of`
+// filtering works (PRD sec.7 rule, sec.8.1).
+//
+// Run via graph/scripts/gsqlExec.ts (see graph/README.md), idempotent-ish:
+// safe to re-run against a graph that doesn't exist yet.
+
+// ---------------------------------------------------------------------------
+// Vertices
+// ---------------------------------------------------------------------------
+
+CREATE VERTEX Customer (
+  PRIMARY_ID id STRING,
+  first_seen_ts DATETIME,
+  last_seen_ts DATETIME,
+  txn_count UINT,
+  total_amount_usd DOUBLE
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// One Card per distinct (card1..card6) tuple actually observed for a
+// customer, plus stub cards for IDs referenced only in closed-case /
+// case-pack files (see graph/README.md "Card ID derivation").
+CREATE VERTEX Card (
+  PRIMARY_ID id STRING,
+  customer_id STRING,
+  card_network STRING,
+  card_type STRING,
+  card1 STRING,
+  card2 STRING,
+  card3 STRING,
+  card5 STRING,
+  first_seen_ts DATETIME,
+  last_seen_ts DATETIME,
+  txn_count UINT,
+  total_amount_usd DOUBLE,
+  is_stub BOOL
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX Txn (
+  PRIMARY_ID id STRING,
+  ts DATETIME,
+  amount_usd DOUBLE,
+  product_cd STRING,
+  channel STRING,
+  risk_score DOUBLE,
+  dist1 STRING,
+  dist2 STRING,
+  addr1 STRING,
+  addr2 STRING,
+  p_email_domain STRING,
+  r_email_domain STRING,
+  customer_id STRING,
+  card_id STRING,
+  c1 STRING, c2 STRING, c3 STRING, c4 STRING, c5 STRING, c6 STRING, c7 STRING,
+  c8 STRING, c9 STRING, c10 STRING, c11 STRING, c12 STRING, c13 STRING, c14 STRING,
+  d1 STRING, d2 STRING, d3 STRING, d4 STRING, d5 STRING, d6 STRING, d7 STRING,
+  d8 STRING, d9 STRING, d10 STRING, d11 STRING, d12 STRING, d13 STRING, d14 STRING, d15 STRING,
+  m1 STRING, m2 STRING, m3 STRING, m4 STRING, m5 STRING, m6 STRING, m7 STRING, m8 STRING, m9 STRING,
+  id_01 STRING, id_02 STRING, id_03 STRING, id_04 STRING, id_05 STRING, id_06 STRING,
+  id_07 STRING, id_08 STRING, id_09 STRING, id_10 STRING, id_11 STRING,
+  id_15 STRING,
+  id_23 STRING,
+  id_34 STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// Derived actor-resolution key (PRD sec.7): heuristic hash(card1, addr1,
+// estimated first-transaction-day). See graph/README.md for the exact
+// derivation and its known limitations. Purity/merge-rate validation
+// against closed cases is WS2's job (docs/IDENTITY_VALIDATION.md).
+CREATE VERTEX Identity (
+  PRIMARY_ID id STRING,
+  card1 STRING,
+  addr1 STRING,
+  est_first_day INT,
+  card_count UINT
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// hash(DeviceInfo, id_30, id_31, id_33) - see graph/README.md.
+CREATE VERTEX Device (
+  PRIMARY_ID id STRING,
+  device_type STRING,
+  device_info STRING,
+  os STRING,
+  browser STRING,
+  screen STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX EmailDomain (
+  PRIMARY_ID id STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// Billing region (addr1); addr2 (country code, 87 = home country) kept as
+// an attribute rather than a separate vertex per README's suggested schema.
+CREATE VERTEX Address (
+  PRIMARY_ID id STRING,
+  addr2 STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// FraudCase vertex covers three sources, distinguished by `source`:
+//   closed_case  - loaded from closed_cases_history.csv (has outcome)
+//   benchmark    - a stub per case_pack.csv row, status starts "open"
+//   live         - created at runtime by case_open (agent/policy write path)
+// This is the PRD sec.8.6/sec.11 "case memory" vertex; WS3/WS4 write findings,
+// actions, decisions, evidence and similarity edges onto it as the agent runs.
+CREATE VERTEX FraudCase (
+  PRIMARY_ID id STRING,
+  status STRING,
+  verdict STRING,
+  fraud_probability DOUBLE,
+  pattern STRING,
+  pattern_description STRING,
+  exposure_usd DOUBLE,
+  opened_at DATETIME,
+  closed_at DATETIME,
+  outcome STRING,
+  summary STRING,
+  source STRING,
+  report_filed BOOL,
+  analyst_notes STRING,
+  first_fraud_txn_id STRING,
+  n_txns UINT,
+  embedding LIST<DOUBLE>
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX Finding (
+  PRIMARY_ID id STRING,
+  category STRING,
+  text STRING,
+  score DOUBLE,
+  ts DATETIME
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// Named ActionRecord (not "Action") to sidestep any GSQL keyword ambiguity.
+CREATE VERTEX ActionRecord (
+  PRIMARY_ID id STRING,
+  action_type STRING,
+  status STRING,
+  route STRING,
+  reason STRING,
+  ts DATETIME
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX Decision (
+  PRIMARY_ID id STRING,
+  text STRING,
+  actor STRING,
+  ts DATETIME
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX EvidenceItem (
+  PRIMARY_ID id STRING,
+  category STRING,
+  summary STRING,
+  source_tool STRING,
+  weight_hint DOUBLE,
+  ts DATETIME
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// kind: documented | discovered (PRD sec.7, sec.12)
+CREATE VERTEX Pattern (
+  PRIMARY_ID id STRING,
+  name STRING,
+  kind STRING,
+  description STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// embedding: LIST<DOUBLE> fallback - native VECTOR attribute syntax was not
+// accepted by this TigerGraph Community Edition 4.3.0-rc1 build (see
+// graph/README.md "Vector support" and docs/REQUESTS.md). WS3 should
+// re-verify before building retrieval on top of this.
+CREATE VERTEX PolicyChunk (
+  PRIMARY_ID id STRING,
+  text STRING,
+  source_doc STRING,
+  pattern_id STRING,
+  embedding LIST<DOUBLE>
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+CREATE VERTEX EvidenceType (
+  PRIMARY_ID id STRING,
+  name STRING,
+  friction_cost DOUBLE
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// Reference copy of case_pack.csv rows (the 20 benchmark triggers), so the
+// agent/runner can resolve a case_id to its trigger via graph tools too, not
+// just by reading the CSV directly. Not a FraudCase (no investigation yet).
+CREATE VERTEX CasePackEntry (
+  PRIMARY_ID id STRING,
+  opened_at DATETIME,
+  trigger_type STRING,
+  trigger_text STRING,
+  flagged_txn_id STRING,
+  card_id STRING,
+  customer_id STRING,
+  risk_score STRING
+) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
+
+// ---------------------------------------------------------------------------
+// Edges
+// ---------------------------------------------------------------------------
+
+CREATE DIRECTED EDGE OWNS (FROM Customer, TO Card) WITH REVERSE_EDGE="reverse_OWNS"
+
+CREATE DIRECTED EDGE MADE (FROM Card, TO Txn, ts DATETIME) WITH REVERSE_EDGE="reverse_MADE"
+
+CREATE DIRECTED EDGE USED_DEVICE (FROM Txn, TO Device) WITH REVERSE_EDGE="reverse_USED_DEVICE"
+
+CREATE DIRECTED EDGE BILLED_TO (FROM Txn, TO Address) WITH REVERSE_EDGE="reverse_BILLED_TO"
+
+CREATE DIRECTED EDGE PURCHASER_EMAIL (FROM Txn, TO EmailDomain) WITH REVERSE_EDGE="reverse_PURCHASER_EMAIL"
+
+CREATE DIRECTED EDGE RECIPIENT_EMAIL (FROM Txn, TO EmailDomain) WITH REVERSE_EDGE="reverse_RECIPIENT_EMAIL"
+
+// Chronological next transaction on the same card (README suggested schema).
+// Built post-load by graph/queries/build_next_edges.gsql.
+CREATE DIRECTED EDGE NEXT (FROM Txn, TO Txn, card_id STRING, gap_seconds DOUBLE) WITH REVERSE_EDGE="reverse_NEXT"
+
+CREATE DIRECTED EDGE RESOLVES_TO (FROM Card, TO Identity) WITH REVERSE_EDGE="reverse_RESOLVES_TO"
+
+// Aggregate edges (PRD sec.7) - precomputed Card-to-shared-entity summaries used
+// by find_shared_entity_rings / get_community / WCC-Louvain projections
+// (WS2). Built post-load by graph/queries/build_aggregate_edges.gsql.
+CREATE DIRECTED EDGE CARD_DEVICE (FROM Card, TO Device, n UINT, first_ts DATETIME, last_ts DATETIME) WITH REVERSE_EDGE="reverse_CARD_DEVICE"
+
+CREATE DIRECTED EDGE CARD_ADDRESS (FROM Card, TO Address, n UINT, first_ts DATETIME, last_ts DATETIME) WITH REVERSE_EDGE="reverse_CARD_ADDRESS"
+
+// Recipient email specifically - README Fraud Policy R6 names "the same
+// recipient email" as a shared-origin signal, distinct from purchaser email.
+CREATE DIRECTED EDGE CARD_RECIPIENT_EMAIL (FROM Card, TO EmailDomain, n UINT, first_ts DATETIME, last_ts DATETIME) WITH REVERSE_EDGE="reverse_CARD_RECIPIENT_EMAIL"
+
+// FraudCase memory edges (PRD sec.7, sec.11). ABOUT is one edge type with multiple
+// FROM/TO pairs (GSQL supports this - verified against this TG build).
+CREATE DIRECTED EDGE ABOUT (
+  FROM FraudCase, TO Txn |
+  FROM FraudCase, TO Card |
+  FROM FraudCase, TO Customer |
+  FROM FraudCase, TO Identity,
+  ts DATETIME
+) WITH REVERSE_EDGE="reverse_ABOUT"
+
+// connected_card_ids from closed_cases_history.csv / ring membership -
+// distinct from ABOUT->Card (the primary card(s) the case is about).
+CREATE DIRECTED EDGE CONNECTED_TO (FROM FraudCase, TO Card, role STRING) WITH REVERSE_EDGE="reverse_CONNECTED_TO"
+
+CREATE DIRECTED EDGE HAS_FINDING (FROM FraudCase, TO Finding) WITH REVERSE_EDGE="reverse_HAS_FINDING"
+
+CREATE DIRECTED EDGE HAS_ACTION (FROM FraudCase, TO ActionRecord) WITH REVERSE_EDGE="reverse_HAS_ACTION"
+
+CREATE DIRECTED EDGE HAS_DECISION (FROM FraudCase, TO Decision) WITH REVERSE_EDGE="reverse_HAS_DECISION"
+
+CREATE DIRECTED EDGE HAS_EVIDENCE (FROM FraudCase, TO EvidenceItem) WITH REVERSE_EDGE="reverse_HAS_EVIDENCE"
+
+CREATE DIRECTED EDGE MATCHES_PATTERN (FROM FraudCase, TO Pattern, score DOUBLE) WITH REVERSE_EDGE="reverse_MATCHES_PATTERN"
+
+CREATE DIRECTED EDGE SIMILAR_TO (FROM FraudCase, TO FraudCase, score DOUBLE, overlap_reason STRING) WITH REVERSE_EDGE="reverse_SIMILAR_TO"
+
+CREATE DIRECTED EDGE CITES_CHUNK (FROM FraudCase, TO PolicyChunk) WITH REVERSE_EDGE="reverse_CITES_CHUNK"
+
+CREATE DIRECTED EDGE DESCRIBES (FROM PolicyChunk, TO Pattern) WITH REVERSE_EDGE="reverse_DESCRIBES"
+
+CREATE DIRECTED EDGE REQUIRES_EVIDENCE (FROM Pattern, TO EvidenceType) WITH REVERSE_EDGE="reverse_REQUIRES_EVIDENCE"
+
+CREATE DIRECTED EDGE FLAGGED_TXN (FROM CasePackEntry, TO Txn) WITH REVERSE_EDGE="reverse_FLAGGED_TXN"
+
+// ---------------------------------------------------------------------------
+// Graph
+// ---------------------------------------------------------------------------
+
+CREATE GRAPH hhgoa_fraud (
+  Customer, Card, Txn, Identity, Device, EmailDomain, Address,
+  FraudCase, Finding, ActionRecord, Decision, EvidenceItem, Pattern, PolicyChunk,
+  EvidenceType, CasePackEntry,
+  OWNS, MADE, USED_DEVICE, BILLED_TO, PURCHASER_EMAIL, RECIPIENT_EMAIL, NEXT,
+  RESOLVES_TO, CARD_DEVICE, CARD_ADDRESS, CARD_RECIPIENT_EMAIL, ABOUT,
+  CONNECTED_TO, HAS_FINDING, HAS_ACTION, HAS_DECISION, HAS_EVIDENCE,
+  MATCHES_PATTERN, SIMILAR_TO, CITES_CHUNK, DESCRIBES, REQUIRES_EVIDENCE,
+  FLAGGED_TXN
+)

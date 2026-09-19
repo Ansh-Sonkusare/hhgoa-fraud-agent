@@ -1,0 +1,59 @@
+// graph/queries/sample_link_analysis.gsql - WS1 MCP tool.
+// Link analysis for a card, as of a point in time: every other card that
+// shares a billing address, a used device, a listed recipient email domain,
+// or an owner customer with the given card, and every FraudCase that names
+// the card. Relationships are only counted if they were established at or
+// before as_of (edge first_ts / ts).
+//
+// Single-hop patterns only (this 4.3.0-rc1 build rejects multi-hop and `<-`
+// edge patterns; see graph_stats.gsql). Reverse lookups traverse the
+// WITH REVERSE_EDGE edges forward by their stored name.
+CREATE QUERY sample_link_analysis(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  SetAccum<STRING> @@byAddr;
+  SetAccum<STRING> @@byDevice;
+  SetAccum<STRING> @@byEmail;
+  SetAccum<STRING> @@byCustomer;
+  SetAccum<STRING> @@byCase;
+
+  C = {Card.*};
+
+  // 1. Cards sharing a billing address (known by as_of).
+  AddrOf = SELECT a FROM C:c-(CARD_ADDRESS:a1)-:a
+           WHERE c.id == card_id AND a1.first_ts <= as_of;
+  CardsA = SELECT oc FROM AddrOf:a-(reverse_CARD_ADDRESS:a2)-:oc
+           WHERE oc.id != card_id AND a2.first_ts <= as_of
+           ACCUM @@byAddr += (oc.id + " via " + a.id);
+
+  // 2. Cards sharing a used device (known by as_of).
+  DevOf = SELECT d FROM C:c-(CARD_DEVICE:d1)-:d
+          WHERE c.id == card_id AND d1.first_ts <= as_of;
+  CardsD = SELECT oc FROM DevOf:d-(reverse_CARD_DEVICE:d2)-:oc
+           WHERE oc.id != card_id AND d2.first_ts <= as_of
+           ACCUM @@byDevice += (oc.id + " via " + d.id);
+
+  // 3. Cards sharing a recipient email domain (known by as_of).
+  EmOf = SELECT e FROM C:c-(CARD_RECIPIENT_EMAIL:x1)-:e
+         WHERE c.id == card_id AND x1.first_ts <= as_of;
+  CardsE = SELECT oc FROM EmOf:e-(reverse_CARD_RECIPIENT_EMAIL:x2)-:oc
+           WHERE oc.id != card_id AND x2.first_ts <= as_of
+           ACCUM @@byEmail += (oc.id + " via " + e.id);
+
+  // 4. Cards owned by the same customer (OWNS has no ts; as_of is ignored there).
+  CustOf = SELECT cust FROM C:c-(reverse_OWNS)-:cust WHERE c.id == card_id;
+  CardsC = SELECT oc FROM CustOf:cust-(OWNS)-:oc
+           WHERE oc.id != card_id
+           ACCUM @@byCustomer += (oc.id + " via " + cust.id);
+
+  // 5. FraudCases that name the card (edge ts <= as_of for ABOUT).
+  CaseOf = SELECT f FROM C:c-(reverse_CONNECTED_TO)-:f WHERE c.id == card_id
+           ACCUM @@byCase += f.id;
+  CaseOf2 = SELECT f FROM C:c-(reverse_ABOUT:e)-:f
+            WHERE c.id == card_id AND e.ts <= as_of
+            ACCUM @@byCase += f.id;
+
+  PRINT @@byAddr AS linked_by_address;
+  PRINT @@byDevice AS linked_by_device;
+  PRINT @@byEmail AS linked_by_recipient_email;
+  PRINT @@byCustomer AS linked_by_customer;
+  PRINT @@byCase AS cases_naming_card;
+}

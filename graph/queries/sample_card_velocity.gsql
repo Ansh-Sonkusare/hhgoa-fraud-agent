@@ -1,0 +1,53 @@
+// graph/queries/sample_card_velocity.gsql - WS1 MCP tool.
+// Card velocity "as of": txns on the card within window_hours before as_of;
+// count, total amount, max amount, distinct devices/addrs/email recipients,
+// and the largest gap between consecutive same-card txns within the as-of
+// horizon (from the stored NEXT gap_seconds).
+//
+// Single-hop patterns only (this 4.3.0-rc1 build rejects multi-hop and `<-`
+// edge patterns; see graph_stats.gsql).
+CREATE QUERY sample_card_velocity(STRING card_id, DATETIME as_of, INT window_hours) FOR GRAPH hhgoa_fraud {
+  SumAccum<INT>      @@n;
+  SumAccum<DOUBLE>   @@total;
+  MaxAccum<DOUBLE>   @@maxAmt;
+  MaxAccum<DOUBLE>   @@maxGap;
+  SetAccum<STRING>   @@devices;
+  SetAccum<STRING>   @@addrs;
+  SetAccum<STRING>   @@emails;
+  SetAccum<STRING>   @@ids;
+
+  C = {Card.*};
+  R = SELECT t FROM C:c-(MADE)-:t
+      WHERE c.id == card_id
+        AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - window_hours * 3600
+        AND t.ts <= as_of
+      ACCUM @@n += 1,
+            @@total += t.amount_usd,
+            @@maxAmt += t.amount_usd,
+            @@ids += t.id;
+
+  // Devices / addresses / recipient emails used by this card at or before as_of.
+  SD = SELECT d FROM C:c-(CARD_DEVICE:e)-:d
+       WHERE c.id == card_id AND e.first_ts <= as_of
+       ACCUM @@devices += d.id;
+  SA = SELECT a FROM C:c-(CARD_ADDRESS:e)-:a
+       WHERE c.id == card_id AND e.first_ts <= as_of
+       ACCUM @@addrs += a.id;
+  SE = SELECT x FROM C:c-(CARD_RECIPIENT_EMAIL:e)-:x
+       WHERE c.id == card_id AND e.first_ts <= as_of
+       ACCUM @@emails += x.id;
+
+  // Largest gap between consecutive same-card txns, both sides <= as_of.
+  NT = {Txn.*};
+  SG = SELECT t FROM NT:t-(NEXT:e)-:p
+       WHERE t.id IN @@ids AND p.id IN @@ids
+       ACCUM @@maxGap += e.gap_seconds;
+
+  PRINT @@n AS txn_count;
+  PRINT @@total AS total_amount_usd;
+  PRINT @@maxAmt AS max_amount_usd;
+  PRINT @@devices.size() AS distinct_devices;
+  PRINT @@addrs.size() AS distinct_addrs;
+  PRINT @@emails.size() AS distinct_recipient_emails;
+  PRINT @@maxGap AS max_gap_seconds;
+}

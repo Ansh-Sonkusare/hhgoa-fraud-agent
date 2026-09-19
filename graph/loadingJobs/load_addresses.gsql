@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_addresses FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/addresses.csv";
+  LOAD f1 TO VERTEX Address VALUES ($0, $1) USING header="true", separator=",", EOL="\n";
+}

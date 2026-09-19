@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_resolves_to FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/resolves_to.csv";
+  LOAD f1 TO EDGE RESOLVES_TO VALUES ($0, $1) USING header="true", separator=",", EOL="\n";
+}

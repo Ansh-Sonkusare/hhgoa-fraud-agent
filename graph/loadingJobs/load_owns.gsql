@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_owns FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/owns.csv";
+  LOAD f1 TO EDGE OWNS VALUES ($0, $1) USING header="true", separator=",", EOL="\n";
+}

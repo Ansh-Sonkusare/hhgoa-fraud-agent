@@ -1,0 +1,8 @@
+CREATE LOADING JOB load_about FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/about_txn.csv";
+  DEFINE FILENAME f2 = "/tmp/hhgoa_data/about_card.csv";
+  DEFINE FILENAME f3 = "/tmp/hhgoa_data/about_customer.csv";
+  LOAD f1 TO EDGE ABOUT VALUES ($0, $1 Txn, $2) USING header="true", separator=",", EOL="\n";
+  LOAD f2 TO EDGE ABOUT VALUES ($0, $1 Card, $2) USING header="true", separator=",", EOL="\n";
+  LOAD f3 TO EDGE ABOUT VALUES ($0, $1 Customer, $2) USING header="true", separator=",", EOL="\n";
+}

@@ -1,0 +1,26 @@
+// graph/queries/graph_stats.gsql - WS1 verification: EDGE counts only.
+// Edge counts must live in their own query: on this 4.3.0-rc1 build, any
+// preceding non-edge SELECT corrupts later edge ACCUM counts (silently).
+// Vertex counts live in graph_stats_vertices.gsql.
+//
+// One edge type per statement, each guarded by a fresh SELECT + @@n reset.
+// Covers all 14 edge types the WS1 loading jobs populate (schema.gsql also
+// declares the memory edges HAS_*/MATCHES_PATTERN etc.; those are written at
+// runtime by WS3/WS4, so they are expected to be 0 here and not counted).
+CREATE QUERY graph_stats() FOR GRAPH hhgoa_fraud {
+  SumAccum<INT> @@n;
+  S1 = {Card.*};            R1 = SELECT t FROM S1:k-(MADE)-:t                ACCUM @@n += 1; PRINT @@n AS edges_made;
+  @@n = 0; S2 = {Customer.*};        R2 = SELECT d FROM S2:k-(OWNS)-:d        ACCUM @@n += 1; PRINT @@n AS edges_owns;
+  @@n = 0; S3 = {Txn.*};             R3 = SELECT d FROM S3:k-(USED_DEVICE)-:d ACCUM @@n += 1; PRINT @@n AS edges_used_device;
+  @@n = 0; S4 = {Txn.*};             R4 = SELECT a FROM S4:k-(BILLED_TO)-:a   ACCUM @@n += 1; PRINT @@n AS edges_billed_to;
+  @@n = 0; S5 = {Txn.*};             R5 = SELECT x FROM S5:k-(PURCHASER_EMAIL)-:x ACCUM @@n += 1; PRINT @@n AS edges_purchaser_email;
+  @@n = 0; S6 = {Txn.*};             R6 = SELECT x FROM S6:k-(RECIPIENT_EMAIL)-:x ACCUM @@n += 1; PRINT @@n AS edges_recipient_email;
+  @@n = 0; S7 = {Txn.*};             R7 = SELECT d FROM S7:k-(NEXT)-:d        ACCUM @@n += 1; PRINT @@n AS edges_next;
+  @@n = 0; S8 = {Card.*};            R8 = SELECT i FROM S8:k-(RESOLVES_TO)-:i ACCUM @@n += 1; PRINT @@n AS edges_resolves_to;
+  @@n = 0; S9 = {Card.*};            R9 = SELECT d FROM S9:k-(CARD_DEVICE)-:d ACCUM @@n += 1; PRINT @@n AS edges_card_device;
+  @@n = 0; S10 = {Card.*};           R10 = SELECT a FROM S10:k-(CARD_ADDRESS)-:a ACCUM @@n += 1; PRINT @@n AS edges_card_address;
+  @@n = 0; S11 = {Card.*};           R11 = SELECT x FROM S11:k-(CARD_RECIPIENT_EMAIL)-:x ACCUM @@n += 1; PRINT @@n AS edges_card_recipient_email;
+  @@n = 0; S12 = {FraudCase.*};      R12 = SELECT d FROM S12:k-(CONNECTED_TO)-:d ACCUM @@n += 1; PRINT @@n AS edges_connected_to;
+  @@n = 0; S13 = {FraudCase.*};      R13 = SELECT d FROM S13:k-(ABOUT)-:d      ACCUM @@n += 1; PRINT @@n AS edges_about;
+  @@n = 0; S14 = {CasePackEntry.*};  R14 = SELECT t FROM S14:k-(FLAGGED_TXN)-:t ACCUM @@n += 1; PRINT @@n AS edges_flagged_txn;
+}

@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_card_recipient_email FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/card_recipient_email.csv";
+  LOAD f1 TO EDGE CARD_RECIPIENT_EMAIL VALUES ($0, $1, $2, $3, $4) USING header="true", separator=",", EOL="\n";
+}

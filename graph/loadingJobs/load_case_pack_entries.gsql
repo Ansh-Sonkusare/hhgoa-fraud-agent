@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_case_pack_entries FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/case_pack_entries.csv";
+  LOAD f1 TO VERTEX CasePackEntry VALUES ($0, $1, $2, $3, $4, $5, $6, $7) USING header="true", separator=",", EOL="\n";
+}

@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_purchaser_email FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/purchaser_email.csv";
+  LOAD f1 TO EDGE PURCHASER_EMAIL VALUES ($0, $1) USING header="true", separator=",", EOL="\n";
+}

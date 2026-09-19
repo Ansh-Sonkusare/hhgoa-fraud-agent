@@ -1,0 +1,4 @@
+CREATE LOADING JOB load_used_device FOR GRAPH hhgoa_fraud {
+  DEFINE FILENAME f1 = "/tmp/hhgoa_data/used_device.csv";
+  LOAD f1 TO EDGE USED_DEVICE VALUES ($0, $1) USING header="true", separator=",", EOL="\n";
+}
