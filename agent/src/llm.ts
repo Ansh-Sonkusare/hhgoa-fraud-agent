@@ -62,7 +62,9 @@ export class OllamaLlmClient implements LlmClient {
 
   constructor(opts: OllamaOptions = {}) {
     this.model = opts.model ?? envOr("llama3.1", "OLLAMA_MODEL");
-    this.baseUrl = opts.baseUrl ?? envOr("http://localhost:11434", "OLLAMA_URL");
+    // Repo convention is OLLAMA_HOST (PRD §5, .env); OLLAMA_URL kept as a legacy alias.
+    const hostFromEnv = process.env["OLLAMA_HOST"] ?? process.env["OLLAMA_URL"];
+    this.baseUrl = opts.baseUrl ?? envOr("http://localhost:11434", hostFromEnv ?? "OLLAMA_URL");
     this.fetchFn = opts.fetchFn ?? fetch;
   }
 

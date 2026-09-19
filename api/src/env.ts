@@ -22,6 +22,11 @@ function loadDotEnv(filePath: string): void {
     if (eq === -1) continue;
     const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
+    // Inline comment: strip from the first `#` that follows whitespace
+    // (e.g. `TOOLS_BACKEND=fake # fake | real`). A `#` mid-token (no leading
+    // space) is kept — values like `pass#1` are literal.
+    const hash = value.search(/\s#/);
+    if (hash !== -1) value = value.slice(0, hash).trim();
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
