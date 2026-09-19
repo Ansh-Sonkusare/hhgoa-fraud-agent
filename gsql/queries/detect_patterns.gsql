@@ -1,0 +1,162 @@
+// gsql/queries/detect_patterns.gsql -- WS2, backs contract tool
+// `detect_patterns` (contracts/src/tools.ts DetectPatterns). Runs all 5
+// documented-pattern heuristics (detectors/det_*.gsql) for one card and
+// returns only the patterns that actually scored above 0, matching the
+// contract's `{patterns:[{pattern_id, score, evidence}]}` shape.
+//
+// Logic is duplicated from detectors/det_*.gsql rather than composed via
+// RUN QUERY calls between installed queries -- query-to-query invocation
+// is unverified on this GSQL build (see docs/decisions.md), so each
+// detector must also work standalone (detectors/ owns the canonical
+// per-pattern logic; this file mirrors it for the aggregate contract
+// call). ts <= as_of only throughout (PRD sec.8.1). See each
+// detectors/det_*.gsql file for the per-pattern rationale/thresholds.
+CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  MapAccum<STRING, DOUBLE> @@scores;
+  MapAccum<STRING, SetAccum<STRING>> @@evidence;
+
+  Cards = {Card.*};
+  CardHit = SELECT c FROM Cards:c WHERE c.id == card_id;
+
+  // --- card_testing ---
+  SumAccum<INT> @@ct_small;
+  SumAccum<INT> @@ct_large;
+  SetAccum<STRING> @@ct_evidence;
+  CtTxns = SELECT t FROM CardHit:c-(MADE)-:t
+           WHERE t.ts <= as_of AND t.channel == "online"
+           ACCUM
+             IF t.amount_usd < 5.0 THEN
+               @@ct_small += 1,
+               @@ct_evidence += t.id
+             END,
+             IF t.amount_usd > 100.0 THEN
+               @@ct_large += 1,
+               @@ct_evidence += t.id
+             END;
+  IF @@ct_small >= 3 THEN
+    IF @@ct_large >= 1 THEN
+      @@scores += ("card_testing" -> 0.9);
+    ELSE
+      @@scores += ("card_testing" -> 0.55);
+    END;
+    @@evidence += ("card_testing" -> @@ct_evidence);
+  END;
+
+  // --- card_not_present_fraud ---
+  SumAccum<INT>    @@prior_n;
+  SumAccum<DOUBLE> @@prior_sum;
+  PriorTxns = SELECT p FROM CardHit:c-(MADE)-:p
+              WHERE p.ts < as_of
+              ACCUM @@prior_n += 1, @@prior_sum += p.amount_usd;
+  DOUBLE mean_amt;
+  IF @@prior_n > 0 THEN
+    mean_amt = @@prior_sum / @@prior_n;
+  ELSE
+    mean_amt = 0.0;
+  END;
+
+  SumAccum<INT>    @@cnp_burst;
+  SumAccum<INT>    @@cnp_outlier;
+  SumAccum<INT>    @@cnp_new_device;
+  SumAccum<INT>    @@cnp_proxy;
+  SetAccum<STRING> @@cnp_evidence;
+  SetAccum<STRING> @@cnp_device_evidence;
+  BurstTxns = SELECT t FROM CardHit:c-(MADE)-:t
+              WHERE t.ts <= as_of
+                AND t.channel == "online"
+                AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - 48 * 3600
+              ACCUM
+                @@cnp_burst += 1,
+                @@cnp_evidence += t.id,
+                IF mean_amt > 0 AND t.amount_usd > 2 * mean_amt THEN
+                  @@cnp_outlier += 1
+                END,
+                IF t.id_15 == "New" THEN
+                  @@cnp_new_device += 1,
+                  @@cnp_device_evidence += t.id
+                END,
+                IF t.id_23 != "" THEN
+                  @@cnp_proxy += 1
+                END;
+  IF @@cnp_burst >= 2 AND @@cnp_burst <= 6 THEN
+    IF @@cnp_outlier >= 1 THEN
+      @@scores += ("card_not_present_fraud" -> 0.8);
+    ELSE
+      @@scores += ("card_not_present_fraud" -> 0.4);
+    END;
+    @@evidence += ("card_not_present_fraud" -> @@cnp_evidence);
+  END;
+  IF @@cnp_burst >= 2 AND @@cnp_new_device >= 1 THEN
+    IF @@cnp_proxy >= 1 THEN
+      @@scores += ("card_not_present_new_device" -> 0.85);
+    ELSE
+      @@scores += ("card_not_present_new_device" -> 0.65);
+    END;
+    @@evidence += ("card_not_present_new_device" -> @@cnp_device_evidence);
+  END;
+
+  // --- out_of_region_use ---
+  SetAccum<STRING> @@home_addrs;
+  SumAccum<INT>    @@region_home_recent;
+  SumAccum<INT>    @@region_new;
+  SetAccum<STRING> @@region_evidence;
+  OldTxns = SELECT p FROM CardHit:c-(MADE)-:p
+            WHERE p.ts < as_of
+              AND datetime_to_epoch(p.ts) < datetime_to_epoch(as_of) - 7 * 86400
+            ACCUM @@home_addrs += p.addr1;
+  RecentTxns = SELECT t FROM CardHit:c-(MADE)-:t
+               WHERE t.ts <= as_of
+                 AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - 7 * 86400
+               ACCUM
+                 IF t.channel == "in_person" AND NOT @@home_addrs.contains(t.addr1) THEN
+                   @@region_new += 1,
+                   @@region_evidence += t.id
+                 ELSE
+                   @@region_home_recent += 1
+                 END;
+  IF @@home_addrs.size() > 0 AND @@region_new >= 1 THEN
+    IF @@region_home_recent >= 1 THEN
+      @@scores += ("out_of_region_use" -> 0.75);
+    ELSE
+      @@scores += ("out_of_region_use" -> 0.5);
+    END;
+    @@evidence += ("out_of_region_use" -> @@region_evidence);
+  END;
+
+  // --- account_takeover ---
+  SumAccum<INT>    @@ato_online;
+  SumAccum<INT>    @@ato_in_person;
+  SumAccum<INT>    @@ato_mismatch;
+  SetAccum<STRING> @@ato_evidence;
+  AtoTxns = SELECT t FROM CardHit:c-(MADE)-:t
+            WHERE t.ts <= as_of
+              AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - 7 * 86400
+            ACCUM
+              IF t.channel == "online" THEN
+                @@ato_online += 1
+              ELSE
+                @@ato_in_person += 1
+              END,
+              IF t.m1 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m2 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m3 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m4 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m5 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m6 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m7 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m8 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m9 == "F" THEN @@ato_mismatch += 1 END,
+              @@ato_evidence += t.id;
+  IF @@ato_online >= 1 AND @@ato_in_person >= 1 THEN
+    IF @@ato_mismatch >= 2 THEN
+      @@scores += ("account_takeover" -> 0.8);
+    ELSE
+      @@scores += ("account_takeover" -> 0.45);
+    END;
+    @@evidence += ("account_takeover" -> @@ato_evidence);
+  END;
+
+  // A single PRINT statement -- multiple PRINT statements return as
+  // separate REST result objects instead of merging (see docs/decisions.md).
+  PRINT @@scores AS scores, @@evidence AS evidence;
+}

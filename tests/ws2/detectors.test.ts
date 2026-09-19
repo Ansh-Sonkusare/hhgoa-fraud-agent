@@ -9,6 +9,27 @@ const DETECTORS = [
   "det_account_takeover",
 ] as const;
 
+describe("detect_patterns (aggregator)", () => {
+  it("returns scores/evidence maps keyed by pattern_id, only for patterns that fired", async () => {
+    const r = await runQuery<{ scores: Record<string, number>; evidence: Record<string, string[]> }>(
+      "detect_patterns",
+      { card_id: KNOWN.txnCardId, as_of: KNOWN.lateAsOf },
+    );
+    for (const [patternId, score] of Object.entries(r.scores)) {
+      expect(score).toBeGreaterThan(0);
+      expect(r.evidence[patternId]).toBeDefined();
+    }
+  });
+
+  it("returns no patterns for a card with no history as of a very early as_of", async () => {
+    const r = await runQuery<{ scores: Record<string, number> }>("detect_patterns", {
+      card_id: KNOWN.txnCardId,
+      as_of: "2015-01-01 00:00:00",
+    });
+    expect(Object.keys(r.scores).length).toBe(0);
+  });
+});
+
 describe.each(DETECTORS)("%s", (name) => {
   it("returns a score in [0,1] and an evidence_rows array for a real card", async () => {
     const r = await runQuery<{ score: number; evidence_rows: string[] }>(name, {

@@ -14,7 +14,7 @@ Start the server: `pnpm --filter @hhgoa/graph mcp:start` (streamable HTTP on `12
 | `find_shared_entity_rings` | `tigergraph__run_installed_query` | `sample_link_analysis` (WS1, sample) + `gsql/` (WS2) | `run_installed_query({query_name:"sample_link_analysis", params:{card_id, as_of}})` |
 | `get_baseline_deviation` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"baseline_deviation", params:{...}})` |
 | `detect_patterns` | `tigergraph__run_installed_query` | `gsql/detectors/` (WS2) | `run_installed_query({query_name:"detect_patterns", params:{...}})` |
-| `get_community` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"community_stats", params:{...}})` |
+| `get_community` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"community_lookup", params:{...}})` |
 | `find_prior_cases` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"find_prior_cases", params:{...}})` |
 | `get_wide_features` | `tigergraph__run_query` (interpreted) | DuckDB (local, not MCP) | per `contracts/tools.ts`; not a graph tool |
 
