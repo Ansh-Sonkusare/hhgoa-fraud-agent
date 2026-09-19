@@ -4,7 +4,7 @@ Read this first when resuming work — it's the fastest way back up to speed. Up
 
 ## What this project is
 
-TigerGraph Hacker House Goa hackathon: an agentic fraud-investigation system over an IEEE-CIS-derived card-transaction dataset. Full spec lives in `PRD.md` (binding plan) and `README.md` (binding dataset/answer-format/policy — README wins on any disagreement). `docs/DATA_MAP.md` reconciles the two.
+TigerGraph Hacker House Goa hackathon: an agentic fraud-investigation system over an IEEE-CIS-derived card-transaction dataset. Full spec lives in `PRD.md` (binding plan) and `docs/DATASET_README.md` (binding dataset/answer-format/policy — the dataset README wins on any disagreement). `docs/DATA_MAP.md` reconciles the two.
 
 ## Repo state
 
@@ -83,6 +83,19 @@ PRD §16 recheck vs the merged `main`. Green-on-tests ≠ done against DoD for m
 
 `pnpm --filter @hhgoa/graph prepare-load` (no `--max-transactions`) produced the full `graph/build/*.csv` (590,742 txns, 5,565 closed cases, 20 case-pack); `pnpm verify` dropped, redeployed, and loaded it (~6 min) — **every vertex/edge count matches** including `FLAGGED_TXN 20/20`; `mcp:smoke` passes against the running tigergraph-mcp server. `make verify-graph` is green on the REAL data.
 
-## Next up (agreed with user)
+## WS2 done and merged; WS4 real-tools switch wired (2026-09-19)
 
-Start WS2 (`gsql/`) — the 8+ production queries, pattern detectors, WCC/Louvain, discovery, `docs/IDENTITY_VALIDATION.md`. Track in `docs/todo.md`.
+WS2 (`gsql/`) was completed on branch `ws2-gsql` (see `docs/todo.md`/`docs/decisions.md` for the full build — all 10 contract queries + 5 detectors + 4 algorithms + discovery, `make verify-gsql` green, 44/44 tests), then merged into `main` (fast-forward `a6b181d..f5718a4`) and pushed.
+
+With WS2 in `main`, `agent/src/agentFactory.ts`'s `TOOLS_BACKEND=real` throw (previously citing "WS1/WS3 services not up yet") was unblocked and wired for real: `agent/src/mcpClient.ts`'s `RealMcpClient` now correctly calls the live `tigergraph__run_installed_query` MCP tool (the previous version called MCP tools by contract name and parsed responses as bare JSON — both wrong against the live server, confirmed by probing it directly) and transforms each WS2 query's raw output into the exact contract shape. `agentFactory.ts`'s `createToolProviders("real")` now wires WS3's real RAG runtime (`@hhgoa/rag`) plus a new in-memory case ledger (`agent/src/caseLedger.ts`). `graph/mcp-server/` (the tigergraph-mcp Python venv, previously only existing in a disposable worktree) was rebuilt properly in the main tree and its `venv/` added to `.gitignore` (it had no ignore rule before — a real risk). Verified with a full real run against the live graph on HHG-001's actual trigger, not just a typecheck — reached a coherent `escalated`/`card_testing`/`0.89` result with genuinely real evidence. Full detail, including two real bugs caught live (a case-id wiring bug, a sentinel-device ring-size issue), in `docs/decisions.md` and `docs/logs.md`'s 2026-09-19 entries.
+
+`make test` green across all 9 workspace packages (367 tests), no regressions.
+
+## Next up
+
+In dependency order (see `docs/todo.md`'s STEP 2 recheck section for full per-workstream status):
+
+1. **Plug the live agent into the API (WS6)** — `api/src/runSource.ts` is `FixtureRunSource` only; needs a `RealRunSource` (or similar) that drives `agent/src/machine.ts`/`agentFactory.runAgent` for real, env-gated, so the 20 case-pack benchmark cases get investigated instead of replayed from fixtures.
+2. **WS7 `eval/`** — not started (`package.json` stub only, no `cases/`, Makefile `run-case`/`run-all`/`validate-answers` are stubs). Needs #1 done first (needs real agent runs to evaluate against the graded answer format).
+3. **WS8 `submission/`** — not started (demo script, write-up). Last, depends on the above actually working end-to-end.
+4. Separately, still open: WS3's own DoD row ("memory write visible in graph") — `rag/`'s vector store is a local adapter, not graph-native; blocked on a WS1→WS2 REQUESTS.md item. `get_wide_features` (local DuckDB) also has no real implementation yet (currently throws under `TOOLS_BACKEND=real`).

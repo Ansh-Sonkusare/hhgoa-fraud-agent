@@ -2,8 +2,10 @@ import type { LlmClient, MockScriptEntry } from "./llm.js";
 import { MockLlmClient, OllamaLlmClient } from "./llm.js";
 import { createMcpClient, type McpClient } from "./mcpClient.js";
 import { FraudInvestigationMachine, type MachineDeps, type RunResult } from "./machine.js";
+import { InMemoryCaseLedger } from "./caseLedger.js";
 import type { ToolCatalog, Trigger } from "@hhgoa/contracts";
 import { fakes } from "@hhgoa/contracts";
+import { createRagRuntime } from "@hhgoa/rag";
 import {
   createPolicyToolAdapters,
   InMemoryActionsMock,
@@ -18,7 +20,14 @@ import {
  * The default assembly is what every benchmark run uses:
  *   • LLM:      MockLlmClient (deterministic) unless LLM_BACKEND=ollama
  *   • Graph:    FakeMcpClient over the contracts fakes unless
- *               TOOLS_BACKEND=real (WS1's tigergraph-mcp server, not up yet)
+ *               TOOLS_BACKEND=real (WS1's tigergraph-mcp server + WS2's
+ *               gsql/ installed queries via MCP -- see mcpClient.ts)
+ *   • RAG:      contracts fakes unless TOOLS_BACKEND=real (WS3's real
+ *               retrieve_policy/retrieve_similar_cases/lookup_external via
+ *               @hhgoa/rag's local vector stores)
+ *   • Cases:    contracts fakes (canned, stateless) unless TOOLS_BACKEND=real
+ *               (an in-memory, per-run case ledger — see caseLedger.ts for
+ *               why this stays in-memory rather than a graph write)
  *   • Policy:   always-real WS5 adapters (UIApprovalChannel +
  *               InMemoryActionsMock + SimulatedResponder)
  *
@@ -55,16 +64,70 @@ export function createPolicyAdapters(): PolicyToolAdapters {
 }
 
 /**
- * Non-MCP `ToolCatalog` providers (RAG/local/policy fakes) for a backend.
- * `fake` uses the frozen contracts fakes. `real` needs WS3's RAG/local
- * services (not yet landed — see docs/REQUESTS.md) so it fails loudly.
+ * A provider method that should never actually be invoked through
+ * `ToolCatalog.providers` (its tool is routed elsewhere — the 10 graph
+ * tools via MCP through `ToolRegistry`, policy_check/execute_action/
+ * generate_sar via `policies`). Required only so the returned object
+ * satisfies the full `ToolCatalog` type; throwing loudly here catches a
+ * real wiring bug instead of silently returning fake data under
+ * TOOLS_BACKEND=real.
  */
-export function createToolProviders(backend: "fake" | "real"): ToolCatalog {
+function unreachableProvider(tool: string): (...args: unknown[]) => never {
+  return () => {
+    throw new Error(`createToolProviders(real): "${tool}" is not routed through providers — this is a wiring bug`);
+  };
+}
+
+/**
+ * Non-MCP `ToolCatalog` providers (RAG/local-DuckDB/case-bookkeeping) for a
+ * backend. `fake` uses the frozen contracts fakes. `real` combines WS3's
+ * real RAG runtime (`@hhgoa/rag`) with an in-memory case ledger; the 10
+ * graph-tool members and policy_check/execute_action/generate_sar are never
+ * actually called through this object (see `unreachableProvider`), and
+ * `get_wide_features` (local DuckDB) has no real implementation yet, so it
+ * fails loudly rather than pretend — see docs/REQUESTS.md if a workstream
+ * picks that up.
+ */
+export async function createToolProviders(backend: "fake" | "real", caseId: string): Promise<ToolCatalog> {
   if (backend === "fake") return fakes;
-  throw new Error(
-    'createToolProviders: TOOLS_BACKEND="real" needs WS1/WS3 services that are not up yet. ' +
-      "Stick with fake (contracts fakes) until they land; see docs/REQUESTS.md.",
-  );
+
+  const rag = createRagRuntime();
+  await rag.ensureIngested();
+  const ledger = new InMemoryCaseLedger(caseId);
+
+  return {
+    resolve_trigger: unreachableProvider("resolve_trigger"),
+    get_entity_profile: unreachableProvider("get_entity_profile"),
+    get_transaction_history: unreachableProvider("get_transaction_history"),
+    get_neighborhood: unreachableProvider("get_neighborhood"),
+    compute_velocity: unreachableProvider("compute_velocity"),
+    find_shared_entity_rings: unreachableProvider("find_shared_entity_rings"),
+    get_baseline_deviation: unreachableProvider("get_baseline_deviation"),
+    detect_patterns: unreachableProvider("detect_patterns"),
+    get_community: unreachableProvider("get_community"),
+    find_prior_cases: unreachableProvider("find_prior_cases"),
+    get_wide_features: () => {
+      throw new Error(
+        'createToolProviders(real): "get_wide_features" (local DuckDB) has no real implementation yet. ' +
+          "See docs/REQUESTS.md.",
+      );
+    },
+    retrieve_policy: rag.retrieve_policy,
+    retrieve_similar_cases: rag.retrieve_similar_cases,
+    lookup_external: rag.lookup_external,
+    request_evidence: unreachableProvider("request_evidence"),
+    case_open: ledger.case_open,
+    case_add_evidence: ledger.case_add_evidence,
+    case_add_finding: ledger.case_add_finding,
+    case_update_assessment: ledger.case_update_assessment,
+    case_record_decision: ledger.case_record_decision,
+    case_record_action: ledger.case_record_action,
+    case_set_status: ledger.case_set_status,
+    case_close: ledger.case_close,
+    policy_check: unreachableProvider("policy_check"),
+    execute_action: unreachableProvider("execute_action"),
+    generate_sar: unreachableProvider("generate_sar"),
+  };
 }
 
 export type { MachineDeps, RunResult };
@@ -92,7 +155,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     trigger: options.trigger,
     llm: options.llm ?? createLlmClient("mock"),
     mcp: options.mcp ?? createMcpClient(backend),
-    providers: options.providers ?? createToolProviders(backend),
+    providers: options.providers ?? (await createToolProviders(backend, options.caseId)),
     policies: options.policies ?? createPolicyAdapters(),
     maxToolCalls: options.maxToolCalls,
     maxEvidenceRounds: options.maxEvidenceRounds,
