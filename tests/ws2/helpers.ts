@@ -35,7 +35,16 @@ export async function runQuery<T = Record<string, unknown>>(
   const auth = Buffer.from(`${USER}:${PASS}`).toString("base64");
   const res = await fetch(`http://${HOST}:${PORT}/query/${GRAPH}/${queryName}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${auth}`,
+      // RESTPP's default per-query timeout is 16s. The whole-graph community
+      // queries (community_components/community_lookup/discovery_report)
+      // take ~10s on the full dataset -- too close to that ceiling to leave
+      // to chance. See gsql/queries/community_lookup.gsql's header for why
+      // they are whole-graph computations rather than local expansions.
+      "GSQL-TIMEOUT": "300000",
+    },
     body: JSON.stringify(params),
   });
   const body = (await res.json()) as QueryResponse<T>;
@@ -44,6 +53,31 @@ export async function runQuery<T = Record<string, unknown>>(
   }
   return body.results[0] as T;
 }
+
+/**
+ * The projection guards the community queries run with. MUST stay in sync
+ * with gsql/install.ts's WCC_MAX_HUB_DEGREE / WCC_MIN_OVERLAP_PCT -- the
+ * whole point of the community_lookup <-> discovery_report consistency
+ * invariant is that both compute the same relation, which only holds when
+ * they are given the same parameters. See
+ * gsql/algorithms/community_components.gsql's header.
+ */
+export const COMMUNITY_PARAMS = { max_hub_degree: 1000, min_overlap_pct: 30 } as const;
+
+/**
+ * The confirmed-fraud bar discovery must clear, and the dataset-wide
+ * baseline it has to beat to mean anything: 4,473 of 5,373 closed cases
+ * with a recorded outcome are confirmed fraud (83.2%).
+ */
+export const DISCOVERY_MIN_CONFIRMED_PCT = 90;
+export const BASELINE_CONFIRMED_RATE = 0.832;
+
+/**
+ * label_propagation and shortest_path deliberately stay on the looser
+ * single-shared-entity projection, where the hub cap is the only guard --
+ * see their header comments.
+ */
+export const LOOSE_MAX_HUB_DEGREE = 25;
 
 // Real ids used throughout tests/ws2, all documented in docs/decisions.md /
 // docs/logs.md ground truth (verified against graph/build/*.csv and live

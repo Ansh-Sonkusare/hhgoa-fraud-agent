@@ -5,10 +5,33 @@
 // two graph edges). Returns found=true/false, the hop count, and the
 // sequence of card ids on the first shortest path discovered.
 //
-// max_hub_degree: same hub-collapse guard as algorithms/community_components.gsql
-// -- a handful of shared device/address/email values touch thousands of
-// unrelated cards in this dataset, which would otherwise make almost any
-// two cards "adjacent." Shared vertices above this degree are excluded.
+// max_hub_degree: the same entity-side hub-collapse guard as
+// algorithms/community_components.gsql -- a handful of shared
+// device/address/email values touch thousands of unrelated cards in this
+// dataset, which would otherwise make almost any two cards "adjacent."
+// Shared vertices above this degree are excluded.
+//
+// DELIBERATELY NOT brought in line with the strict community definition.
+// community_components.gsql / community_lookup.gsql / discovery_report.gsql
+// require two cards to share 2+ distinct entity types AND clear a footprint-
+// overlap bar before calling them connected. This query keeps the looser
+// "any single shared entity" adjacency on purpose, because it answers a
+// different question. Community membership is an ASSERTION the agent acts on
+// ("these cards are one actor"), so it must be conservative. A shortest path
+// is a LEAD an analyst reads and judges ("is card A reachable from card B at
+// all, and through what?"); a false positive there costs a glance, while a
+// false negative hides the only link between a flagged card and a known
+// fraud card. Applying the community bar here would report "not found" for
+// almost every real pair, since most genuine links rest on a single shared
+// entity.
+//
+// Consequence to be aware of: two cards can be 1-2 hops apart here while
+// get_community places them in different communities. That is intended, not
+// a bug -- the two tools make claims of different strength. It is also why
+// this query keeps the tight max_hub_degree=25 default (see gsql/install.ts)
+// while the community queries run a loose 1000: with no card-side guard,
+// the hub cap is the only thing standing between this BFS and a projection
+// where everything reaches everything. See docs/decisions.md.
 CREATE QUERY shortest_path(STRING from_card_id, STRING to_card_id, INT max_hops, INT max_hub_degree, DATETIME as_of) FOR GRAPH hhgoa_fraud {
   MinAccum<STRING> @parent;
   OrAccum @visited;

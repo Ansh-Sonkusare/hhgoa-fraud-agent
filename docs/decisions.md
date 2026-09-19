@@ -2,6 +2,62 @@
 
 One entry per decision that wasn't already dictated by `PRD.md`/`README.md`. Newest first. Each entry: what was decided, why, and what it overrides (if anything).
 
+## 2026-09-19 — WS2 community detection: the residual component was a transaction-volume artifact, not a ring
+
+Follow-up investigation into the 274-card residual component the previous entry left as an open question ("is 274 fine, or still too big?"). It was not fine. Investigating it before tuning anything changed the answer substantially — the fix is not a stricter version of the existing rule, and two of the four candidate directions previously floated are measurably counter-productive.
+
+**What the 274-card component actually was.** Measured with a purpose-built diagnostic (now committed as `gsql/scripts/_community_sweep.gsql`, which carries the full sweep table in its header):
+
+- Its 274 cards spanned 272 distinct customers and held **253,146 of the dataset's 590,742 transactions** — 43% of all activity on 1.7% of the cards. Members averaged **923.9 transactions** and a footprint of **138.6 distinct shared entities**, against dataset averages of **36.2 and 7.8**: a 17.8x enrichment in footprint.
+- Its confirmed-fraud rate was **40/49 = 81.6%**, *at or slightly below* the **83.2% dataset-wide baseline** (4,473 confirmed of 5,373 closed cases with a recorded outcome). It was not fraud-enriched at all.
+- Its connecting edges spanned the entire six-month window (2016-07-02 to 2016-12-31), and it was held together by 3,054 distinct device connectors rather than a handful of near-cap hubs.
+
+So it was the set of the **most active cards in the dataset**, colliding with each other by volume. It was also the *only* thing `discovery_report` was emitting: exactly one discovered `Pattern`, that component, described to the agent as a fraud cluster.
+
+**Root cause: the projection is bipartite and only one side was guarded.** `Card` on one side, `Device`/`Address`/`EmailDomain` on the other. There are two independent ways to manufacture a giant component and each needs its own guard. `max_hub_degree` guarded the *entity* side (a sentinel value touched by thousands of cards). Nothing guarded the *card* side: the probability that two cards happen to share some rare entity scales with the **product of how many entities each touches**, so the highest-volume cards collide with each other regardless of how tight the entity cap is. That is why sweeping `max_hub_degree` from 25 down to 3 shrank the residual but never removed it — it was tuning the wrong side.
+
+**Decided: add a card-side guard, `min_overlap_pct` (default 30), and loosen `max_hub_degree` to 1000.** Two cards are adjacent only if they share 2+ distinct entity types (unchanged) **and** the entities they share are at least `min_overlap_pct`% of their *combined uncapped distinct-entity footprint* (a Jaccard bar). Using each card's full uncapped footprint as the denominator is the point: a card that touched 600 entities is not identified by having 2 of them in common with someone.
+
+`max_hub_degree` was simultaneously loosened from 25 to 1000 because 25 was doing violent collateral damage as a proxy for the guard that was actually missing: it discards **59% of all `CARD_DEVICE` edges, 98% of all `CARD_ADDRESS` edges and 99% of all `CARD_RECIPIENT_EMAIL` edges**. That is worth stating plainly — `Address` is `addr1`, a billing **region** (332 distinct values for 16,324 cards), and `EmailDomain` is a **domain**, not an address (60 distinct values). Neither is ever an identifier on its own, so "popular" is their normal condition, not a defect to filter. The cap's only legitimate job is removing genuine sentinels, and exactly 20 vertices exceed degree 1000 (1 Device, 14 Address, 5 EmailDomain).
+
+**Results (full dataset, `as_of` 2016-12-31):**
+
+| | before | after |
+|---|---|---|
+| largest component | 274 cards | **41 cards** |
+| largest component's avg txns / footprint per card | 923.9 / 138.6 | **4.7 / 4.9** (both *below* the dataset averages of 36.2 / 7.8) |
+| multi-card components | 7 | **241** |
+| total components | 16,042 | 15,825 |
+| discovered `Pattern`s | 1 (274 cards, 81.6% confirmed — below baseline) | **3** (5, 5 and 9 cards; **11/11, 3/3 and 15/15 confirmed** = 100%) |
+
+The decisive test is the second row: the largest component's members are now *less* active than an average card, i.e. the largest component has stopped being "the busiest cards," which is the structural signature of the artifact being gone.
+
+**Rejected, having measured them rather than assumed:**
+
+- **Require all 3 entity types instead of 2.** Makes the artifact *purer*, not smaller in character: the resulting 17-card component averaged **4,459 transactions and a 528.8 footprint** per card, and it produced **zero** components with enough connected cases for discovery to report anything. Three-type overlap is simply a rarer coincidence that only the very highest-volume cards can achieve — it selects harder *for* the failure mode.
+- **Require temporal proximity of the shared usage.** Does not discriminate here. The artifact's members are active across the whole six-month window, so their usage intervals overlap trivially; a proximity bar would pass them.
+- **Require 2+ shared *instances* of a type.** High-volume cards clear that bar easily for the same product-of-degrees reason, so it does not target the mechanism.
+- **Leave it and document 274 as acceptable.** Not defensible once the fraud rate came back *below* baseline — shipping it means telling the agent a below-average cluster is a discovered fraud ring.
+
+**Also decided: discovery's qualifying bar must beat the baseline (`min_confirmed_pct`, default 90 — was a hardcoded 50).** Independent of the clustering, this was a real defect. A `confirmed_fraud_rate >= 0.5` bar is **33 points below the 83.2% baseline**, so it is below chance: any cluster with cases at all passes, and "high confirmed-fraud concentration" was never actually being tested. The three communities discovery now reports are at 100%.
+
+**Also fixed: `community_lookup.gsql` now computes the identical relation — the previous inconsistency was a live bug, not just an inconsistency.** The previous entry recorded leaving `community_lookup`/`shortest_path` on the looser single-type rule as "a documented inconsistency, not revisited." Revisiting it found a concrete defect: `discovery_report` writes Pattern ids as `disc_c_<smallest member card id>` and `community_lookup` synthesizes `comm_<smallest member card id>`, and both files' comments claimed the two therefore agree — but a *different adjacency rule yields a different component, hence a different smallest member*, so the ids silently did not match. The agent would get one membership from `get_community` and a different one from the discovered pattern for the same cluster. `community_lookup.gsql` now runs the same whole-graph computation and reads off the seed's label, which is the only way that invariant actually holds. There is now a regression test asserting it (`tests/ws2/algorithmsAndDiscovery.test.ts`).
+
+**Cost accepted, deliberately:** `community_lookup` went from ~0.2s (cheap 3-hop local expansion) to **~5-12s** (whole-graph). That is a real regression for a per-call agent tool and it was weighed: a fast answer that disagrees with the discovery pass silently corrupts the agent's evidence, which is worse than a slow one, and the call volume is tens per benchmark run. `tests/ws2/helpers.ts` now sends a `GSQL-TIMEOUT` header because RESTPP's default 16s ceiling is uncomfortably close.
+
+**`shortest_path.gsql` and `label_propagation.gsql` deliberately keep the loose rule and the tight `max_hub_degree=25`** — a decided position now, not an oversight:
+
+- **`shortest_path`** answers a different question. Community membership is an *assertion* the agent acts on ("these cards are one actor") and must be conservative; a shortest path is a *lead* an analyst reads and judges. A false positive costs a glance; a false negative hides the only link between a flagged card and a known fraud card. Applying the community bar would return "not found" for nearly every real pair, since most genuine links rest on a single shared entity. Consequence to be aware of: two cards can be 1-2 hops apart here while `get_community` puts them in different communities. That is intended — the two tools make claims of different strength.
+- **`label_propagation`** does not need the card-side guard, because the giant-component pathology is specific to **transitive closure**: in WCC, A-B and B-C force A and C together, so chains of weak links merge everything. Majority-vote LPA is not transitive — each card commits to one winning label rather than absorbing its neighbors' components — so it does not chain. Verified on the live graph: 13,234 clusters, largest 144, no degeneracy. Keeping it looser is also the point of having it, as the higher-recall counterpart to the strict WCC.
+
+Both keep `max_hub_degree=25` precisely *because* they have no card-side guard: for them the hub cap is the only guard there is. `gsql/install.ts` therefore passes two different caps by design (`WCC_MAX_HUB_DEGREE=1000` vs `LOOSE_PROJECTION_MAX_HUB_DEGREE=25`), which is intentional rather than an oversight.
+
+**Known property, not a bug: component count is NOT monotone in `as_of`.** Because `min_overlap_pct` measures shared entities as a *fraction* of each card's total footprint, later activity enlarges the denominator and can dissolve a link that qualified earlier. Measured: 15,209 components as of 2016-08-01 vs 15,825 as of 2016-12-31 — *fewer* components earlier, the opposite of what an unnormalized rule gives. This is inherent to a relative evidence bar: a coincidence that looked distinctive early stops looking distinctive once a card turns out to touch hundreds of entities. A first attempt at an `as_of` regression test asserted the naive monotonicity and correctly failed; it was replaced with the invariant that does hold (before any history, every card is its own component).
+
+**What this overrides:** the "Hub-degree cap (`max_hub_degree`, default 25)" and "Require 2+ shared entity types" entries immediately below. The 2-type rule survives as a *necessary but not sufficient* condition; the default cap changes from 25 to 1000 for the community queries only; and that entry's closing sentence — leaving `community_lookup`/`shortest_path` inconsistent as a low-stakes matter — is superseded (`community_lookup` is brought in line because the inconsistency was a bug; `shortest_path` stays loose on reasoned grounds rather than for lack of time). It also overrides the `confirmed_fraud_rate >= 0.5` qualifying rule stated in the "without a matching detector" entry below.
+
+**Follow-up owed outside WS2's boundary:** `docs/MCP_TOOLS.md`'s `get_community` row shows `run_installed_query({query_name:"community_lookup", params:{...}})` and does not enumerate parameters; `community_lookup` now takes a fourth parameter (`min_overlap_pct`) and `discovery_report` a fourth (`min_confirmed_pct`). That file is outside `gsql/`, so it was not edited here.
+
 ## 2026-09-19 — WS2 `gsql/` judgment calls (in-progress, not yet fully re-verified)
 
 Several design/interpretation calls made while implementing `gsql/` (WS2), none dictated explicitly by PRD/README, recorded so they aren't re-litigated by accident. All queries were installed and smoke-tested against the live full-dataset graph at the time these were made; a full `make verify-gsql` re-run was interrupted by an infra loss (see `docs/logs.md`) before the last fix could be re-verified.

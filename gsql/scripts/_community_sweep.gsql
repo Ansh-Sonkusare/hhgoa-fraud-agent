@@ -1,0 +1,230 @@
+// gsql/scripts/_community_sweep.gsql -- one-off analysis query used to pick
+// the community-detection guards in algorithms/community_components.gsql.
+// Not part of install.ts's regular pipeline (ad hoc; run, read, transcribe).
+//
+// It runs the same shared-entity WCC as community_components.gsql but with
+// the adjacency rule fully parameterized, and reports the indicators needed
+// to tell a real cluster from a structural artifact:
+//   - the component-size distribution and the largest component;
+//   - the largest component's AVERAGE TRANSACTION COUNT and AVERAGE
+//     FOOTPRINT (distinct shared entities touched) per member. This is the
+//     decisive diagnostic. Dataset averages are 36.2 transactions and 7.8
+//     footprint per card, so a largest component whose members sit far above
+//     those is a transaction-volume artifact -- the most active cards
+//     colliding with each other by sheer volume -- rather than a fraud ring;
+//   - the discovery candidate pool (components with >= 2 connected closed
+//     cases) and its aggregate confirmed-fraud rate, to be compared against
+//     the 83.2% dataset-wide baseline.
+//
+// Parameters:
+//   max_hub_degree  -- entity-side guard: drop shared vertices touched by
+//                      more than this many distinct cards.
+//   min_types       -- how many distinct entity types a pair must share.
+//   min_overlap_pct -- card-side guard: shared entities must be at least
+//                      this percent of the pair's combined uncapped
+//                      distinct-entity footprint (Jaccard * 100). 0 disables.
+//
+// Measurements this produced on the full 16,324-card dataset (see
+// docs/decisions.md for the conclusions drawn from them):
+//
+//   hub  types ovl | comps  multi giant  g_avgtxn g_avgfoot | cand cand_rate
+//   -----------------------------------------------------------------------
+//    25    2    0  | 16042      7   274     923.9     138.6 |    1     0.816
+//    25    3    0  | 16301      7    17    4458.9     528.8 |    0     --
+//    25    2   10  | 16306      5    12    2888.5     601.3 |    0     --
+//   500    2   20  | 15920    162    49     124.8      51.1 |    4     0.852
+//  1000    2   15  | 13750    218   721      40.3       8.6 |   12     0.835
+//  1000    2   25  | 15340    296    93      12.8       4.9 |   13     0.915
+//  1000    2   30  | 15825    241    41       4.7       4.9 |    6     0.919
+//  2000    2   20  | 11744    192  4293      88.6      17.4 |    2     0.826
+//
+// Reproducing:
+//   docker cp gsql/scripts/_community_sweep.gsql \
+//     hhgoa-tigergraph:/tmp/community_sweep.gsql
+//   docker exec hhgoa-tigergraph /home/tigergraph/tigergraph/app/cmd/gsql \
+//     -u tigergraph -p tigergraph -g hhgoa_fraud -f /tmp/community_sweep.gsql
+//   docker exec hhgoa-tigergraph /home/tigergraph/tigergraph/app/cmd/gsql \
+//     -u tigergraph -p tigergraph -g hhgoa_fraud "INSTALL QUERY community_sweep"
+//   curl -s -u tigergraph:tigergraph -H "GSQL-TIMEOUT: 300000" -X POST \
+//     http://localhost:9000/query/hhgoa_fraud/community_sweep \
+//     -d '{"as_of":"2016-12-31 23:59:59","max_hub_degree":1000,
+//          "min_types":2,"min_overlap_pct":30}'
+// (the GSQL-TIMEOUT header matters -- RESTPP's default is 16s and a loose
+// max_hub_degree pushes this past it.)
+CREATE QUERY community_sweep(DATETIME as_of, INT max_hub_degree, INT min_types, INT min_overlap_pct) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE<STRING comp_id, INT sz> CompT;
+
+  MinAccum<STRING> @label;
+  SumAccum<INT>    @degree;
+  SumAccum<INT>    @foot;
+  SetAccum<STRING> @viaDevice;
+  SetAccum<STRING> @viaAddr;
+  SetAccum<STRING> @viaEmail;
+  MapAccum<STRING, SumAccum<INT>> @overlapCount;
+  MapAccum<STRING, SumAccum<INT>> @shared;
+  SetAccum<STRING> @strongNeighbors;
+  SetAccum<STRING> @srcCards;
+
+  SumAccum<INT> @@round;
+  MapAccum<STRING, MinAccum<STRING>> @@globalLabel;
+  MapAccum<STRING, MaxAccum<INT>> @@foot;
+  MapAccum<STRING, SumAccum<INT>> @@comp_size;
+  MapAccum<STRING, SumAccum<INT>> @@sizeHist;
+  HeapAccum<CompT>(8, sz DESC) @@topComps;
+
+  AllCards = {Card.*};
+  Init = SELECT c FROM AllCards:c
+         POST-ACCUM c.@label += c.id, @@globalLabel += (c.id -> c.id);
+
+  // Uncapped footprint: how many distinct shared-entity vertices each card
+  // touches at all. This is the card-side counterpart of max_hub_degree.
+  DevAll = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of
+           ACCUM d.@degree += 1, c.@foot += 1;
+  AddrAll = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of
+            ACCUM a.@degree += 1, c.@foot += 1;
+  EmAll = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of
+          ACCUM x.@degree += 1, c.@foot += 1;
+
+  Foot = SELECT c FROM AllCards:c
+         POST-ACCUM @@foot += (c.id -> c.@foot);
+
+  DevHub = SELECT d FROM AllCards:c-(CARD_DEVICE:e)-:d
+           WHERE e.first_ts <= as_of AND d.@degree <= max_hub_degree
+           ACCUM d.@srcCards += c.id;
+  DevBack = SELECT c2 FROM DevHub:d-(reverse_CARD_DEVICE:e)-:c2
+            WHERE e.first_ts <= as_of
+            ACCUM
+              FOREACH src IN d.@srcCards DO
+                IF src != c2.id THEN
+                  c2.@viaDevice += src,
+                  c2.@shared += (src -> 1)
+                END
+              END;
+
+  AddrHub = SELECT a FROM AllCards:c-(CARD_ADDRESS:e)-:a
+            WHERE e.first_ts <= as_of AND a.@degree <= max_hub_degree
+            ACCUM a.@srcCards += c.id;
+  AddrBack = SELECT c2 FROM AddrHub:a-(reverse_CARD_ADDRESS:e)-:c2
+             WHERE e.first_ts <= as_of
+             ACCUM
+               FOREACH src IN a.@srcCards DO
+                 IF src != c2.id THEN
+                   c2.@viaAddr += src,
+                   c2.@shared += (src -> 1)
+                 END
+               END;
+
+  EmHub = SELECT x FROM AllCards:c-(CARD_RECIPIENT_EMAIL:e)-:x
+          WHERE e.first_ts <= as_of AND x.@degree <= max_hub_degree
+          ACCUM x.@srcCards += c.id;
+  EmBack = SELECT c2 FROM EmHub:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:c2
+           WHERE e.first_ts <= as_of
+           ACCUM
+             FOREACH src IN x.@srcCards DO
+               IF src != c2.id THEN
+                 c2.@viaEmail += src,
+                 c2.@shared += (src -> 1)
+               END
+             END;
+
+  Overlap = SELECT c FROM AllCards:c
+            ACCUM
+              FOREACH id1 IN c.@viaDevice DO c.@overlapCount += (id1 -> 1) END,
+              FOREACH id2 IN c.@viaAddr DO c.@overlapCount += (id2 -> 1) END,
+              FOREACH id3 IN c.@viaEmail DO c.@overlapCount += (id3 -> 1) END
+            POST-ACCUM
+              FOREACH (nb, cnt) IN c.@overlapCount DO
+                IF cnt >= min_types AND
+                   c.@shared.get(nb) * 100 >=
+                     min_overlap_pct * (c.@foot + @@foot.get(nb) - c.@shared.get(nb)) THEN
+                  c.@strongNeighbors += nb
+                END
+              END;
+
+  WHILE @@round < 6 DO
+    Prop = SELECT c FROM AllCards:c
+           ACCUM
+             FOREACH nb IN c.@strongNeighbors DO
+               c.@label += @@globalLabel.get(nb)
+             END
+           POST-ACCUM @@globalLabel += (c.id -> c.@label);
+    @@round += 1;
+  END;
+
+  Summ = SELECT c FROM AllCards:c
+         ACCUM @@comp_size += (c.@label -> 1);
+
+  STRING bigLabel;
+  INT bigSize;
+  INT nMulti;
+  bigSize = 0;
+  nMulti = 0;
+  // Note: ELSE IF parses inside ACCUM/POST-ACCUM but NOT in a top-level
+  // statement block on this build, hence the independent IFs.
+  FOREACH (k, v) IN @@comp_size DO
+    @@topComps += CompT(k, v);
+    IF v >= 2 THEN nMulti = nMulti + 1; END;
+    IF v == 1 THEN @@sizeHist += ("s01" -> 1); END;
+    IF v >= 2 AND v <= 5 THEN @@sizeHist += ("s02_05" -> 1); END;
+    IF v >= 6 AND v <= 20 THEN @@sizeHist += ("s06_20" -> 1); END;
+    IF v >= 21 AND v <= 100 THEN @@sizeHist += ("s21_100" -> 1); END;
+    IF v >= 101 THEN @@sizeHist += ("s101plus" -> 1); END;
+    IF v > bigSize THEN
+      bigSize = v;
+      bigLabel = k;
+    END;
+  END;
+
+  // Activity-artifact indicators for the largest component.
+  SumAccum<INT> @@bigTxns;
+  SumAccum<INT> @@bigFoot;
+  SumAccum<INT> @@bigCases;
+  SumAccum<INT> @@bigConfirmed;
+  Big = SELECT c FROM AllCards:c WHERE c.@label == bigLabel
+        POST-ACCUM @@bigTxns += c.txn_count, @@bigFoot += c.@foot;
+  BigCases = SELECT f FROM Big:c-(reverse_ABOUT:e)-:f
+             WHERE e.ts <= as_of AND f.opened_at <= as_of
+             ACCUM @@bigCases += 1,
+                   IF f.outcome == "confirmed_fraud" THEN @@bigConfirmed += 1 END;
+
+  // Discovery candidate pool: multi-card components with >= 2 connected
+  // closed cases, and their aggregate confirmed-fraud rate.
+  MapAccum<STRING, SumAccum<INT>> @@compCases;
+  MapAccum<STRING, SumAccum<INT>> @@compConfirmed;
+  Multi = SELECT c FROM AllCards:c WHERE @@comp_size.get(c.@label) >= 2;
+  MCases = SELECT f FROM Multi:c-(reverse_ABOUT:e)-:f
+           WHERE e.ts <= as_of AND f.opened_at <= as_of
+           ACCUM @@compCases += (c.@label -> 1),
+                 IF f.outcome == "confirmed_fraud" THEN @@compConfirmed += (c.@label -> 1) END;
+
+  INT nCandidates;
+  INT candCases;
+  INT candConfirmed;
+  nCandidates = 0;
+  candCases = 0;
+  candConfirmed = 0;
+  FOREACH (k2, v2) IN @@compCases DO
+    IF v2 >= 2 THEN
+      nCandidates = nCandidates + 1;
+      candCases = candCases + v2;
+      candConfirmed = candConfirmed + @@compConfirmed.get(k2);
+    END;
+  END;
+
+  PRINT bigLabel AS giant_label,
+        bigSize AS giant_size,
+        @@comp_size.size() AS n_components,
+        nMulti AS n_multicard_components,
+        @@sizeHist AS size_hist,
+        @@topComps AS top_components,
+        @@bigTxns AS giant_txns,
+        @@bigFoot AS giant_total_footprint,
+        @@bigCases AS giant_cases,
+        @@bigConfirmed AS giant_confirmed,
+        nCandidates AS n_discovery_candidates,
+        candCases AS candidate_cases,
+        candConfirmed AS candidate_confirmed;
+}

@@ -36,9 +36,33 @@ const ROOT = import.meta.dirname;
 // (case-pack data runs through Dec 2016). Override with --as-of for testing
 // an earlier historical snapshot.
 const DEFAULT_AS_OF = "2016-12-31 23:59:59";
-// Hub-collapse guard shared by community_components/label_propagation/
-// community_lookup/shortest_path — see those files' header comments.
-const DEFAULT_MAX_HUB_DEGREE = 25;
+// Guards on the Card <-> shared-entity projection. The projection is
+// bipartite and has two independent ways of manufacturing a giant component,
+// so it takes two guards — one per side. See
+// gsql/algorithms/community_components.gsql's header and docs/decisions.md
+// for the measurements behind these numbers.
+//
+// Entity side: exclude shared vertices touched by more than this many
+// distinct cards. Its only job is removing genuine missing/default sentinel
+// values, of which the full dataset has exactly 20 above degree 1000 (1
+// Device, 14 Address, 5 EmailDomain). Deliberately loose: a cap of 25
+// discards 59% of all CARD_DEVICE, 98% of all CARD_ADDRESS and 99% of all
+// CARD_RECIPIENT_EMAIL edges.
+const WCC_MAX_HUB_DEGREE = 1000;
+// Card side: two cards must share 2+ distinct entity types AND the shared
+// entities must be at least this percent of their combined distinct-entity
+// footprint. This is what stops the most ACTIVE cards from colliding with
+// each other by volume alone and chaining into one blob.
+const WCC_MIN_OVERLAP_PCT = 30;
+// Discovery qualifying bar: a community's confirmed-fraud rate must reach
+// this to be reported. NOT 50 — the dataset-wide baseline is 83.2% (4,473
+// confirmed of 5,373 closed cases with an outcome), so a 50% bar is below
+// chance and tests nothing.
+const DISCOVERY_MIN_CONFIRMED_PCT = 90;
+// label_propagation/shortest_path keep the tight historical cap: neither
+// takes the card-side guard (see their header comments for why), so for them
+// the hub cap is the only guard there is.
+const LOOSE_PROJECTION_MAX_HUB_DEGREE = 25;
 
 const QUERY_DIRS = ["queries", "detectors", "algorithms", "discovery"];
 
@@ -109,7 +133,10 @@ async function main(): Promise<void> {
   const asOfIdx = process.argv.indexOf("--as-of");
   const asOf = asOfIdx >= 0 ? process.argv[asOfIdx + 1] : DEFAULT_AS_OF;
   const asOfLit = `"${asOf}"`;
-  const hubDeg = String(DEFAULT_MAX_HUB_DEGREE);
+  const hubDeg = String(WCC_MAX_HUB_DEGREE);
+  const overlapPct = String(WCC_MIN_OVERLAP_PCT);
+  const confirmedPct = String(DISCOVERY_MIN_CONFIRMED_PCT);
+  const looseHubDeg = String(LOOSE_PROJECTION_MAX_HUB_DEGREE);
 
   const infra = runGsqlCmd("ls", { allowFailure: true });
   if (infra.status !== 0) {
@@ -125,14 +152,14 @@ async function main(): Promise<void> {
 
   if (!queriesOnly) {
     console.log(`[gsql install] running algorithms + discovery as_of=${asOf} (writes Pattern/MATCHES_PATTERN)`);
-    runInstalled("community_components", [asOfLit, hubDeg], 180);
-    runInstalled("label_propagation", [asOfLit, hubDeg], 180);
+    runInstalled("community_components", [asOfLit, hubDeg, overlapPct], 180);
+    runInstalled("label_propagation", [asOfLit, looseHubDeg], 180);
     runInstalled("hub_devices", [asOfLit], 60);
     // Must run as two separate invocations, in this order -- see
     // discovery/discovery_clear.gsql's header comment (DELETE+INSERT of
     // the same vertex id within one query silently nets to a deletion).
     runInstalled("discovery_clear", [], 30);
-    runInstalled("discovery_report", [asOfLit, hubDeg], 120);
+    runInstalled("discovery_report", [asOfLit, hubDeg, overlapPct, confirmedPct], 120);
   }
 
   if (failures > 0) {

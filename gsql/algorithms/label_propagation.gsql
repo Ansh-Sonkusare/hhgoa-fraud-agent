@@ -16,9 +16,25 @@
 // pure chains; further rounds are future work if the discovery results
 // warrant it.
 //
-// max_hub_degree: same hub-collapse guard as community_components.gsql --
-// shared vertices touching more than max_hub_degree distinct cards are
-// excluded from voting (see that file's comment for why).
+// max_hub_degree: the entity-side hub-collapse guard, same as
+// community_components.gsql -- shared vertices touching more than
+// max_hub_degree distinct cards are excluded from voting (see that file's
+// comment for why).
+//
+// DELIBERATELY does NOT take community_components.gsql's card-side guard
+// (2+ distinct shared entity types, min_overlap_pct footprint overlap). That
+// guard exists to stop a WCC giant component, and the giant-component
+// pathology is specific to TRANSITIVE CLOSURE: in WCC, A-B and B-C forces A
+// and C into one component, so long chains of individually-weak links merge
+// everything. Majority-vote LPA is not transitive -- each card commits to
+// exactly one winning label rather than absorbing its neighbors' components
+// -- so it does not chain, and it does not need the same bar. Keeping it on
+// the looser projection is also the point of having it: it is the coarser,
+// higher-recall counterpart to the strict WCC, so the two disagreeing is
+// informative rather than contradictory. Run with the tight
+// max_hub_degree=25 default (see gsql/install.ts), not the loose 1000 the
+// community queries use, since the hub cap is its only guard.
+// See docs/decisions.md.
 CREATE QUERY label_propagation(DATETIME as_of, INT max_hub_degree) FOR GRAPH hhgoa_fraud {
   MinAccum<STRING> @label;
   SumAccum<INT>    @degree;
