@@ -17,6 +17,7 @@
     "@hhgoa/contracts": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"
   }
