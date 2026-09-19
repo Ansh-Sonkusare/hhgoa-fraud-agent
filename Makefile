@@ -1,4 +1,10 @@
-.PHONY: test lint verify-graph verify-gsql run-case run-all validate-answers test-contracts
+.PHONY: test lint verify-graph verify-gsql run-case run-all validate-answers test-contracts mcp-up mcp-down
+
+mcp-up:
+	docker compose up -d --build tigergraph mcp-server
+
+mcp-down:
+	docker compose stop tigergraph mcp-server
 
 test:
 	pnpm turbo run test

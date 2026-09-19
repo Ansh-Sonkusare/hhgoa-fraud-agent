@@ -18,5 +18,28 @@ services:
       - tigergraph_data:/home/tigergraph
     restart: unless-stopped
 
+  mcp-server:
+    # The official TigerGraph MCP server (tigergraph-mcp), containerized — see
+    # graph/mcp-server/Dockerfile and CLAUDE.md's Stack section. Replaces manually
+    # running `pnpm --filter @hhgoa/graph mcp:start` (still available as a native
+    # fallback; see graph/mcp-server/.env.example).
+    build: ./graph/mcp-server
+    container_name: hhgoa-mcp-server
+    depends_on:
+      - tigergraph
+    ports:
+      - "8000:8000"
+    environment:
+      # Same Community Edition local-dev defaults as graph/mcp-server/.env.example,
+      # but TG_HOST points at the `tigergraph` service by its compose network name
+      # instead of localhost, since this runs inside the compose network.
+      TG_HOST: http://tigergraph
+      TG_GRAPHNAME: hhgoa_fraud
+      TG_USERNAME: tigergraph
+      TG_PASSWORD: tigergraph
+      TG_RESTPP_PORT: "9000"
+      TG_GS_PORT: "14240"
+    restart: unless-stopped
+
 volumes:
   tigergraph_data:

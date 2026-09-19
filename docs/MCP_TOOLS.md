@@ -2,15 +2,16 @@
 
 Owned by WS1. The TigerGraph MCP server (https://github.com/tigergraph/tigergraph-mcp, official `tigergraph-mcp`) exposes every graph capability through `tigergraph__*` tools. WS1's agent-facing contract tools (PRD §8.4) map onto them below.
 
-Start the server: `pnpm --filter @hhgoa/graph mcp:start` (streamable HTTP on `127.0.0.1:8000`, config in `graph/mcp-server/.env`). Connect at `http://127.0.0.1:8000/mcp/` (trailing slash required). `graph/scripts/mcpSmoke.ts` runs the 3 WS1 sample queries through it; that is what `make verify-graph` invokes. `mcp:start` does not start the TigerGraph container itself (`docker compose up` in `graph/`) or auto-restart on a crash — start it once per dev session and leave it running; `agent/src/mcpClient.ts`'s `RealMcpClient` (`TOOLS_BACKEND=real`) connects to whatever's already listening on `TIGERGRAPH_MCP_URL` (default `http://127.0.0.1:8000/mcp/`).
+Start the server (recommended): `make mcp-up` — builds and starts both the TigerGraph container and the MCP server as the root `docker-compose.yml`'s `tigergraph` and `mcp-server` services (the latter built from `graph/mcp-server/Dockerfile`; `make mcp-down` stops both). No `.env` file or Python setup needed — config is in `docker-compose.yml`'s `environment:` block. Streamable HTTP is published on `127.0.0.1:8000`; connect at `http://127.0.0.1:8000/mcp/` (trailing slash required). `graph/scripts/mcpSmoke.ts` runs the 3 WS1 sample queries through it; that is what `make verify-graph` invokes (note: `verify-graph` does not itself run `mcp-up` — start the containers first). Neither path auto-restarts on a crash (compose sets `restart: unless-stopped`, which covers a container crash but not the Docker daemon going down) — `agent/src/mcpClient.ts`'s `RealMcpClient` (`TOOLS_BACKEND=real`) connects to whatever's already listening on `TIGERGRAPH_MCP_URL` (default `http://127.0.0.1:8000/mcp/`).
 
-One-time setup (per CLAUDE.md's Stack section: Python isolated to its own venv under `graph/`, never committed — `graph/mcp-server/venv/` and `graph/mcp-server/.env` are both gitignored):
+Native fallback (no Docker): `pnpm --filter @hhgoa/graph mcp:start` runs the same server directly from a local Python venv (per CLAUDE.md's Stack section: isolated under `graph/mcp-server/`, never committed — `venv/` and `.env` are both gitignored). One-time setup:
 ```
 cd graph
 python3 -m venv mcp-server/venv
 ./mcp-server/venv/bin/pip install tigergraph-mcp
 cp mcp-server/.env.example mcp-server/.env   # or write it: TG_HOST, TG_GRAPHNAME, TG_USERNAME, TG_PASSWORD, TG_RESTPP_PORT, TG_GS_PORT (see docker-compose.yml for values)
 ```
+This still requires the TigerGraph container running separately (`docker compose up -d tigergraph`, or `make mcp-up` which starts both).
 
 | Contract tool (PRD §8.4) | MCP tool name | Installed query | Example |
 |---|---|---|---|
