@@ -1,7 +1,7 @@
-# Bank Fraud Policy v1.0 — encodes README.md "Fraud Policy" section verbatim.
+# Bank Fraud Policy v1.0 — encodes docs/DATASET_README.md "Fraud Policy" section verbatim.
 # Identifiers here (action names, evidence-request types, route names) must
-# match contracts/src/answerFile.ts exactly. If this file and README.md ever
-# disagree, README.md wins and this file gets fixed.
+# match contracts/src/answerFile.ts exactly. If this file and the dataset
+# README ever disagree, the dataset README wins and this file gets fixed.
 #
 # approval_route: "none" means the agent may execute the action itself
 # (rendered as route "auto" in the answer file's next_best_actions).

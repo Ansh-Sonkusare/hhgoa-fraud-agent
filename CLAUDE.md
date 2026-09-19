@@ -22,10 +22,10 @@ OpenCode delegation is planned but not active yet — it will be reintroduced la
 
 ## Dataset and Answer Format
 
-* The dataset `README.md` is authoritative for files, columns, patterns, policy, and answer format.
+* The dataset README (`docs/DATASET_README.md`) is authoritative for files, columns, patterns, policy, and answer format.
 * `docs/DATA_MAP.md` is the reconciled reference. Read it; do not re-derive information from the CSVs.
-* Never invent a field that does not exist in either `README.md` or `docs/DATA_MAP.md`.
-* The answer-file shape is **exactly** the one specified in `README.md`'s "Answer Format" section and reproduced in PRD §13.
+* Never invent a field that does not exist in either `docs/DATASET_README.md` or `docs/DATA_MAP.md`.
+* The answer-file shape is **exactly** the one specified in `docs/DATASET_README.md`'s "Answer Format" section and reproduced in PRD §13.
 * There is no separate internal answer shape. Do not introduce one.
 
 ## Temporal Correctness

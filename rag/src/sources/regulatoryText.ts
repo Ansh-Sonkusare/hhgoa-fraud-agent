@@ -1,5 +1,6 @@
 /**
- * Regulatory reference text (README's "Regulatory references" section) for
+ * Regulatory reference text (the dataset README's "Regulatory references"
+ * section, see docs/DATASET_README.md) for
  * the vector store. Best-effort by design — the README says "load the
  * ones you find useful" (optional depth), and this sandbox's network
  * environment blocks most of the listed sources outright:
@@ -22,7 +23,7 @@
  * URL (WebFetch, 2026-09-18) — condensed by the fetch tool's summarizer,
  * not a byte-for-byte copy, which is why `source_kind` distinguishes
  * `"regulatory"` from `"policy"`/`"pattern"` (bank-authored, byte-exact
- * from README.md) in `PolicyChunkRecord`.
+ * from DATASET_README.md) in `PolicyChunkRecord`.
  */
 export interface RegulatoryDoc {
   source_doc: string;

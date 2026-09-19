@@ -2,8 +2,9 @@ import { z } from "zod";
 
 /**
  * AnswerFile — the ONE schema for `cases/<case_id>.json`, generated field for
- * field from README.md's "Answer Format" section (also reproduced in
- * PRD §13). If this file and the README ever disagree, the README wins.
+ * field from docs/DATASET_README.md's "Answer Format" section (also
+ * reproduced in PRD §13). If this file and the dataset README ever disagree,
+ * the dataset README wins.
  */
 
 export const CaseStatusSchema = z.enum([

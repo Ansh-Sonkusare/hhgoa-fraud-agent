@@ -11,7 +11,7 @@ function seededStore(): VectorStore<PolicyChunkRecord> {
   const chunks: PolicyChunkRecord[] = [
     makePolicyChunk({
       chunk_id: "pc_0001",
-      source_doc: "README.md#the-five-known-fraud-patterns",
+      source_doc: "DATASET_README.md#the-five-known-fraud-patterns",
       source_kind: "pattern",
       heading_path: "The five known fraud patterns > 1. Card testing.",
       pattern_id: "card_testing",
@@ -29,7 +29,7 @@ function seededStore(): VectorStore<PolicyChunkRecord> {
     }),
     makePolicyChunk({
       chunk_id: "pc_0004",
-      source_doc: "README.md#the-five-known-fraud-patterns",
+      source_doc: "DATASET_README.md#the-five-known-fraud-patterns",
       source_kind: "pattern",
       heading_path: "The five known fraud patterns > 4. Out-of-region use.",
       pattern_id: "out_of_region_use",

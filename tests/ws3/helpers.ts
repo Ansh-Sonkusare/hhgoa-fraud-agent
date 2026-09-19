@@ -81,7 +81,7 @@ export function makePolicyChunk(
   overrides: Partial<PolicyChunkRecord> & { chunk_id: string; text: string },
 ): PolicyChunkRecord {
   return {
-    source_doc: "README.md#fraud-policy",
+    source_doc: "DATASET_README.md#fraud-policy",
     source_kind: "policy",
     heading_path: "Fraud Policy",
     token_count: approxTokenCount(overrides.text),

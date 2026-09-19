@@ -3,12 +3,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 /**
- * Extracts the policy/pattern source text directly from the repo-root
- * `README.md` at ingestion time, rather than hardcoding a copy anywhere in
- * `rag/`. README.md is the single authoritative source (CLAUDE.md,
- * PRD §0) and can change; re-running `pnpm --filter @hhgoa/rag run ingest`
- * always re-derives chunks from whatever's currently in README.md instead
- * of a stale paste that could drift.
+ * Extracts the policy/pattern source text directly from the dataset README
+ * (`docs/DATASET_README.md`) at ingestion time, rather than hardcoding a
+ * copy anywhere in `rag/`. DATASET_README.md is the single authoritative
+ * source (CLAUDE.md, PRD §0) and can change; re-running
+ * `pnpm --filter @hhgoa/rag run ingest` always re-derives chunks from
+ * whatever's currently in it instead of a stale paste that could drift.
  */
 
 function repoRoot(): string {
@@ -18,7 +18,7 @@ function repoRoot(): string {
 }
 
 function readReadme(): string {
-  return readFileSync(path.join(repoRoot(), "README.md"), "utf-8");
+  return readFileSync(path.join(repoRoot(), "docs", "DATASET_README.md"), "utf-8");
 }
 
 /** Slice `markdown` between two exact heading lines (start inclusive, end exclusive). */
@@ -39,7 +39,7 @@ export function extractSubsection(
   return lines.slice(startIdx, endIdx).join("\n").trim();
 }
 
-/** README's "## The five known fraud patterns" section, patterns 1-5. */
+/** DATASET_README.md's "## The five known fraud patterns" section, patterns 1-5. */
 export function getPatternsSectionMarkdown(): string {
   return extractSubsection(
     readReadme(),
@@ -48,13 +48,14 @@ export function getPatternsSectionMarkdown(): string {
   );
 }
 
-/** README's full "# Fraud Policy" section (actions, routing, R1-R10, 3a/3b, exposure, stopping, explaining). */
+/** DATASET_README.md's full "# Fraud Policy" section (actions, routing, R1-R10, 3a/3b, exposure, stopping, explaining). */
 export function getFraudPolicySectionMarkdown(): string {
   return extractSubsection(readReadme(), "# Fraud Policy", "# Answer Format");
 }
 
 /**
- * README renders both the 5 patterns and the 10 rules as `**label.** body`
+ * DATASET_README.md renders both the 5 patterns and the 10 rules as
+ * `**label.** body`
  * paragraphs under one heading, not as individual markdown headings — so a
  * heading-based chunker would lump all 5 (or all 10) into one oversized,
  * unattributable chunk. Split on the bold-label paragraph convention

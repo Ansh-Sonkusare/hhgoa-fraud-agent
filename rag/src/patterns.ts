@@ -8,9 +8,9 @@ import type { PatternRecord } from "./types.js";
  * `rag/src/store/vectorStore.ts` header and `docs/REQUESTS.md`.
  *
  * Every `required_evidence` id and `permitted_actions` entry here is
- * derived directly from README.md's "The five known fraud patterns" and
- * "Fraud Policy" sections (rule numbers cited in `rule_refs`) — nothing
- * invented. `permitted_actions` values are exact `PolicyActionNameSchema`
+ * derived directly from docs/DATASET_README.md's "The five known fraud
+ * patterns" and "Fraud Policy" sections (rule numbers cited in `rule_refs`)
+ * — nothing invented. `permitted_actions` values are exact `PolicyActionNameSchema`
  * identifiers (`contracts/src/answerFile.ts`) so `retrieve_policy`'s output
  * can be used directly by the agent's evidence/action planning without
  * re-mapping.

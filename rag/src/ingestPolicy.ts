@@ -31,7 +31,7 @@ export function buildRawPolicyChunks(): RawPolicyChunk[] {
     const parsed = parsePatternLabel(item.label);
     if (!parsed) continue; // skips the section's non-bold intro paragraph
     raw.push({
-      source_doc: "README.md#the-five-known-fraud-patterns",
+      source_doc: "DATASET_README.md#the-five-known-fraud-patterns",
       source_kind: "pattern",
       heading_path: `The five known fraud patterns > ${item.label}`,
       text: item.text,
@@ -51,7 +51,7 @@ export function buildRawPolicyChunks(): RawPolicyChunk[] {
     const parsed = parseRuleLabel(item.label);
     if (!parsed) continue;
     raw.push({
-      source_doc: "README.md#fraud-policy",
+      source_doc: "DATASET_README.md#fraud-policy",
       source_kind: "policy",
       heading_path: `Fraud Policy > Rules > ${item.label}`,
       text: item.text,
@@ -68,7 +68,7 @@ export function buildRawPolicyChunks(): RawPolicyChunk[] {
   // prefix — don't prepend it again.
   for (const c of chunkMarkdown(withoutRules)) {
     raw.push({
-      source_doc: "README.md#fraud-policy",
+      source_doc: "DATASET_README.md#fraud-policy",
       source_kind: "policy",
       heading_path: c.heading_path,
       text: c.text,

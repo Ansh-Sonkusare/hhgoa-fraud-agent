@@ -1,11 +1,12 @@
 /**
  * The 20 benchmark cases, transcribed verbatim from the "The 20 Cases" table
- * in the dataset README.md (repo root). That table IS `case_pack.csv` — the
- * README says so explicitly ("Also available as case_pack.csv in this
- * folder"). `data/` (which would hold the real CSV) is gitignored raw
- * dataset per CLAUDE.md, so this file is the case queue's source of truth
- * for WS6 until a real API/DB exists. Do not edit trigger text/ids here
- * without re-checking README.md — this must stay byte-identical to it.
+ * in the dataset README (docs/DATASET_README.md). That table IS
+ * `case_pack.csv` — the README says so explicitly ("Also available as
+ * case_pack.csv in this folder"). `data/` (which would hold the real CSV) is
+ * gitignored raw dataset per CLAUDE.md, so this file is the case queue's
+ * source of truth for WS6 until a real API/DB exists. Do not edit trigger
+ * text/ids here without re-checking docs/DATASET_README.md — this must stay
+ * byte-identical to it.
  */
 
 export type TriggerType = "risk_score" | "customer_report" | "analyst_request";

@@ -1,6 +1,6 @@
 # Data map
 
-Reconciliation of `README.md` (authoritative for files, columns, patterns, policy, and the graded answer format) into the shape code will actually be written against. If this file and `README.md` ever disagree, `README.md` wins and this file gets fixed — never the other way around.
+Reconciliation of `docs/DATASET_README.md` (authoritative for files, columns, patterns, policy, and the graded answer format) into the shape code will actually be written against. If this file and the dataset README ever disagree, the dataset README wins and this file gets fixed — never the other way around.
 
 ## Files
 
@@ -41,7 +41,7 @@ Do not claim to know what an individual `V*`/`C*`/`D*`/`M*` column means. Refere
 
 ## Answer format — binding shape
 
-The full JSON shape, field types, and the worked example live in `README.md` under "Answer Format" and are reproduced verbatim as the target contract in **PRD.md §13**. Do not duplicate the shape a third time here — read PRD §13 for the schema and README for field-by-field meaning. Summary of what must never drift:
+The full JSON shape, field types, and the worked example live in `docs/DATASET_README.md` under "Answer Format" and are reproduced verbatim as the target contract in **PRD.md §13**. Do not duplicate the shape a third time here — read PRD §13 for the schema and the dataset README for field-by-field meaning. Summary of what must never drift:
 
 - Output: `cases/<case_id>.json`, one per line in `case_pack.csv`, 20 files total.
 - Three parts per file: `case` (internal record), `sar` (regulatory filing, only when `FILE_REPORT` is recommended), `next_best_actions` (`initial` before any evidence request, `final` after).
