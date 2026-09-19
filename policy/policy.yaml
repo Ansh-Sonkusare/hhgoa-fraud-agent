@@ -1,0 +1,129 @@
+# Bank Fraud Policy v1.0 — encodes README.md "Fraud Policy" section verbatim.
+# Identifiers here (action names, evidence-request types, route names) must
+# match contracts/src/answerFile.ts exactly. If this file and README.md ever
+# disagree, README.md wins and this file gets fixed.
+#
+# approval_route: "none" means the agent may execute the action itself
+# (rendered as route "auto" in the answer file's next_best_actions).
+# "L1" / "L2" mean the action can only ever reach PENDING_APPROVAL until a
+# human approves it through an ApprovalChannel.
+#
+# A few actions have conditional routing/prerequisites that this flat schema
+# can't express as plain YAML values (see contracts/src/policy.ts
+# PolicyActionConfigSchema.prerequisites: free-form record). Those are
+# encoded as extra keys under `prerequisites` and interpreted by
+# policy/src/engine.ts — see the comment on each such action below and
+# docs/decisions.md for why.
+
+actions:
+  # --- auto (README Fraud Policy §2: agent may execute) ---
+  ALLOW_TRANSACTION:
+    executable_by_agent: true
+    approval_route: none
+
+  MONITOR_CARD:
+    executable_by_agent: true
+    approval_route: none
+
+  MONITOR_CONNECTED_CARDS:
+    executable_by_agent: true
+    approval_route: none
+
+  WARN_CUSTOMER:
+    executable_by_agent: true
+    approval_route: none
+
+  VERIFY_WITH_CUSTOMER:
+    executable_by_agent: true
+    approval_route: none
+
+  STEP_UP_AUTH:
+    executable_by_agent: true
+    approval_route: none
+
+  GENERATE_REPORT:
+    executable_by_agent: true
+    approval_route: none
+
+  CREATE_CASE:
+    executable_by_agent: true
+    approval_route: none
+
+  ESCALATE_TO_ANALYST:
+    executable_by_agent: true
+    approval_route: none
+
+  CLOSE_NO_FRAUD:
+    executable_by_agent: true
+    approval_route: none
+
+  # --- L1 (team lead) ---
+  DECLINE_TRANSACTION:
+    executable_by_agent: false
+    approval_route: L1
+    # R1: verify before you block on a weak signal — a single-signal case
+    # below probability 0.70 must not go straight to DECLINE_TRANSACTION /
+    # BLOCK_CARD; the engine denies with a reason pointing at R1 instead.
+    prerequisites:
+      rule: R1
+      min_probability_unless_customer_denied: 0.70
+
+  BLOCK_CARD:
+    executable_by_agent: false
+    # Conditional per README §2: L1 when exposure <= $2,500, L2 above.
+    # `approval_route` here is the *base* (low-exposure) route; engine.ts
+    # bumps it to L2 when case_state.exposure_usd > exposure_l2_above_usd.
+    approval_route: L1
+    prerequisites:
+      rule: R1
+      min_probability_unless_customer_denied: 0.70
+      exposure_l2_above_usd: 2500
+
+  # --- L2 (fraud manager) ---
+  BLOCK_ALL_CARDS:
+    executable_by_agent: false
+    approval_route: L2
+    # R10: never BLOCK_ALL_CARDS unless >=2 of the customer's cards show
+    # confirmed fraud, or credentials are confirmed compromised.
+    prerequisites:
+      rule: R10
+      min_confirmed_fraud_cards: 2
+      or_credentials_confirmed_compromised: true
+
+  FILE_REPORT:
+    executable_by_agent: false
+    approval_route: L2
+    # §3a: a report always has a case behind it, and is only warranted when
+    # the sar_required test (engine.ts, mirrors §3a's three conditions) is
+    # true. Enforced as a prerequisite so FILE_REPORT can't be requested for
+    # a case that doesn't meet the bar.
+    prerequisites:
+      rule: "3a"
+      requires_sar_conditions_met: true
+
+evidence_requests:
+  # README §5: the agent may ask for these without approval. `assumed_response`
+  # is simulated deterministically (policy/src/evidence.ts SimulatedResponder)
+  # since the dataset does not supply live responses (README §5, "Notes").
+  customer_validation:
+    friction_cost: 2
+    approval_route: none
+
+  step_up_auth:
+    friction_cost: 3
+    approval_route: none
+
+  analyst_info:
+    friction_cost: 1
+    approval_route: none
+
+sar:
+  # README §3a: file when fraud is confirmed/strongly suspected AND at least
+  # one of: exposure > $1,000; shared device/region/another card's fraud;
+  # coordinated or undocumented pattern (R9). Structured check lives in
+  # policy/src/engine.ts (sarRequired()); this string is the human-readable
+  # summary the yaml format requires (contracts PolicyConfigSchema.sar.required_if).
+  required_if: >-
+    fraud confirmed or strongly suspected AND (exposure_usd > 1000 OR
+    shared_device_or_region_or_other_card_fraud OR pattern in
+    [coordinated, undocumented])
