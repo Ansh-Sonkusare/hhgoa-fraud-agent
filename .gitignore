@@ -17,6 +17,7 @@ build/
 .turbo/
 runs/
 coverage/
+.next/
 
 # Editor / OS
 .DS_Store
