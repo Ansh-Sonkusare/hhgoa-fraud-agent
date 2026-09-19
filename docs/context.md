@@ -8,10 +8,11 @@ TigerGraph Hacker House Goa hackathon: an agentic fraud-investigation system ove
 
 ## Repo state
 
-- Private GitHub repo: `Ansh-Sonkusare/hhgoa-fraud-agent`, branch `main`, pushed.
-- Raw dataset CSVs live in `data/` (gitignored) — never commit them.
+- Private GitHub repo: `Ansh-Sonkusare/hhgoa-fraud-agent`, branch `main`, pushed (origin synced to `002ddfb`).
+- Raw dataset CSVs live in `data/` (gitignored) — never commit them. **`data/` holds the REAL dataset** (~590k txns, ~144k identity rows, 5,565 closed cases, 20 case-pack cases) — but the graph is currently loaded only with the **smoke slice** (2,500 txns), not the full data yet.
 - Stack: TypeScript end to end, Node 20+, **pnpm workspaces + Turborepo** (switched from npm workspaces per user instruction — see `docs/decisions.md`), `tsx`, `zod`, `vitest`. The only non-TypeScript code is `.gsql` (WS1/WS2) and one narrow Python exception for the official `tigergraph-mcp` server — see `docs/decisions.md`.
-- **All STEP-2 implementation workstreams are merged into `main` and green.** `make test` runs 9/9 tasks (contracts 83, agent 71, policy 54, api 20, rag 95 — all passing), typecheck is clean across contracts/rag/agent/policy/api, `make verify-graph` passes. WS0 tag `m0` exists.
+- **STEP-2 implementation workstreams are merged into `main` and their tests are green** — but a PRD §16 recheck (2026-09-19) found most workstreams are green only "on fakes/fixtures"; the real-tools wiring is largely NOT done. See the "STEP 2: merged — but mostly fakes/fixtures" section below for the honest gap list.
+- `make test` runs 9/9 tasks (contracts 83, agent 71, policy 54, api 20, rag 95 — all passing), typecheck clean across contracts/rag/agent/policy/api, `make verify-graph` passes. WS0 tag `m0` exists.
 
 ## Directory ownership (PRD §6 — do not cross these lines)
 
@@ -54,3 +55,30 @@ WS0 (STEP 1) was committed in reviewed chunks, tagged `m0`, and pushed. Infra fo
 Each merge's `pnpm-lock.yaml` conflict was resolved by taking the expected copy (`git checkout --theirs` + `pnpm install --lockfile-only`), then one full `pnpm install` to create the `@hhgoa/*` workspace symlinks.
 
 Remaining known edges (non-blocking, tracked in `docs/todo.md`): WS2 `gsql/` (deliberately held back until WS1's schema landed — can now start), WS7 `eval/` (after WS4 emits real events), WS8 `submission/` (continuous). The `FLAGGED_TXN=0` smoke-verification finding (all flagged case ids fall outside the loaded smoke subset) was explained and deferred, not fixed.
+
+## STEP 2: merged — but mostly fakes/fixtures (recheck, 2026-09-19)
+
+PRD §16 recheck vs the merged `main`. Green-on-tests ≠ done against DoD for most workstreams:
+
+- WS0 `contracts/`: done (83 tests; fakes; answer schema reconciled with README).
+- WS1 `graph/`: smoke-grade only. Schema + loading jobs + 3 sample queries + `graph_stats` installed; `make verify-graph` passes; MCP server running and TS-side MCP smoke succeeds. **But:** full-dataset load (~590k txns) hasn't been run — the container holds the smoke slice (2,500 txns / 568 customers / 5,565 fraud cases). And `graph/mcp-server/` (the `tigergraph-mcp` Python venv + its `.env`) is **untracked** — it exists only in the leftover WS1 worktree under `.claude/` (gitignored), so a clean main clone cannot start MCP yet. Both need fixing before "counts match README" (DoD) and D1 (clean-clone run).
+- WS2 `gsql/`: **NOT STARTED** — `gsql/` is a `package.json` stub. The 8+ installed queries, 5 pattern detectors, WCC/Louvain, discovery, and `docs/IDENTITY_VALIDATION.md` are all missing. Biggest gap: blocks R2, the agent's real graph tools, RAG's graph-expansion half, and the `gsql/` column of `docs/MCP_TOOLS.md`.
+- WS3 `rag/`: implemented (95 tests) — reads real `data/*.csv`, context bundle ≤6k tokens, memory. **But** `vectorStore.ts` is a local adapter; graph-native vector search + "memory write visible in graph" (DoD) are blocked on WS1 vector queries / WS2 (open WS3→WS1 REQUESTS.md item).
+- WS4 `agent/`: implemented against fakes (71 tests) — state machine, MCP client, tool registry, assessor, VOI planner, explainer. **`TOOLS_BACKEND=real` throws** in `agentFactory.ts`; default run = `MockLlmClient` + contracts fakes.
+- WS5 `policy/`: done (54 tests) — §10.5 guarantees hold; real policy paths + UI/Discord approval channels wired.
+- WS6 `api/`+`ui/`: Fastify + SSE + full Next.js UI (see `ui/screenshots/*.png`, 20 api tests). **`FixtureRunSource` only** (replays `fixtures/*.json`); the live agent is not plugged into `RunSource` (seam is documented — same interface, drive `agent/machine.ts`, env-gated). The 20 `case_pack` entries have no recordings: their pages open but show no timeline/evidence.
+- WS7 `eval/`: **NOT STARTED** — `eval/` stub, `cases/` doesn't exist, Makefile `run-case`/`run-all`/`validate-answers` are stubs (D1/D3 unmet).
+- WS8 `submission/`: **NOT STARTED** — directory doesn't exist.
+- Real-time vs static: **PRD §2 makes real-time streaming a NON-GOAL.** Data is the static IEEE-CIS `data/*.csv`. The SSE stream is agent-**event** streaming of a fixture/replay run, not live transaction data — nothing to build there.
+
+## Ollama LLM: working locally (2026-09-19)
+
+- Found installed (Nix store, `ollama 0.30.5` — not on PATH, not running), started `ollama serve` on `:11434`.
+- Pulled `qwen2.5:1.5b` (~1 GB) as the local model; set `OLLAMA_MODEL=qwen2.5:1.5b` in `.env` (gitignored — not committed).
+- Cloud models (gemma4:31b, gpt-oss:120b/20b, nemotron-3-*) shown in the Claude desktop Ollama usage dialog: attempted, but the running binary treats them as local-registry names via `/api/chat` (404 / hangs) — signed-in cloud routing isn't usable through the code path the agent uses. **Stick with local `qwen2.5:1.5b`.**
+- Fixed two related bugs in `291375f`: `agent/src/llm.ts` now honors `OLLAMA_HOST` (repo convention; `.env` defines `OLLAMA_HOST`, but the client read `OLLAMA_URL`, so real non-mock runs silently defaulted to `llama3.1`), and `api/src/env.ts` now strips inline comments (e.g. `TOOLS_BACKEND=fake # fake | real`) instead of including them in the parsed value.
+- Verified end to end: a real Ollama-driven agent run completes — `HHG-920`, risk_score trigger, 32 events, 7 tool calls, verdict `fraud` / pattern `card_testing`, final state `done`.
+
+## Next up (agreed with user)
+
+Load the **full real dataset** into TigerGraph (WS1 DoD "counts match README" using the real ~590k-txn slice), then start WS2 (`gsql/`). Track in `docs/todo.md`.
