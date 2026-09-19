@@ -36,8 +36,8 @@ OpenCode delegation is planned but not active yet — it will be reintroduced la
 
 ## Stack
 
-* TypeScript end to end.
-* No Python.
+* TypeScript end to end, preferred over other languages.
+* Python is allowed specifically for installing/running the official TigerGraph MCP server (`tigergraph-mcp`, a required hackathon component — https://github.com/tigergraph/tigergraph-mcp#installation) if that's easier than a workaround. Keep it isolated to its own directory (e.g. a dedicated subfolder under `graph/`, own venv/deps) — don't write general agent/application logic in Python, and don't introduce Python elsewhere without the same kind of explicit reason. See `docs/decisions.md`.
 * Node 20+.
 * pnpm workspaces, orchestrated with Turborepo.
 * `tsx` for running files directly during development.

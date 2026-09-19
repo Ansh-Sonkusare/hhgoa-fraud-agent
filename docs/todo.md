@@ -14,15 +14,33 @@ Living task list. Check items off in place; don't delete history — move comple
 - [ ] Tag `m0`, push tags.
 - [ ] Report STEP 1 done per PRD §16's WS0 acceptance criteria.
 
-## Next (STEP 2 — after m0)
+## Now (infra prep before STEP 2 kickoffs)
 
-- [ ] Kick off WS1 (graph/) per PRD §19.3 kickoff prompt.
-- [ ] Kick off WS2 (gsql/) once WS1's schema draft exists.
-- [ ] Kick off WS3 (rag/).
-- [ ] Kick off WS4+WS5 (agent/ + policy/) against fakes.
-- [ ] Kick off WS6 (api/ + ui/) against fixtures.
-- [ ] WS7 (eval/) once WS4 emits real events.
-- [ ] WS8 (submission/) continuous from day 1 onward per PRD §17.
+- [x] `.env` created from `.env.example` (gitignored, not committed).
+- [x] Decision: TigerGraph via local Docker CE (`docker-compose.yml`, root), not Savanna — see `docs/decisions.md`.
+- [x] Decision: LLM swapped to local Ollama (no API key), Groq wired as optional fallback — PRD §5/OQ7 updated in place, see `docs/decisions.md`.
+- [x] TigerGraph CE running and verified: REST API (`/echo`) responds, GSQL shell authenticates (`tigergraph`/`tigergraph`), `.env` filled in with working `TIGERGRAPH_HOST`/`USERNAME`/`PASSWORD`. Image is `tigergraph/community:4.3.0-rc1`, loaded from the dl.tigergraph.com download (not pulled from a registry tag) — see `docs/decisions.md` for the full story including the failed Enterprise-image attempt.
+- [ ] Ollama: skipped for now per user instruction — revisit at WS4 kickoff (add service back to `docker-compose.yml`, pull a small free model, set `OLLAMA_MODEL`).
+- [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
+- [ ] Flag to human before WS1 locks in MCP approach: official `tigergraph-mcp` server needs Python 3.10-3.12, conflicts with repo's "no Python" rule (see `docs/decisions.md`).
+
+## Now (STEP 2 — WS1-WS6 merged, remaining workstreams)
+
+The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 `agent/`+`policy/`, WS6 `api/`+`ui/`) were reviewed against PRD §16 and merged into `main`. `make test` is green (9/9 tasks: contracts 83, agent 71, policy 54, api 20, rag 95), typecheck clean across TS packages, and `make verify-graph` passes against the running CE container. This merge included: restoring `api/src/data/casePack.ts` (`82fe080`, it was swallowed by the broad `data/` gitignore rule) and reconciling the ws3 test suite to the contract-correct rag API (`7334b93`).
+
+- [x] WS1 (graph/) merged — schema + queries + `make verify-graph` wiring, fast-forwarded into `main`.
+- [x] WS3 (rag/) merged — `cb50f0e`, merged via `9ffa53f` (pnpm-lock resolved with `--theirs` + `pnpm install --lockfile-only`).
+- [x] WS4+WS5 (agent/ + policy/) merged — `fab1533`, merged via `be642c6`, tests 71+54 green.
+- [x] WS6 (api/ + ui/) merged — `d53947b`, merged via `881c889`, api tests 20 green (`casePack.ts` restored after the gitignore swallow).
+- [x] One full `pnpm install` after the merges (needed to create `@hhgoa/*` workspace symlinks).
+- [x] WS3 rag suite reconciled (`7334b93`) — 95/95 green (was 12 failing / 21 TS errors from test drift vs the contract-correct implementation).
+- [x] `make test` 9/9 tasks green; `make lint`+`typecheck` clean; `make verify-graph` passes.
+- [ ] WS2 (gsql/) — PRD's recommended grouping runs it after WS1 in the same track, and it needs WS1's `schema.gsql`. **WS1's schema is now merged; WS2 is the unblocked next workstream.** It owns `gsql/`, which is outside the already-merged workstreams' boundaries.
+- [ ] WS7 (eval/) — once WS4 emits real events.
+- [ ] WS8 (submission/) — continuous per PRD §17.
+- [ ] TigerGraph MCP: the Python-exception decision and WS1's container-based `tigergraph-mcp` setup are done; confirm the running MCP server + TS-side client (`@modelcontextprotocol/sdk`) together end to end.
+- [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
+- [ ] Ollama: add service to `docker-compose.yml`, pull a small free model, set `OLLAMA_MODEL` — was deferred to WS4; still not running.
 
 ## Standing reminders (don't re-litigate)
 

@@ -23,3 +23,6 @@ coverage/
 # Editor / OS
 .DS_Store
 *.log
+
+# Worktree management (agent-created git worktrees under .claude/)
+.claude/

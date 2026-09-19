@@ -10,8 +10,8 @@ TigerGraph Hacker House Goa hackathon: an agentic fraud-investigation system ove
 
 - Private GitHub repo: `Ansh-Sonkusare/hhgoa-fraud-agent`, branch `main`, pushed.
 - Raw dataset CSVs live in `data/` (gitignored) — never commit them.
-- Stack: TypeScript end to end, Node 20+, **pnpm workspaces + Turborepo** (switched from npm workspaces per user instruction — see `docs/decisions.md`), `tsx`, `zod`, `vitest`. No Python except `.gsql` files.
-- **WS0 is functionally complete and green** (`make test-contracts`: 83/83 passing; typecheck clean) — what's left is committing it in reviewed chunks and tagging `m0` before starting WS1-WS6 in parallel per PRD §16/§19.
+- Stack: TypeScript end to end, Node 20+, **pnpm workspaces + Turborepo** (switched from npm workspaces per user instruction — see `docs/decisions.md`), `tsx`, `zod`, `vitest`. The only non-TypeScript code is `.gsql` (WS1/WS2) and one narrow Python exception for the official `tigergraph-mcp` server — see `docs/decisions.md`.
+- **All STEP-2 implementation workstreams are merged into `main` and green.** `make test` runs 9/9 tasks (contracts 83, agent 71, policy 54, api 20, rag 95 — all passing), typecheck is clean across contracts/rag/agent/policy/api, `make verify-graph` passes. WS0 tag `m0` exists.
 
 ## Directory ownership (PRD §6 — do not cross these lines)
 
@@ -42,7 +42,15 @@ Real dataset formats (confirmed from `data/*.csv` headers): `TransactionID` is a
 
 See `docs/decisions.md` for the full log with rationale. Headlines: pnpm+Turborepo (not npm workspaces); OpenCode delegation paused, Claude Code implements directly for now.
 
-## Next steps
+## STEP 2: all implementation workstreams merged and green
 
-1. Commit WS0 in reviewed chunks, tag `m0`, push tags, report STEP 1 done.
-2. Move to STEP 2 (WS1-WS6 kickoffs per PRD §19.3) once m0 is confirmed.
+WS0 (STEP 1) was committed in reviewed chunks, tagged `m0`, and pushed. Infra for STEP 2 (TigerGraph Docker CE, Ollama LLM swap, `.env`, MCP-as-Python exception) is working as described below. All four parallel workstreams (dispatched as `isolation:"worktree"` background agents — WS1, WS3, WS4+WS5, WS6) were then reviewed against their PRD §16 definition of done and merged into `main` sequentially:
+
+- WS1 `graph/` merged (fast-forward) — schema + queries + `make verify-graph` wiring; `make verify-graph` passes against the running CE container.
+- WS3 `rag/` merged (`cb50f0e`, merged `9ffa53f`).
+- WS4+WS5 `agent/`+`policy/` merged (`fab1533`, merged `be642c6`).
+- WS6 `api/`+`ui/` merged (`d53947b`, merged `881c889`), plus `82fe080` restoring `api/src/data/casePack.ts` (a source file that had been swallowed by the broad `data/` gitignore rule — fixed with a `!api/src/data/` exception) and `7334b93` reconciling the ws3 test suite to the merged rag API (the tests had drifted from the contract-correct implementation; `@hhgoa/rag` is now 95/95 and typecheck-clean instead of 12 failing / 21 TS errors).
+
+Each merge's `pnpm-lock.yaml` conflict was resolved by taking the expected copy (`git checkout --theirs` + `pnpm install --lockfile-only`), then one full `pnpm install` to create the `@hhgoa/*` workspace symlinks.
+
+Remaining known edges (non-blocking, tracked in `docs/todo.md`): WS2 `gsql/` (deliberately held back until WS1's schema landed — can now start), WS7 `eval/` (after WS4 emits real events), WS8 `submission/` (continuous). The `FLAGGED_TXN=0` smoke-verification finding (all flagged case ids fall outside the loaded smoke subset) was explained and deferred, not fixed.
