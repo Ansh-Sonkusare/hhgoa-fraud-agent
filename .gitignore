@@ -4,6 +4,7 @@ node_modules/
 # Raw dataset (never committed — see PRD §16, README "Rules")
 data/
 *.csv
+!api/src/data/
 
 # Secrets
 .env
