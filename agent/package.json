@@ -2,9 +2,24 @@
   "name": "@hhgoa/agent",
   "private": true,
   "version": "0.1.0",
-  "description": "WS4: agent core (machine.ts, prompts/, llm.ts, mcpClient.ts, toolsRegistry.ts, assess.ts, explain.ts). Not yet implemented.",
+  "description": "WS4: agent core (machine.ts, prompts/, llm.ts, mcpClient.ts, toolsRegistry.ts, assess.ts, explain.ts).",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "test": "echo 'agent: no tests yet (WS4)' && exit 0"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hhgoa/contracts": "workspace:*",
+    "@hhgoa/policy": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "tsx": "^4.19.1",
+    "vitest": "^2.1.1",
+    "@types/node": "^22.10.2"
   }
 }
