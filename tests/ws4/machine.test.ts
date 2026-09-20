@@ -114,8 +114,10 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     expect(r.answer.case.connected_card_ids).toEqual(["C09002-K1"]);
     expect(r.answer.case.connected_device_profiles).toEqual(["D000731"]);
     expect(r.answer.case.exposure_usd).toBe(264.72);
-    expect(r.answer.case.graph_case_id).toBe("CASE-2016-9001");
-    expect(r.answer.case.written_to_graph).toBe(true);
+    // Fake backend: nothing was written to any graph, so the answer reports
+    // it honestly (the ledger's synthetic id is not echoed as a real one).
+    expect(r.answer.case.graph_case_id).toBe("");
+    expect(r.answer.case.written_to_graph).toBe(false);
     expect(r.answer.case.similar_prior_cases).toEqual(["CC-0500", "CC-0501"]);
     expect(r.answer.case.evidence).toHaveLength(3);
     expect(r.answer.case.evidence.every((e) => e.source === "graph")).toBe(true);
@@ -236,5 +238,8 @@ class SingleTxnMcpClient implements McpClient {
   }
   async close(): Promise<void> {
     await this.inner.close();
+  }
+  runInstalledQuery(): Promise<Record<string, unknown>> {
+    return Promise.reject(new Error("SingleTxnMcpClient: no runInstalledQuery in this test harness"));
   }
 }

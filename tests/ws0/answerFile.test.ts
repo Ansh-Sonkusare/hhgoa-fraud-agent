@@ -40,6 +40,24 @@ const validFraud: AnswerFile = {
     total_amount_usd: 0,
     activity_dates: [],
   },
+  investigation_record: [
+    {
+      seq: 0,
+      ts: "2016-11-12T00:47:00Z",
+      case_id: "TEST-001",
+      type: "state_entered",
+      state: "TRIGGERED",
+      payload: {},
+    },
+    {
+      seq: 1,
+      ts: "2016-11-12T00:47:05Z",
+      case_id: "TEST-001",
+      type: "tool_call",
+      state: "INVESTIGATING",
+      payload: { tool: "get_transaction_history" },
+    },
+  ],
   stop_reason: "sufficient evidence",
   tool_calls: 5,
   tokens: 100,
@@ -190,6 +208,26 @@ describe("AnswerFileSchema — final-equals-initial rule", () => {
     ok.next_best_actions.final = [{ action: "BLOCK_CARD", route: "L1", reason: "R2: customer denied" }];
     ok.next_best_actions.what_changed = "Customer denial raised the probability and confirmed the block.";
     expect(AnswerFileSchema.safeParse(ok).success).toBe(true);
+  });
+});
+
+describe("AnswerFileSchema — investigation_record", () => {
+  it("rejects a missing investigation_record", () => {
+    const bad = clone(validFraud);
+    delete (bad as Record<string, unknown>).investigation_record;
+    expect(AnswerFileSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it("accepts an empty investigation_record at the schema level", () => {
+    const ok = clone(validFraud);
+    ok.investigation_record = [];
+    expect(AnswerFileSchema.safeParse(ok).success).toBe(true);
+  });
+
+  it("rejects an event with a bad state/type enum", () => {
+    const bad = clone(validFraud);
+    (bad.investigation_record[1] as { state: string }).state = "NOT_A_STATE";
+    expect(AnswerFileSchema.safeParse(bad).success).toBe(false);
   });
 });
 

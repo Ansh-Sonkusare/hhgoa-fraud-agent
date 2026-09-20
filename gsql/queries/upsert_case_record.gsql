@@ -1,0 +1,87 @@
+/* upsert_case_record - idempotent case-memory write-back for WS7
+ * (agent/src/persistCase.ts). One call writes the FraudCase vertex + its
+ * ABOUT edges; one call per child artifact writes a Finding, ActionRecord,
+ * Decision, or EvidenceItem vertex + its HAS_* edge.
+ *
+ * Params p_* map (in order) to the answer-file `case` object plus per-item
+ * fields; p_kind "" = case-only call. p_item_category doubles as action_type
+ * / actor depending on p_kind; p_source doubles as source_tool.
+ *
+ * Deliberately DELETE-then-INSERT: GSQL query-level DML on this build accepts
+ * INSERT/DELETE only (no UPSERT, no UPDATE, no column lists -- verified
+ * empirically, see docs/decisions.md), and deleting a vertex cascades its
+ * incident edges, so re-running the same case id never leaves stale children
+ * or orphan edges. The embedding column takes an empty ListAccum because the
+ * agent does not embed on write and an empty [] literal is invalid here.
+ *
+ * NOTE: this file must stay pure ASCII with NO line comments (`//`) or the
+ * gsql CLI (CE 4.3.0-rc1) silently parses nothing -- verified empirically.
+ */
+CREATE QUERY upsert_case_record(
+  STRING p_case_id, STRING p_status, STRING p_verdict, DOUBLE p_fraud_probability,
+  STRING p_pattern, STRING p_pattern_description, DOUBLE p_exposure_usd,
+  STRING p_opened_at, STRING p_closed_at, STRING p_outcome, STRING p_summary,
+  STRING p_source, BOOL p_report_filed, STRING p_analyst_notes,
+  STRING p_first_fraud_txn_id, INT p_n_txns,
+  STRING p_card_id, STRING p_customer_id, STRING p_txn_id,
+  STRING p_item_id, STRING p_item_category, STRING p_item_text, DOUBLE p_item_score,
+  STRING p_item_ts, STRING p_kind
+) FOR GRAPH hhgoa_fraud {
+
+  /* Base call: the FraudCase vertex itself + ABOUT edges to data-side
+   * entities that already exist in the graph (Card/Txn/Customer by their
+   * real dataset ids; empty string = skip). The ABOUT edges let a later
+   * investigation reach the case from the customer / the card / the first
+   * suspicious transaction. */
+  ListAccum<DOUBLE> @@emb;
+  STRING res = "noop";
+
+  IF p_kind == "finding" THEN
+    FSTART = { Finding.* };
+    DELETE f FROM FSTART:f WHERE f.id == p_item_id;
+    INSERT INTO Finding VALUES(p_item_id, p_item_category, p_item_text, p_item_score, to_datetime(p_item_ts));
+    INSERT INTO HAS_FINDING VALUES(p_case_id, p_item_id);
+    res = "finding";
+  ELSE IF p_kind == "action" THEN
+    ASTART = { ActionRecord.* };
+    DELETE a FROM ASTART:a WHERE a.id == p_item_id;
+    INSERT INTO ActionRecord VALUES(p_item_id, p_item_category, "EXECUTED", p_item_text, p_analyst_notes, to_datetime(p_item_ts));
+    INSERT INTO HAS_ACTION VALUES(p_case_id, p_item_id);
+    res = "action";
+  ELSE IF p_kind == "decision" THEN
+    DSTART = { Decision.* };
+    DELETE d FROM DSTART:d WHERE d.id == p_item_id;
+    INSERT INTO Decision VALUES(p_item_id, p_item_text, p_item_category, to_datetime(p_item_ts));
+    INSERT INTO HAS_DECISION VALUES(p_case_id, p_item_id);
+    res = "decision";
+  ELSE IF p_kind == "evidence" THEN
+    ESTART = { EvidenceItem.* };
+    DELETE e2 FROM ESTART:e2 WHERE e2.id == p_item_id;
+    INSERT INTO EvidenceItem VALUES(p_item_id, p_item_category, p_item_text, p_source, p_item_score, to_datetime(p_item_ts));
+    INSERT INTO HAS_EVIDENCE VALUES(p_case_id, p_item_id);
+    res = "evidence";
+  ELSE
+    CSTART = { FraudCase.* };
+    DELETE c FROM CSTART:c WHERE c.id == p_case_id;
+    /* p_*->FraudCase column order: id, status, verdict, fraud_probability,
+     * pattern, pattern_description, exposure_usd, opened_at, closed_at,
+     * outcome, summary, source, report_filed, analyst_notes,
+     * first_fraud_txn_id, n_txns, embedding (graph/schema.gsql). */
+    INSERT INTO FraudCase VALUES(
+      p_case_id, p_status, p_verdict, p_fraud_probability, p_pattern, p_pattern_description,
+      p_exposure_usd, to_datetime(p_opened_at), to_datetime(p_closed_at), p_outcome, p_summary,
+      p_source, p_report_filed, p_analyst_notes, p_first_fraud_txn_id, p_n_txns, @@emb);
+    IF p_card_id != "" THEN
+      INSERT INTO ABOUT VALUES(p_case_id, p_card_id Card, to_datetime(p_closed_at));
+    END;
+    IF p_customer_id != "" THEN
+      INSERT INTO ABOUT VALUES(p_case_id, p_customer_id Customer, to_datetime(p_closed_at));
+    END;
+    IF p_txn_id != "" THEN
+      INSERT INTO ABOUT VALUES(p_case_id, p_txn_id Txn, to_datetime(p_closed_at));
+    END;
+    res = "case";
+  END;
+
+  PRINT res;
+}

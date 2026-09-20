@@ -363,7 +363,7 @@ Identity vertex validation: report purity/merge rate on closed cases in `docs/ID
 
 ## 13. Answer file spec (WS7; binding, matches README exactly — no internal variant)
 
-**The README's "Answer Format" section is the only schema. This is not a paraphrase — `contracts/answerFile.ts` (zod) is generated directly from it, and `eval/exportAnswers.ts` must produce exactly this shape, field for field.** Earlier drafts of this PRD proposed a different internal shape (`investigation_record`, `checkpoints[]`, `hypotheses_history`, `explanation`, `final_status`); that shape is retired. Where the agent's internal event log (`AgentEvent`, PRD §8.5) carries richer detail than the answer file needs, `exportAnswers.ts` projects it down to the fields below — it does not invent new top-level fields.
+**The README's "Answer Format" section is the only schema. This is not a paraphrase — `contracts/answerFile.ts` (zod) is generated directly from it, and `eval/exportAnswers.ts` must produce exactly this shape, field for field.** An earlier draft of this PRD proposed a different internal shape (`checkpoints[]`, `hypotheses_history`, `explanation`, `final_status`) that is retired. `investigation_record` is back — not as a new top-level invention but because the submission brief requires the internal investigation record in the answer file: it is the agent's own `AgentEvent` stream (PRD §8.5) in `seq` order, embedded verbatim so a grader can reconstruct what the agent did and why. It must be non-empty.
 
 One JSON per case at `cases/<case_id>.json` (folder name and filename per README, not `answers/case_<id>.json`):
 
@@ -401,6 +401,9 @@ One JSON per case at `cases/<case_id>.json` (folder name and filename per README
     "total_amount_usd": 0.0,
     "activity_dates": []
   },
+  "investigation_record": [
+    {"seq":0,"ts":"","case_id":"","type":"state_entered|tool_call|tool_result|evidence_added|assessment_updated|evidence_requested|approval_requested|action_result|explanation|memory_written|done|error","state":"","payload":{}}
+  ],
   "stop_reason": "",
   "tool_calls": 0,
   "tokens": 0,
@@ -414,8 +417,9 @@ Field-level meaning, enum values, and the worked example are in the README's Ans
 - `sar.file` must agree with whether `FILE_REPORT` appears in `next_best_actions.final`. If `sar.file` is false: `narrative: ""`, `subjects: []`, `total_amount_usd: 0`, `activity_dates: []`.
 - `next_best_actions.final` equals `initial` (and `what_changed` is `"nothing"`) whenever `evidence_requests` is empty.
 - Every ID referenced anywhere in the file must exist in the dataset; the validator checks this, not just JSON-schema shape.
+- `investigation_record` is required and non-empty: the `AgentEvent` stream for the run, in `seq` order.
 
-`eval/validateAnswers.ts` checks: 20 files present in `cases/`, JSON-schema conformance to the shape above, all referenced IDs resolve in the dataset, `sar.file` agrees with `FILE_REPORT` presence, `case.written_to_graph` implies a `case.graph_case_id` exists as a vertex in TigerGraph.
+`eval/validateAnswers.ts` checks: 20 files present in `cases/`, JSON-schema conformance to the shape above, all referenced IDs resolve in the dataset, `sar.file` agrees with `FILE_REPORT` presence, `case.written_to_graph` implies a `case.graph_case_id` exists as a vertex in TigerGraph, and `investigation_record` is non-empty with strictly increasing `seq`.
 
 ## 14. UI spec (WS6)
 

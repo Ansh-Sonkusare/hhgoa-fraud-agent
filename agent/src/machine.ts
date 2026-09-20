@@ -4,6 +4,7 @@ import type {
   AgentState,
   Assessment,
   CaseEvidence,
+  CaseRecord,
   CaseStatus,
   EvidenceCategory,
   EvidenceItem,
@@ -61,6 +62,37 @@ import { buildCaseStateForPolicy } from "./caseState.js";
  * else — stop rule, VOI planner, recommender, explainer, answer assembly —
  * is deterministic code so each run reproduces exactly.
  */
+/**
+ * Real write-back of a finished case (vertex + case memory into TigerGraph,
+ * see agent/src/persistCase.ts). Only supplied for real-backend runs; the
+ * machine stays honest: with no persistCase the answer reports
+ * `written_to_graph: false` and an empty `graph_case_id`.
+ */
+export interface PersistCaseRequest {
+  caseRecord: AnswerFile["case"];
+  case_id: string;
+  as_of: string;
+  customer_id: string;
+  card_id: string;
+  txn_id: string;
+  /** The FraudCase primary id this run used (synthetic GRAPH-<case_id>). */
+  graphCaseId: string;
+  /** Case clock (snapshot run: both are the run's as_of). */
+  opened_at: string;
+  closed_at: string;
+  /** Evidence items become Finding vertices (HAS_FINDING). */
+  findings: EvidenceItem[];
+  /** Recorded recommendations become ActionRecord vertices (HAS_ACTION). */
+  actions: Recommendations["actions"];
+  /** SAR-filed flag for the FraudCase's report_filed column. */
+  sarFiled: boolean;
+}
+
+export interface PersistCaseResult {
+  ok: boolean;
+  graph_case_id: string;
+}
+
 export interface MachineDeps {
   caseId: string;
   asOf: string;
@@ -71,6 +103,12 @@ export interface MachineDeps {
   providers: ToolCatalog;
   /** Always-real WS5 policy adapters. */
   policies: PolicyToolAdapters;
+  /**
+   * Optional. When set (real backend), run() awaits this after assembly and
+   * reports its ACTUAL outcome in `case.written_to_graph` / `graph_case_id`
+   * (`false`/`""` on failure — a failed write is not a written case).
+   */
+  persistCase?: (request: PersistCaseRequest) => Promise<PersistCaseResult>;
   maxToolCalls?: number;
   maxEvidenceRounds?: number;
   maxInvestigateLoops?: number;
@@ -361,10 +399,11 @@ export class FraudInvestigationMachine {
   private async memoryUpdate(): Promise<void> {
     this.emitState("MEMORY_UPDATE");
     // Graph memory write is mocked/backed by providers; the case status and
-    // close go through the silent (non-budgeted) case accessors.
+    // close go through the silent (non-budgeted) case accessors. The actual
+    // vertex write-back happens (if at all) after assembly via
+    // deps.persistCase; `writtenToGraph` stays false until that reports ok.
     await this.registry.caseSetStatus(this.resolveStatus());
     await this.registry.caseClose();
-    this.writtenToGraph = true;
     this.events.emit("memory_written", "MEMORY_UPDATE", { graph_case_id: this.graphCaseId });
   }
 
@@ -452,6 +491,7 @@ export class FraudInvestigationMachine {
 
     const answer = {
       case_id: this.facts.case_id,
+      investigation_record: this.events.list(),
       case: {
         status: this.resolveStatus(),
         verdict,
@@ -585,7 +625,7 @@ export class FraudInvestigationMachine {
 
     const latencyMs = Date.now() - started;
     const assembled = await this.assemble(assessment, recs, stopReasonText);
-    const final: RunResult = {
+    let final: RunResult = {
       answer: assembled,
       events: this.events.list(),
       assessment,
@@ -598,9 +638,41 @@ export class FraudInvestigationMachine {
       tokens: this.tokens,
       latencyMs,
     };
-    // latency_s already filled at assembly time; patch with the real value.
-    const refreshed = AnswerFileSchema.parse({ ...final.answer, latency_s: Number((latencyMs / 1000).toFixed(2)) });
+
+    // Real write-back happens only when the caller provided deps.persistCase
+    // (real backend); otherwise nothing was written to any graph, so report
+    // it honestly rather than echoing a synthetic id.
+    if (this.deps.persistCase) {
+      const persisted = await this.deps.persistCase({
+        caseRecord: assembled.case,
+        case_id: this.facts.case_id,
+        as_of: this.facts.as_of,
+        customer_id: this.facts.customer?.id ?? "",
+        card_id: this.facts.primary_card?.id ?? "",
+        txn_id: this.facts.txn?.id ?? "",
+        graphCaseId: this.graphCaseId,
+        opened_at: this.deps.asOf,
+        closed_at: this.deps.asOf,
+        findings: this.evidenceStore,
+        actions: recs.actions,
+        sarFiled: assembled.sar.file,
+      });
+      this.writtenToGraph = persisted.ok;
+      this.graphCaseId = persisted.ok ? persisted.graph_case_id || this.graphCaseId : "";
+    } else {
+      this.writtenToGraph = false;
+      this.graphCaseId = "";
+    }
+
+    // latency_s was filled at assembly time; patch it with the real value and
+    // sync the case provenance fields now that write-back (if any) is done.
+    const refreshed = AnswerFileSchema.parse({
+      ...final.answer,
+      case: { ...final.answer.case, written_to_graph: this.writtenToGraph, graph_case_id: this.graphCaseId },
+      latency_s: Number((latencyMs / 1000).toFixed(2)),
+    });
     final.answer = refreshed;
+    final.graphCaseId = this.graphCaseId;
     return final;
   }
 }

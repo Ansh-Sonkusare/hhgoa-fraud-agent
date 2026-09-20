@@ -2,6 +2,18 @@
 
 One entry per decision that wasn't already dictated by `PRD.md`/`docs/DATASET_README.md`. Newest first. Each entry: what was decided, why, and what it overrides (if anything).
 
+## 2026-09-20 — WS7 submission-gap fix: investigation record in the answer file, and real case write-back to TigerGraph
+
+The submission brief requires (a) the internal investigation record per case and (b) that "the case should also be written to the graph" as case memory the next investigation finds. The implementation fell short on both, so these were fixed (user-approved):
+
+**`investigation_record` revived in the answer schema.** PRD §13 once retired an `investigation_record` draft field. The brief's requirement makes it a real deliverable again, so it is back — but defined precisely as the agent's own `AgentEvent` stream (PRD §8.5) in `seq` order, embedded verbatim, NOT a new bespoke shape. README's "*if this file and the README disagree, the README wins*" precedence still holds (the README's Answer Format table now documents it). `contracts/answerFile.ts` adds `investigation_record: AgentEvent[]`; the validator requires it non-empty with strictly increasing `seq`.
+
+**`written_to_graph` stopped lying.** `machine.ts`'s `memoryUpdate()` set `written_to_graph: true` after closing the in-memory ledger only — nothing was ever written to TigerGraph. Now, under the real tool backend, after `assemble()` the machine calls an injected `persistCase` hook (MCP `upsert_case_record` query written by WS7 in `gsql/queries/` + the existing `rag.writeCaseToMemory`), then reports the actual result. The fake and in-memory backends stay honest (`written_to_graph: false`) rather than claim a write that didn't happen. The `FraudCase` vertex carries `source: "live"` so case memory is distinguishable from benchmark/closed-case data.
+
+**Skip WS8 (demo video / blog / social media posts) for now** — user chose to defer rather than burn time.
+
+**GSQL ground truth discovered (no source change, informs the query):** this CE build (4.3.0-rc1) has no `parse_json`, and query-level DML `INSERT`/`DELETE` accepts only positional `VALUES` (column lists trigger a bogus "no primary key" semantic error; one empty `ListAccum` satisfies a `LIST<DOUBLE>` column). All verified empirically against the live graph in `/tmp` before writing the real query, then cleaned up.
+
 ## 2026-09-19 — WS2 review findings: "cap at 3h" misreading, and missing discovery stats
 
 A review pass on the community-detection work below (independent re-verification: reinstalled from a clean state, reran `tests/ws2/*.test.ts`, and spot-checked the headline numbers directly against the live graph) found two real issues, now fixed.

@@ -107,6 +107,19 @@ export function validateAnswerFile(answer: AnswerFile, index: DatasetIdIndex, fi
     warnings.push(`graph_case_id "${c.graph_case_id}" is run-assigned (not a dataset id) — can't verify without a live graph`);
   }
 
+  // PRD §13 / README: investigation_record is the full AgentEvent timeline,
+  // required non-empty and in strictly increasing seq order.
+  if (answer.investigation_record.length === 0) {
+    errors.push("investigation_record is empty (must record the investigation timeline)");
+  }
+  for (let i = 1; i < answer.investigation_record.length; i++) {
+    const prev = answer.investigation_record[i - 1]!;
+    const cur = answer.investigation_record[i]!;
+    if (cur.seq <= prev.seq) {
+      errors.push(`investigation_record seq is not strictly increasing at index ${i} (${prev.seq} -> ${cur.seq})`);
+    }
+  }
+
   return errors;
 }
 

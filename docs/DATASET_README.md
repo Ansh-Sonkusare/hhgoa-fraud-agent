@@ -309,6 +309,7 @@ Same structure for every case. Missing fields score zero for that part.
 | `evidence_requests` | list | Each: `type` (`customer_validation` \| `step_up_auth` \| `analyst_info`), `asked_after_step` (int), `assumed_response` (string). Empty if you asked for nothing |
 | `next_best_actions` | object | Part 3, below |
 | `sar` | object | Part 2, below |
+| `investigation_record` | list of event objects | The agent's internal investigation timeline for this case, in sequence: what it looked up, what evidence it added, how its assessment changed, what it recommended and why (the SSE event stream behind the run). Graders can reconstruct exactly what the agent did. Non-empty, in `seq` order |
 | `stop_reason` | string | Why the investigation ended here |
 | `tool_calls` | int | Graph and retrieval calls made for this case |
 | `tokens` | int | LLM tokens consumed for this case |
@@ -426,6 +427,12 @@ The first five are described in the Known Fraud Patterns section above. Use `und
     "total_amount_usd": 268.43,
     "activity_dates": ["2016-11-14", "2016-11-14"]
   },
+  "investigation_record": [
+    { "seq": 0, "ts": "2016-11-14T09:30:01Z", "case_id": "HHG-017", "type": "state_entered", "state": "assess", "payload": {} },
+    { "seq": 1, "ts": "2016-11-14T09:30:05Z", "case_id": "HHG-017", "type": "tool_call", "state": "investigate", "payload": { "tool": "case_window", "args": { "card_id": "C00377-K1", "hours": 2 } } },
+    { "seq": 2, "ts": "2016-11-14T09:30:08Z", "case_id": "HHG-017", "type": "evidence_added", "state": "assess", "payload": { "claim": "Three online authorizations under $3 within 40 minutes, then a $259 purchase", "source": "graph", "ref": "query:card_window(card_id=C00377-K1, hours=2)" } },
+    { "seq": 3, "ts": "2016-11-14T09:30:45Z", "case_id": "HHG-017", "type": "evidence_requested", "state": "verify", "payload": { "type": "customer_validation", "asked_after_step": 4 } }
+  ],
   "stop_reason": "Customer denial settled the verdict; device link identified and connected card protected. Further steps would not change the actions.",
   "tool_calls": 9,
   "tokens": 12480,
@@ -437,6 +444,7 @@ The first five are described in the Known Fraud Patterns section above. Use `und
 
 - IDs must be the ones in the dataset. Made-up IDs score zero.
 - For a `legitimate` verdict, `affected_txn_ids` is empty, `exposure_usd` is 0, and `sar.file` is false.
+- `investigation_record` must be non-empty and in `seq` order: the first event opens the case, the last reports why it stopped.
 - `uncertain` is a valid verdict and earns full credit on cases designed to be ambiguous, provided the actions follow policy R1 and R8.
 - The `risk_score` on the flagged transaction is an input, not an answer. Your `fraud_probability` should reflect what you found, and may be far from it.
 - Customer and analyst replies are not provided. State what you assumed in `evidence_requests`, and let `next_best_actions.final` reflect that assumption.

@@ -83,6 +83,13 @@ export type McpGraphToolName = (typeof MCP_GRAPH_TOOL_NAMES)[number];
 export interface McpClient {
   /** Calls an installed GSQL query by MCP tool name; returns the tool's raw `data` payload. */
   callTool(name: McpGraphToolName, args: Record<string, unknown>): Promise<unknown>;
+  /**
+   * Runs a raw installed GSQL query by name (e.g. the WS7 case-memory writer
+   * `upsert_case_record`), bypassing the 10 contract graph tools. Returns the
+   * first result row's raw fields. RealMcpClient executes it against the
+   * graph; FakeMcpClient throws — writing is a real-backend-only operation.
+   */
+  runInstalledQuery(queryName: string, params: Record<string, unknown>): Promise<Record<string, unknown>>;
   close(): Promise<void>;
 }
 
@@ -171,11 +178,11 @@ export class RealMcpClient implements McpClient {
   }
 
   /**
-   * Calls one WS2 installed query via `tigergraph__run_installed_query` and
+   * Calls one installed GSQL query via `tigergraph__run_installed_query` and
    * returns its single PRINT-statement result row (see the class doc for
    * the response-envelope shape this unwraps).
    */
-  private async runInstalledQuery(queryName: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async runInstalledQuery(queryName: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
     const client = await this.ensureConnected();
     const result = await client.callTool({
       name: "tigergraph__run_installed_query",
@@ -461,6 +468,13 @@ export class FakeMcpClient implements McpClient {
         throw new Error(`FakeMcpClient: unhandled tool ${String(exhaustive)}`);
       }
     }
+  }
+
+  async runInstalledQuery(_queryName: string, _params: Record<string, unknown>): Promise<Record<string, unknown>> {
+    throw new Error(
+      "FakeMcpClient.runInstalledQuery: case write-back is a real-backend-only operation; the fake backend " +
+        "never writes to TigerGraph (written_to_graph stays false)",
+    );
   }
 
   async close(): Promise<void> {

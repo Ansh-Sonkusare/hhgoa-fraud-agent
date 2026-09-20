@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AgentEventSchema } from "./agentEvent.js";
 
 /**
  * AnswerFile — the ONE schema for `cases/<case_id>.json`, generated field for
@@ -130,6 +131,11 @@ const AnswerFileShapeSchema = z.object({
   evidence_requests: z.array(EvidenceRequestSchema),
   next_best_actions: NextBestActionsSchema,
   sar: SarSchema,
+  // The full internal investigation timeline for this run (the AgentEvent
+  // stream: tool calls, evidence added, assessment updates, actions, etc.),
+  // in seq order. Required by the submission brief — graders can reconstruct
+  // exactly what the agent did and why (see PRD §8.5, §13).
+  investigation_record: z.array(AgentEventSchema),
   stop_reason: z.string(),
   tool_calls: z.number().int().nonnegative(),
   tokens: z.number().int().nonnegative(),

@@ -2,10 +2,11 @@ import type { LlmClient, MockScriptEntry } from "./llm.js";
 import { MockLlmClient, OllamaLlmClient } from "./llm.js";
 import { createMcpClient, type McpClient } from "./mcpClient.js";
 import { FraudInvestigationMachine, type MachineDeps, type RunResult } from "./machine.js";
+import { persistCaseToGraph } from "./persistCase.js";
 import { InMemoryCaseLedger } from "./caseLedger.js";
 import type { ToolCatalog, Trigger } from "@hhgoa/contracts";
 import { fakes } from "@hhgoa/contracts";
-import { createRagRuntime } from "@hhgoa/rag";
+import { createRagRuntime, type RagRuntime } from "@hhgoa/rag";
 import {
   createPolicyToolAdapters,
   InMemoryActionsMock,
@@ -88,11 +89,15 @@ function unreachableProvider(tool: string): (...args: unknown[]) => never {
  * fails loudly rather than pretend — see docs/REQUESTS.md if a workstream
  * picks that up.
  */
-export async function createToolProviders(backend: "fake" | "real", caseId: string): Promise<ToolCatalog> {
+export async function createToolProviders(
+  backend: "fake" | "real",
+  caseId: string,
+  rag?: RagRuntime,
+): Promise<ToolCatalog> {
   if (backend === "fake") return fakes;
 
-  const rag = createRagRuntime();
-  await rag.ensureIngested();
+  const runtime = rag ?? createRagRuntime();
+  if (!rag) await runtime.ensureIngested();
   const ledger = new InMemoryCaseLedger(caseId);
 
   return {
@@ -112,9 +117,9 @@ export async function createToolProviders(backend: "fake" | "real", caseId: stri
           "See docs/REQUESTS.md.",
       );
     },
-    retrieve_policy: rag.retrieve_policy,
-    retrieve_similar_cases: rag.retrieve_similar_cases,
-    lookup_external: rag.lookup_external,
+    retrieve_policy: runtime.retrieve_policy,
+    retrieve_similar_cases: runtime.retrieve_similar_cases,
+    lookup_external: runtime.lookup_external,
     request_evidence: unreachableProvider("request_evidence"),
     case_open: ledger.case_open,
     case_add_evidence: ledger.case_add_evidence,
@@ -149,14 +154,31 @@ export interface RunAgentOptions {
 /** Build and run a full case end-to-end with default (fake/mock) services. */
 export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   const backend = options.backend ?? "fake";
+  const mcp = options.mcp ?? createMcpClient(backend);
+  let providers = options.providers;
+  let persistCase: MachineDeps["persistCase"] | undefined;
+  if (!providers) {
+    if (backend === "real") {
+      // One real RAG runtime shared by the tool providers and the case
+      // write-back (same local vector stores, single ingest pass).
+      const rag = createRagRuntime();
+      await rag.ensureIngested();
+      providers = await createToolProviders("real", options.caseId, rag);
+      persistCase = (request) => persistCaseToGraph(mcp, rag, request);
+    } else {
+      providers = await createToolProviders("fake", options.caseId);
+    }
+  }
+
   const machine = new FraudInvestigationMachine({
     caseId: options.caseId,
     asOf: options.asOf,
     trigger: options.trigger,
     llm: options.llm ?? createLlmClient("mock"),
-    mcp: options.mcp ?? createMcpClient(backend),
-    providers: options.providers ?? (await createToolProviders(backend, options.caseId)),
+    mcp,
+    providers,
     policies: options.policies ?? createPolicyAdapters(),
+    persistCase,
     maxToolCalls: options.maxToolCalls,
     maxEvidenceRounds: options.maxEvidenceRounds,
     maxInvestigateLoops: options.maxInvestigateLoops,
