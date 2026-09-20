@@ -26,10 +26,16 @@ export function loadEnv(): void {
       if (eq === -1) continue;
       const key = line.slice(0, eq).trim();
       let value = line.slice(eq + 1).trim();
+      // Inline comment: strip from the first `#` that follows whitespace
+      // (e.g. `OLLAMA_HOST=http://localhost:11434 # Docker-hosted Ollama`).
+      // A `#` mid-token (no leading space) is kept — values like `pass#1`
+      // are literal. Mirrors api/src/env.ts.
+      const hash = value.search(/\s#/);
+      if (hash !== -1) value = value.slice(0, hash).trim();
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
-      if (process.env[key] === undefined) process.env[key] = value;
+      if (process.env[key] === undefined && value !== "") process.env[key] = value;
     }
   }
 }

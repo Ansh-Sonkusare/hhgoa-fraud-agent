@@ -29,3 +29,6 @@ coverage/
 
 # Worktree management (agent-created git worktrees under .claude/)
 .claude/
+
+# graft code-graph index (local tool artifact, regenerated on demand)
+graft/

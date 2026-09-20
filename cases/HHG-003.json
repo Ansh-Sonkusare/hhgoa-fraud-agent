@@ -1,0 +1,111 @@
+{
+  "case_id": "HHG-003",
+  "case": {
+    "status": "escalated",
+    "verdict": "fraud",
+    "fraud_probability": 0.833333,
+    "pattern": "out_of_region_use",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "No shared device, address, or email links this card to any other account",
+        "source": "graph",
+        "ref": "ev_001",
+        "entity_ids": []
+      },
+      {
+        "claim": "Prior confirmed fraud case(s) CC-2817, CC-2935, CC-3327, CC-3682, CC-4957 (pattern out_of_region_use/out_of_region_use/account_takeover/out_of_region_use/out_of_region_use); cleared case(s) CC-1589",
+        "source": "graph",
+        "ref": "ev_002",
+        "entity_ids": [
+          "CC-1589",
+          "CC-2817",
+          "CC-2935",
+          "CC-3327",
+          "CC-3682",
+          "CC-4957"
+        ]
+      },
+      {
+        "claim": "Analyst has no additional signal beyond what the graph already shows.",
+        "source": "customer",
+        "ref": "ev_resp_0011",
+        "entity_ids": [
+          "C19739-K1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-1589",
+      "CC-2817",
+      "CC-2935",
+      "CC-3327",
+      "CC-3682",
+      "CC-4957"
+    ],
+    "summary": "Investigated card C19739-K1 after trigger; pattern out_of_region_use, top probability 0.83, 3 evidence categories, exposure $0.00. Verdict: fraud.",
+    "written_to_graph": true,
+    "graph_case_id": "GRAPH-HHG-003"
+  },
+  "evidence_requests": [
+    {
+      "type": "analyst_info",
+      "asked_after_step": 19,
+      "assumed_response": "Analyst has no additional signal beyond what the graph already shows."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      },
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      },
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": false,
+    "reason": "",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Fraud probability 0.83 with three independent evidence categories (device_identity, prior_cases, customer_response) clears the 0.75 confidence threshold; further investigation would not change the decision.",
+  "tool_calls": 9,
+  "tokens": 652,
+  "latency_s": 5.97
+}

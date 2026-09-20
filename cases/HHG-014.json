@@ -1,0 +1,152 @@
+{
+  "case_id": "HHG-014",
+  "case": {
+    "status": "escalated",
+    "verdict": "fraud",
+    "fraud_probability": 0.846154,
+    "pattern": "card_testing",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [
+      "C20270-K2",
+      "C15058-K2",
+      "C19526-K2",
+      "C14407-K1",
+      "C18586-K1",
+      "C19682-K1",
+      "C22900-K2",
+      "C12213-K1",
+      "C23208-K2",
+      "C14403-K1",
+      "C21363-K2",
+      "C17151-K1"
+    ],
+    "connected_device_profiles": [
+      "4546ef4b33fe0d10"
+    ],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "Activity shares device profile 4546ef4b33fe0d10 with card(s) C20270-K2, C15058-K2, C19526-K2, C14407-K1, C18586-K1, C19682-K1, C22900-K2, C12213-K1, C23208-K2, C14403-K1, C21363-K2, C17151-K1, C13487-K1",
+        "source": "graph",
+        "ref": "ev_001",
+        "entity_ids": [
+          "4546ef4b33fe0d10",
+          "C20270-K2",
+          "C15058-K2",
+          "C19526-K2",
+          "C14407-K1",
+          "C18586-K1",
+          "C19682-K1",
+          "C22900-K2",
+          "C12213-K1",
+          "C23208-K2",
+          "C14403-K1",
+          "C21363-K2",
+          "C17151-K1",
+          "C13487-K1"
+        ]
+      },
+      {
+        "claim": "No prior fraud or cleared cases found for this customer or card",
+        "source": "graph",
+        "ref": "ev_002",
+        "entity_ids": []
+      },
+      {
+        "claim": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+        "source": "customer",
+        "ref": "ev_resp_0003",
+        "entity_ids": [
+          "C13487-K1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [],
+    "summary": "Investigated card C13487-K1 after trigger; pattern card_testing, top probability 0.85, 3 evidence categories, exposure $0.00. Verdict: fraud.",
+    "written_to_graph": true,
+    "graph_case_id": "GRAPH-HHG-014"
+  },
+  "evidence_requests": [
+    {
+      "type": "analyst_info",
+      "asked_after_step": 19,
+      "assumed_response": "Analyst notes this device profile / region cluster has been flagged on other accounts before."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.85 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R6: shared device profile links this to other card fraud; a report is required regardless of exposure"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6: same device profile also used on C20270-K2, C15058-K2, C19526-K2, C14407-K1, C18586-K1, C19682-K1, C22900-K2, C12213-K1, C23208-K2, C14403-K1, C21363-K2, C17151-K1"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.85 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R6: shared device profile links this to other card fraud; a report is required regardless of exposure"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6: same device profile also used on C20270-K2, C15058-K2, C19526-K2, C14407-K1, C18586-K1, C19682-K1, C22900-K2, C12213-K1, C23208-K2, C14403-K1, C21363-K2, C17151-K1"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": true,
+    "reason": "Fraud probability 0.85; a report is required",
+    "narrative": "Card C13487-K1 belonging to customer C02206 shows activity totaling $0.00 across 0 transaction(s). Activity occurred in person and online. The activity is consistent with the \"card_testing\" pattern. The transactions share device profile(s): 4546ef4b33fe0d10. This activity connects to other card(s) held by the customer or by other customers: C20270-K2, C15058-K2, C19526-K2, C14407-K1, C18586-K1, C19682-K1, C22900-K2, C12213-K1, C23208-K2, C14403-K1, C21363-K2, C17151-K1. This is reported because: Fraud probability 0.85; a report is required. Total suspicious amount: $0.00. Card C13487-K1 has been recommended for block and reissue; connected cards have been placed under monitoring where applicable.",
+    "subjects": [
+      "C02206",
+      "C13487-K1",
+      "C20270-K2",
+      "C15058-K2",
+      "C19526-K2",
+      "C14407-K1",
+      "C18586-K1",
+      "C19682-K1",
+      "C22900-K2",
+      "C12213-K1",
+      "C23208-K2",
+      "C14403-K1",
+      "C21363-K2",
+      "C17151-K1"
+    ],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision.",
+  "tool_calls": 9,
+  "tokens": 905,
+  "latency_s": 8.05
+}

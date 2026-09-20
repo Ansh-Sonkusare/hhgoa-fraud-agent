@@ -146,7 +146,19 @@ async function runTarget(target: RunTarget, queryMode: RunMode, opts: RunOneOpti
       tokens = r.tokens;
       return r;
     });
-    await (timeoutS > 0 ? Promise.race([runPromise, Promise.reject(new Error(`case timeout after ${timeoutS}s`))]) : runPromise);
+    if (timeoutS > 0) {
+      // Lazy reject: Promise.reject() builds an already-rejected promise, so an
+      // eager Promise.race() arm would win instantly and every case would fail
+      // with "case timeout after Ns" at ~0ms without the machine ever running.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const deadline = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`case timeout after ${timeoutS}s`)), timeoutS * 1000);
+      });
+      await Promise.race([runPromise, deadline]);
+      clearTimeout(timer);
+    } else {
+      await runPromise;
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }

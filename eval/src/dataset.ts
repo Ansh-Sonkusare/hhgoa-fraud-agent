@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { readCsv, readCsvColumnAsync } from "./csv.js";
+import { readCsv, readCsvLines, splitCsvLine } from "./csv.js";
 import { repoRoot } from "./env.js";
 
 /** Dataset readers. All datasets are the gitignored `data/*.csv` (never committed). */
@@ -137,14 +137,103 @@ export function loadIdIndex(base?: string): Promise<DatasetIdIndex> {
 
   const promise = (async (): Promise<DatasetIdIndex> => {
     const txnIds = new Set<string>();
+    const derivedCardIds = new Set<string>();
+    const txnCustomers = new Set<string>();
     const t0 = Date.now();
-    const fresh = await readCsvColumnAsync(txnPath, "TransactionID");
-    for (const id of fresh) txnIds.add(id);
-    process.stdout.write(`[eval] indexed ${txnIds.size} transaction ids in ${((Date.now() - t0) / 1000).toFixed(1)}s\n`);
+
+    // Stream transactions.csv once: transactions, customers (literal column),
+    // and the data needed to reconstruct WS1's derived card ids
+    // (`C<card1>-K<rank>` — graph/scripts/prepareLoadFiles.ts). The graph
+    // materializes those constructed ids (also visible in graph/build/cards.csv),
+    // so the index must accept them too or genuine ring/query results get
+    // falsely rejected as "unresolvable".
+    interface TupleStats {
+      key: string;
+      card1: string;
+      count: number;
+      firstEpoch: number;
+    }
+    const tupleStats = new Map<string, TupleStats>();
+    let headers: string[] | null = null;
+    await readCsvLines(txnPath, (rawLine) => {
+      const line = rawLine.replace(/^\uFEFF/, "");
+      if (line.trim() === "") return;
+      const cells = splitCsvLine(line);
+      if (headers === null) {
+        headers = cells;
+        return;
+      }
+      const col = (name: string): string => cells[headers!.indexOf(name)] ?? "";
+      const txnId = col("TransactionID");
+      if (txnId !== "") txnIds.add(txnId);
+      const cust = col("customer_id");
+      if (cust !== "") txnCustomers.add(cust);
+      const card1 = col("card1");
+      const card2 = col("card2");
+      const card3 = col("card3");
+      const card5 = col("card5");
+      if (card1 === "" && card2 === "" && card3 === "" && card5 === "") return;
+      const key = `${card1}|${card2}|${card3}|${card5}`;
+      const epochRaw = col("ts");
+      const t = new Date((epochRaw || "").replace(" ", "T"));
+      const epoch = epochRaw && !Number.isNaN(t.getTime()) ? t.getTime() : 0;
+      const prior = tupleStats.get(key);
+      if (prior) {
+        prior.count += 1;
+        if (epoch !== 0 && (prior.firstEpoch === 0 || epoch < prior.firstEpoch)) prior.firstEpoch = epoch;
+      } else {
+        tupleStats.set(key, { key, card1, count: 1, firstEpoch: epoch });
+      }
+    });
+    // Same ranking as prepareLoadFiles: per card1 by ascending count, then
+    // first-transaction epoch, then tuple key.
+    const byCard1 = new Map<string, TupleStats[]>();
+    for (const m of tupleStats.values()) {
+      const list = byCard1.get(m.card1) ?? [];
+      list.push(m);
+      byCard1.set(m.card1, list);
+    }
+    for (const [c1, list] of byCard1) {
+      list.sort((a, b) => a.count - b.count || a.firstEpoch - b.firstEpoch || (a.key < b.key ? -1 : 1));
+      let rank = 0;
+      for (const m of list) {
+        rank += 1;
+        derivedCardIds.add(`C${c1}-K${rank}`);
+      }
+    }
+    // The graph's materialized entity universes (graph/build/*.csv, generated
+    // by @hhgoa/graph's prepareLoadFiles from data/*.csv). These are exactly
+    // the ids the real graph returns — derived 16-hex device/identity ids,
+    // constructed `C<card1>-K<rank>` cards, email domains, addresses. If the
+    // graph build dir is absent (fresh clone, no graph yet), the data/-derived
+    // card/customer sets above remain the fallback.
+    const buildEntityIds = new Set<string>();
+    const buildDir = path.join(repoRoot(), "graph", "build");
+    if (existsSync(buildDir)) {
+      const castTarget = (name: string): Set<string> => {
+        if (name === "cards.csv" || name === "stub_cards.csv") return derivedCardIds;
+        if (name === "customers.csv") return txnCustomers;
+        return buildEntityIds;
+      };
+      for (const file of ["cards.csv", "stub_cards.csv", "customers.csv", "devices.csv", "identities.csv", "email_domains.csv", "addresses.csv"]) {
+        const p = path.join(buildDir, file);
+        if (!existsSync(p)) continue;
+        const target = castTarget(file);
+        const parsed = readCsv(p);
+        const idIdx = parsed.headers.indexOf("id");
+        if (idIdx === -1) continue;
+        for (const row of parsed.rows) {
+          const id = row[parsed.headers[idIdx]!] ?? "";
+          if (id !== "") target.add(id);
+        }
+      }
+    }
+
+    process.stdout.write(`[eval] indexed ${txnIds.size} transactions, ${derivedCardIds.size} cards, ${buildEntityIds.size} build entity ids in ${((Date.now() - t0) / 1000).toFixed(1)}s\n`);
 
     const closed = loadClosedCases(base);
-    const cardIds = new Set<string>();
-    const customerIds = new Set<string>();
+    const cardIds = new Set<string>(derivedCardIds);
+    const customerIds = new Set<string>(txnCustomers);
     for (const c of closed) {
       cardIds.add(c.card_id);
       for (const id of c.connected_card_ids) cardIds.add(id);
@@ -160,7 +249,7 @@ export function loadIdIndex(base?: string): Promise<DatasetIdIndex> {
     }
 
     const anyId = new Set<string>();
-    for (const s of [txnIds, cardIds, customerIds, closedCaseIds]) {
+    for (const s of [txnIds, cardIds, customerIds, closedCaseIds, buildEntityIds]) {
       for (const id of s) anyId.add(id);
     }
 

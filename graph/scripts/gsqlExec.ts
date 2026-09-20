@@ -17,7 +17,7 @@
  *   TIGERGRAPH_USERNAME    default: tigergraph
  *   TIGERGRAPH_PASSWORD    default: tigergraph
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -119,6 +119,29 @@ export function copyDataFile(localPath: string, remoteDir = "/tmp/hhgoa_data"): 
     throw new Error(`gsqlExec: docker cp (data) failed (exit ${cp.status})`);
   }
   return remotePath;
+}
+
+/**
+ * Async variant of `runGsqlCmd`: runs `docker exec gsql <cmd>` without
+ * blocking so independent GSQL invocations (e.g. parallel LOADING JOBs in
+ * load.ts) can execute concurrently. Same shape as the sync version; the
+ * caller decides whether a non-zero exit is fatal.
+ */
+export async function runGsqlCmdAsync(
+  cmd: string,
+  opts: { graph?: string; allowFailure?: boolean } = {},
+): Promise<{ status: number; stdout: string }> {
+  const args = ["exec", containerName(), GSQL_BIN, "-u", username(), "-p", password()];
+  if (opts.graph) args.push("-g", opts.graph);
+  args.push(cmd);
+  return new Promise((resolve) => {
+    const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    child.stdout.on("data", (d: Buffer) => void (stdout += d.toString()));
+    child.stderr.on("data", (d: Buffer) => void (stdout += d.toString()));
+    child.on("error", (err) => resolve({ status: -1, stdout: String(err) }));
+    child.on("close", (code) => resolve({ status: code ?? -1, stdout }));
+  });
 }
 
 // CLI entrypoint. Compare against the resolved path (argv[1] may be relative

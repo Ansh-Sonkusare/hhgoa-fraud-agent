@@ -1,0 +1,268 @@
+{
+  "case_id": "HHG-001",
+  "case": {
+    "status": "escalated",
+    "verdict": "fraud",
+    "fraud_probability": 0.846154,
+    "pattern": "card_testing",
+    "pattern_description": "",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "3514030",
+    "connected_card_ids": [
+      "C22120-K2",
+      "C13877-K1",
+      "C17904-K1",
+      "C23319-K2",
+      "C21233-K1",
+      "C19203-K2",
+      "C17736-K3",
+      "C12450-K2",
+      "C14251-K1",
+      "C19491-K1",
+      "C21176-K1",
+      "C17503-K2",
+      "C18442-K2",
+      "C16435-K2",
+      "C17011-K2",
+      "C13191-K3",
+      "C19248-K2",
+      "C20608-K1",
+      "C23029-K2",
+      "C17784-K2",
+      "C13610-K2",
+      "C21150-K1",
+      "C10963-K2",
+      "C20561-K1",
+      "C17830-K2",
+      "C11075-K1",
+      "C16535-K2",
+      "C18182-K2",
+      "C22607-K2",
+      "C10261-K1",
+      "C10769-K3",
+      "C14890-K1",
+      "C11753-K2",
+      "C18650-K2",
+      "C11672-K2",
+      "C20026-K2",
+      "C23070-K2",
+      "C15672-K1",
+      "C17704-K1",
+      "C21477-K2",
+      "C21788-K2",
+      "C15770-K1",
+      "C12786-K2",
+      "C22865-K1"
+    ],
+    "connected_device_profiles": [
+      "7190d8c4c6762a57"
+    ],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "Activity shares device profile 7190d8c4c6762a57 with card(s) C22120-K2, C13877-K1, C17904-K1, C23319-K2, C21233-K1, C19203-K2, C17736-K3, C12450-K2, C14251-K1, C19491-K1, C21176-K1, C17503-K2, C18442-K2, C16435-K2, C17011-K2, C13191-K3, C19248-K2, C20608-K1, C21139-K1, C23029-K2, C17784-K2, C13610-K2, C21150-K1, C10963-K2, C20561-K1, C17830-K2, C11075-K1, C16535-K2, C18182-K2, C22607-K2, C10261-K1, C10769-K3, C14890-K1, C11753-K2, C18650-K2, C11672-K2, C20026-K2, C23070-K2, C15672-K1, C17704-K1, C21477-K2, C21788-K2, C15770-K1, C12786-K2, C22865-K1",
+        "source": "graph",
+        "ref": "ev_001",
+        "entity_ids": [
+          "7190d8c4c6762a57",
+          "C22120-K2",
+          "C13877-K1",
+          "C17904-K1",
+          "C23319-K2",
+          "C21233-K1",
+          "C19203-K2",
+          "C17736-K3",
+          "C12450-K2",
+          "C14251-K1",
+          "C19491-K1",
+          "C21176-K1",
+          "C17503-K2",
+          "C18442-K2",
+          "C16435-K2",
+          "C17011-K2",
+          "C13191-K3",
+          "C19248-K2",
+          "C20608-K1",
+          "C21139-K1",
+          "C23029-K2",
+          "C17784-K2",
+          "C13610-K2",
+          "C21150-K1",
+          "C10963-K2",
+          "C20561-K1",
+          "C17830-K2",
+          "C11075-K1",
+          "C16535-K2",
+          "C18182-K2",
+          "C22607-K2",
+          "C10261-K1",
+          "C10769-K3",
+          "C14890-K1",
+          "C11753-K2",
+          "C18650-K2",
+          "C11672-K2",
+          "C20026-K2",
+          "C23070-K2",
+          "C15672-K1",
+          "C17704-K1",
+          "C21477-K2",
+          "C21788-K2",
+          "C15770-K1",
+          "C12786-K2",
+          "C22865-K1"
+        ]
+      },
+      {
+        "claim": "Prior confirmed fraud case(s) CC-1066, CC-1673, CC-2964, CC-3587 (pattern out_of_region_use/card_not_present_new_device/out_of_region_use/out_of_region_use)",
+        "source": "graph",
+        "ref": "ev_002",
+        "entity_ids": [
+          "CC-1066",
+          "CC-1673",
+          "CC-2964",
+          "CC-3587"
+        ]
+      },
+      {
+        "claim": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+        "source": "customer",
+        "ref": "ev_resp_0009",
+        "entity_ids": [
+          "C21139-K1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [
+      "CC-1066",
+      "CC-1673",
+      "CC-2964",
+      "CC-3587"
+    ],
+    "summary": "Investigated card C21139-K1 after trigger; pattern card_testing, top probability 0.85, 3 evidence categories, exposure $0.00. Verdict: fraud.",
+    "written_to_graph": true,
+    "graph_case_id": "GRAPH-HHG-001"
+  },
+  "evidence_requests": [
+    {
+      "type": "analyst_info",
+      "asked_after_step": 19,
+      "assumed_response": "Analyst notes this device profile / region cluster has been flagged on other accounts before."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      },
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.85 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R6: shared device profile links this to other card fraud; a report is required regardless of exposure"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6: same device profile also used on C22120-K2, C13877-K1, C17904-K1, C23319-K2, C21233-K1, C19203-K2, C17736-K3, C12450-K2, C14251-K1, C19491-K1, C21176-K1, C17503-K2, C18442-K2, C16435-K2, C17011-K2, C13191-K3, C19248-K2, C20608-K1, C23029-K2, C17784-K2, C13610-K2, C21150-K1, C10963-K2, C20561-K1, C17830-K2, C11075-K1, C16535-K2, C18182-K2, C22607-K2, C10261-K1, C10769-K3, C14890-K1, C11753-K2, C18650-K2, C11672-K2, C20026-K2, C23070-K2, C15672-K1, C17704-K1, C21477-K2, C21788-K2, C15770-K1, C12786-K2, C22865-K1"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      },
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.85 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      },
+      {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R6: shared device profile links this to other card fraud; a report is required regardless of exposure"
+      },
+      {
+        "action": "MONITOR_CONNECTED_CARDS",
+        "route": "auto",
+        "reason": "R6: same device profile also used on C22120-K2, C13877-K1, C17904-K1, C23319-K2, C21233-K1, C19203-K2, C17736-K3, C12450-K2, C14251-K1, C19491-K1, C21176-K1, C17503-K2, C18442-K2, C16435-K2, C17011-K2, C13191-K3, C19248-K2, C20608-K1, C23029-K2, C17784-K2, C13610-K2, C21150-K1, C10963-K2, C20561-K1, C17830-K2, C11075-K1, C16535-K2, C18182-K2, C22607-K2, C10261-K1, C10769-K3, C14890-K1, C11753-K2, C18650-K2, C11672-K2, C20026-K2, C23070-K2, C15672-K1, C17704-K1, C21477-K2, C21788-K2, C15770-K1, C12786-K2, C22865-K1"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": true,
+    "reason": "Fraud probability 0.85; a report is required",
+    "narrative": "Card C21139-K1 belonging to customer C12382 shows activity totaling $0.00 across 0 transaction(s). Activity occurred in person and online. The activity is consistent with the \"card_testing\" pattern. The transactions share device profile(s): 7190d8c4c6762a57. This activity connects to other card(s) held by the customer or by other customers: C22120-K2, C13877-K1, C17904-K1, C23319-K2, C21233-K1, C19203-K2, C17736-K3, C12450-K2, C14251-K1, C19491-K1, C21176-K1, C17503-K2, C18442-K2, C16435-K2, C17011-K2, C13191-K3, C19248-K2, C20608-K1, C23029-K2, C17784-K2, C13610-K2, C21150-K1, C10963-K2, C20561-K1, C17830-K2, C11075-K1, C16535-K2, C18182-K2, C22607-K2, C10261-K1, C10769-K3, C14890-K1, C11753-K2, C18650-K2, C11672-K2, C20026-K2, C23070-K2, C15672-K1, C17704-K1, C21477-K2, C21788-K2, C15770-K1, C12786-K2, C22865-K1. This is reported because: Fraud probability 0.85; a report is required. Total suspicious amount: $0.00. Card C21139-K1 has been recommended for block and reissue; connected cards have been placed under monitoring where applicable.",
+    "subjects": [
+      "C12382",
+      "C21139-K1",
+      "C22120-K2",
+      "C13877-K1",
+      "C17904-K1",
+      "C23319-K2",
+      "C21233-K1",
+      "C19203-K2",
+      "C17736-K3",
+      "C12450-K2",
+      "C14251-K1",
+      "C19491-K1",
+      "C21176-K1",
+      "C17503-K2",
+      "C18442-K2",
+      "C16435-K2",
+      "C17011-K2",
+      "C13191-K3",
+      "C19248-K2",
+      "C20608-K1",
+      "C23029-K2",
+      "C17784-K2",
+      "C13610-K2",
+      "C21150-K1",
+      "C10963-K2",
+      "C20561-K1",
+      "C17830-K2",
+      "C11075-K1",
+      "C16535-K2",
+      "C18182-K2",
+      "C22607-K2",
+      "C10261-K1",
+      "C10769-K3",
+      "C14890-K1",
+      "C11753-K2",
+      "C18650-K2",
+      "C11672-K2",
+      "C20026-K2",
+      "C23070-K2",
+      "C15672-K1",
+      "C17704-K1",
+      "C21477-K2",
+      "C21788-K2",
+      "C15770-K1",
+      "C12786-K2",
+      "C22865-K1"
+    ],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision.",
+  "tool_calls": 10,
+  "tokens": 941,
+  "latency_s": 7.66
+}

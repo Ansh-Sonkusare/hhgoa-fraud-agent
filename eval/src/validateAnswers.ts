@@ -99,8 +99,11 @@ export function validateAnswerFile(answer: AnswerFile, index: DatasetIdIndex, fi
   if (c.written_to_graph && c.graph_case_id === "") {
     errors.push("written_to_graph true but graph_case_id is empty");
   }
-  if (c.written_to_graph && c.graph_case_id !== "" && !index.anyId.has(c.graph_case_id) && !/^CASE-|^case-|^c-|graph_/.test(c.graph_case_id)) {
-    // Graph case ids are runtime-assigned, not dataset ids — only warn.
+  if (c.written_to_graph && c.graph_case_id !== "" && !index.anyId.has(c.graph_case_id) && !/^(GRAPH-|CASE-|case-|c-|graph_)/.test(c.graph_case_id)) {
+    // Graph case ids are run-assigned, not dataset ids — the in-memory ledger
+    // mints synthetic `GRAPH-<case_id>` ids (agent/src/caseLedger.ts) and the
+    // real graph has no case vertices on this build — only warn when the id
+    // matches neither a dataset id nor a known synthetic prefix.
     warnings.push(`graph_case_id "${c.graph_case_id}" is run-assigned (not a dataset id) — can't verify without a live graph`);
   }
 

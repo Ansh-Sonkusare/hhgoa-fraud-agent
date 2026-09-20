@@ -59,12 +59,46 @@ make test             # turbo run test (all workstreams)
 make lint             # turbo run lint
 make test-contracts   # contracts only
 make verify-graph     # deploy schema + load + verify against the running container
-make verify-gsql      # install queries and run the WS2 suite
+make verify-gsql      # install WS2 queries + run the WS2 suite (idempotent)
+make mcp-up           # start TigerGraph CE + MCP server
+make mcp-down         # stop them
 
-make run-case CASE=<id>  # not implemented yet (WS4/WS7)
-make run-all             # not implemented yet (WS7)
-make validate-answers    # not implemented yet (WS7)
+make run-case CASE=<id>  # benchmark one case (e.g. HHG-017)
+make run-all             # benchmark all 20 cases
+make validate-answers    # validate cases/*.json against the dataset
 ```
+
+## Running the benchmark (WS7)
+
+Prereqs: `pnpm install`, a filled `.env` from `.env.example`
+(`TIGERGRAPH_*`, `TIGERGRAPH_MCP_URL`, `OLLAMA_MODEL` e.g. `qwen2.5:1.5b`), and the
+raw CSVs present in `data/`.
+
+```bash
+# 1. Graph up and MCP server running (first TigerGraph boot takes several minutes)
+make mcp-up
+
+# 2. Build the load files from data/ and load the full graph
+pnpm --filter @hhgoa/graph prepare-load   # data/*.csv -> graph/build/*.csv (derived ids)
+pnpm --filter @hhgoa/graph load           # load into TigerGraph
+pnpm --filter @hhgoa/graph verify         # vertex/edge count checks
+
+# 3. Install the WS2 queries the agent calls through the MCP server (idempotent)
+make verify-gsql
+
+# 4. Run all 20 cases against the real graph + Ollama
+make run-all            # answers -> cases/<id>.json, raw runs -> runs/<timestamp>/
+
+# 5. Validate answers (dataset-id resolution + schema + cross-field rules)
+make validate-answers   # PASS means 20/20
+
+# single case / forced fresh rerun (runs replay from runs/ cache by default)
+make run-case CASE=HHG-017
+pnpm --filter @hhgoa/eval run-benchmark --no-cache --case HHG-017
+```
+
+Flags/env: `--backend fake|real`, `--llm mock|ollama`, `--timeout <seconds>`, `--plan-only`;
+env `TOOLS_BACKEND`, `LLM_BACKEND`, `OLLAMA_MODEL`, `CASE_TIMEOUT_S` (default 900).
 
 A standalone tree-sitter grammar and offline compiler/linter for this repo's GSQL
 dialect lives in its own repository: [Ansh-Sonkusare/gsql-treesitter](https://github.com/Ansh-Sonkusare/gsql-treesitter).

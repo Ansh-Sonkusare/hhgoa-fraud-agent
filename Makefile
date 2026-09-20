@@ -23,10 +23,10 @@ verify-gsql:
 	pnpm --filter @hhgoa/gsql verify
 
 run-case:
-	@echo "run-case: not implemented yet — owned by WS4/WS7 (agent/, eval/). CASE=$(CASE)"
+	pnpm --filter @hhgoa/eval run-case $(CASE)
 
 run-all:
-	@echo "run-all: not implemented yet — owned by WS7 (eval/)"
+	pnpm --filter @hhgoa/eval run-benchmark
 
 validate-answers:
-	@echo "validate-answers: not implemented yet — owned by WS7 (eval/)"
+	pnpm --filter @hhgoa/eval validate-answers

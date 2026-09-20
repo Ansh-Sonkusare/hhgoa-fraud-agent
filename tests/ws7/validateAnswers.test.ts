@@ -73,6 +73,26 @@ describe("validateAnswerFile", () => {
     const errors = validateAnswerFile(undocumented, index, "x.json", warnings2);
     expect(errors.join("\n")).toContain("pattern undocumented but pattern_description is empty");
   });
+
+  it("accepts the ledger's synthetic GRAPH-<case_id> graph_case_id without warning", () => {
+    const synthetic = exampleAnswer({
+      case: { ...exampleAnswer().case, graph_case_id: "GRAPH-HHG-017" },
+    });
+    const warnings: string[] = [];
+    const errors = validateAnswerFile(synthetic, index, "x.json", warnings);
+    expect(errors).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns on an unwritable graph_case_id that is neither dataset nor synthetic", () => {
+    const mystery = exampleAnswer({
+      case: { ...exampleAnswer().case, graph_case_id: "NOT-A-KNOWN-ENTITY" },
+    });
+    const warnings: string[] = [];
+    const errors = validateAnswerFile(mystery, index, "x.json", warnings);
+    expect(errors).toEqual([]);
+    expect(warnings.some((w) => w.includes("is run-assigned"))).toBe(true);
+  });
 });
 
 describe("validateCaseFile / validateAnswersDir", () => {

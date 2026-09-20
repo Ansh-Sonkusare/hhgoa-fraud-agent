@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "run-benchmark": "tsx src/runBenchmark.ts",
-    "run-case": "tsx src/runBenchmark.ts --case-only",
+    "run-case": "tsx src/runBenchmark.ts --case",
     "validate-answers": "tsx src/validate.ts",
     "backtest": "tsx src/backtest.ts",
     "test": "vitest run",

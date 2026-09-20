@@ -4,6 +4,16 @@
  * the TigerGraph container and run the GSQL LOADING JOBs (graph/loadingJobs/)
  * in dependency order. Idempotent: jobs are dropped and recreated each run.
  *
+ * Speed: the RUN phase is parallelized. Vertex jobs depend on nothing, and
+ * edge jobs only depend on the vertices being present — so all vertex jobs
+ * run concurrently, then all edge jobs run concurrently (a single edge job
+ * that outruns its vertex load silently drops rows, which is why the two
+ * phases stay separated). Each phase is bounded by `LOAD_CONCURRENCY`
+ * (default 4) concurrent `docker exec gsql` workers to avoid starving the
+ * container. Job *creation* stays sequential: this 4.3.0-rc1 build silently
+ * aborts multi-statement `-f` batches, and each RUN LOADING JOB only
+ * executes a job that already exists.
+ *
  * Usage:
  *   tsx graph/scripts/load.ts                 # full load (vertices then edges)
  *   tsx graph/scripts/load.ts --jobs custom   # comma-separated subset
@@ -13,7 +23,7 @@
  */
 import { readdirSync, existsSync } from "node:fs";
 import path from "node:path";
-import { runGsqlCmd, runGsqlFile, copyDataFile } from "./gsqlExec.js";
+import { runGsqlCmd, runGsqlFile, runGsqlCmdAsync, copyDataFile } from "./gsqlExec.js";
 
 const JOB_DIR = path.resolve(import.meta.dirname, "../loadingJobs");
 const BUILD_DIR = path.resolve(import.meta.dirname, "../build");
@@ -68,9 +78,10 @@ async function main(): Promise<void> {
   for (const f of csvs) copyDataFile(path.join(BUILD_DIR, f));
   console.log(`[load] copied ${csvs.length} CSVs to container /tmp/hhgoa_data/`);
 
+  // 1. Drop + recreate every job (sequential — fast, and this build aborts
+  //    multi-statement phases, so each CREATE goes through its own gsql -f).
   for (const name of ALL_JOBS) {
     if (wanted && !wanted.has(name)) continue;
-    // Drop old job (idempotent), then recreate.
     runGsqlCmd(`DROP JOB ${name}`, { graph: G, allowFailure: true });
     const create = runGsqlFile(jobFile(name), { graph: G });
     if (!/created loading job/i.test(create.stdout)) {
@@ -78,16 +89,39 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     console.log(`[load] created ${name}`);
-
-    const run = runGsqlCmd(`RUN LOADING JOB ${name}`, { graph: G, allowFailure: true });
-    const out = run.stdout;
-    const successful = /LOAD SUCCESSFUL/i.test(out);
-    if (!successful || run.status !== 0) {
-      console.error(`[load] RUN ${name} failed (rc ${run.status}):\n${out.slice(0, 2000)}`);
-      process.exit(1);
-    }
-    console.log(`[load] ran ${name}`);
   }
+
+  // 2. Run the loading jobs — vertices first, edges second, each phase in
+  //    parallel (see the header comment for why the phases stay ordered).
+  const concurrency = Math.max(1, Math.min(Number(process.env.LOAD_CONCURRENCY ?? "4"), 8));
+  const runPhase = async (names: string[]): Promise<void> => {
+    const jobs = names.filter((name) => (wanted ? wanted.has(name) : true));
+    if (jobs.length === 0) return;
+    console.log(`[load] running ${jobs.length} loading job(s) concurrently (workers=${concurrency})`);
+    const results: { name: string; out: string }[] = [];
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < jobs.length) {
+        const name = jobs[cursor++]!;
+        const out = await runGsqlCmdAsync(`RUN LOADING JOB ${name}`, { graph: G, allowFailure: true });
+        results.push({ name, out: out.stdout });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
+    results.sort((a, b) => jobs.indexOf(a.name) - jobs.indexOf(b.name));
+    let ok = true;
+    for (const { name, out } of results) {
+      if (!/LOAD SUCCESSFUL/i.test(out)) {
+        console.error(`[load] RUN ${name} failed (rc):\n${out.slice(0, 2000)}`);
+        ok = false;
+      } else {
+        console.log(`[load] ran ${name}`);
+      }
+    }
+    if (!ok) process.exit(1);
+  };
+  await runPhase(VERTEX_JOBS);
+  await runPhase(EDGE_JOBS);
   console.log("[load] done");
 }
 

@@ -1,0 +1,87 @@
+{
+  "case_id": "HHG-006",
+  "case": {
+    "status": "escalated",
+    "verdict": "fraud",
+    "fraud_probability": 0.833333,
+    "pattern": "undocumented",
+    "pattern_description": "Top hypothesis \"undocumented\"",
+    "affected_txn_ids": [],
+    "first_suspicious_txn_id": "",
+    "connected_card_ids": [],
+    "connected_device_profiles": [],
+    "exposure_usd": 0,
+    "evidence": [
+      {
+        "claim": "No shared device, address, or email links this card to any other account",
+        "source": "graph",
+        "ref": "ev_001",
+        "entity_ids": []
+      },
+      {
+        "claim": "No prior fraud or cleared cases found for this customer or card",
+        "source": "graph",
+        "ref": "ev_002",
+        "entity_ids": []
+      },
+      {
+        "claim": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+        "source": "customer",
+        "ref": "ev_resp_0002",
+        "entity_ids": [
+          "C13729-K1"
+        ]
+      }
+    ],
+    "similar_prior_cases": [],
+    "summary": "Investigated card C13729-K1 after trigger; pattern undocumented, top probability 0.83, 3 evidence categories, exposure $0.00. Verdict: fraud.",
+    "written_to_graph": true,
+    "graph_case_id": "GRAPH-HHG-006"
+  },
+  "evidence_requests": [
+    {
+      "type": "analyst_info",
+      "asked_after_step": 19,
+      "assumed_response": "Analyst notes this device profile / region cluster has been flagged on other accounts before."
+    }
+  ],
+  "next_best_actions": {
+    "initial": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      }
+    ],
+    "final": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      },
+      {
+        "action": "CREATE_CASE",
+        "route": "auto",
+        "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+      }
+    ],
+    "what_changed": "nothing"
+  },
+  "sar": {
+    "file": false,
+    "reason": "",
+    "narrative": "",
+    "subjects": [],
+    "total_amount_usd": 0,
+    "activity_dates": []
+  },
+  "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision.",
+  "tool_calls": 8,
+  "tokens": 327,
+  "latency_s": 3.43
+}
