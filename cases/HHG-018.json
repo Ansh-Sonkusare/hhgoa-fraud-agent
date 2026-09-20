@@ -132,8 +132,869 @@
     "total_amount_usd": 0,
     "activity_dates": []
   },
+  "investigation_record": [
+    {
+      "seq": 0,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "TRIGGERED",
+      "payload": {
+        "trigger": {
+          "kind": "customer_report",
+          "customer_id": "C02354",
+          "txn_ids": [
+            "3491361"
+          ],
+          "text": "Customer C02354 message: 'I never made this $39.08 purchase. Please check my card.' Refers to 3491361."
+        }
+      }
+    },
+    {
+      "seq": 1,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "CASE_OPENED",
+      "payload": {}
+    },
+    {
+      "seq": 2,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "CASE_OPENED",
+      "payload": {
+        "tool": "case_open",
+        "args": {
+          "trigger": {
+            "kind": "customer_report",
+            "customer_id": "C02354",
+            "txn_ids": [
+              "3491361"
+            ],
+            "text": "Customer C02354 message: 'I never made this $39.08 purchase. Please check my card.' Refers to 3491361."
+          },
+          "as_of": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "CASE_OPENED",
+      "payload": {
+        "tool": "case_open",
+        "result": {
+          "ok": true,
+          "tool": "case_open",
+          "as_of": "2016-11-27 14:41:26",
+          "via": "local",
+          "data": {
+            "case_id": "HHG-018",
+            "graph_case_id": "GRAPH-HHG-018"
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "INVESTIGATING",
+      "payload": {}
+    },
+    {
+      "seq": 5,
+      "ts": "2026-09-20T13:39:29.147Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "resolve_trigger",
+        "args": {
+          "trigger": {
+            "kind": "customer_report",
+            "customer_id": "C02354",
+            "txn_ids": [
+              "3491361"
+            ],
+            "text": "Customer C02354 message: 'I never made this $39.08 purchase. Please check my card.' Refers to 3491361."
+          },
+          "as_of": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "ts": "2026-09-20T13:39:29.173Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "resolve_trigger",
+        "result": {
+          "ok": true,
+          "tool": "resolve_trigger",
+          "as_of": "2016-11-27 14:41:26",
+          "via": "mcp",
+          "data": {
+            "card": {
+              "type": "Card",
+              "id": "C19248-K1"
+            },
+            "customer": {
+              "type": "Customer",
+              "id": "C02354"
+            },
+            "identity": {
+              "type": "Identity",
+              "id": "16c8c0b6d7a43d96"
+            }
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "ts": "2026-09-20T13:39:29.173Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "get_transaction_history",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19248-K1"
+          },
+          "window": {
+            "hours": 2
+          },
+          "as_of": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 8,
+      "ts": "2026-09-20T13:39:29.183Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "get_transaction_history",
+        "result": {
+          "ok": true,
+          "tool": "get_transaction_history",
+          "as_of": "2016-11-27 14:41:26",
+          "via": "mcp",
+          "data": {
+            "rows": [],
+            "stats": {
+              "count": 0,
+              "total_amount_usd": 0,
+              "window": "2h"
+            }
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 9,
+      "ts": "2026-09-20T13:39:29.183Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_shared_entity_rings",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19248-K1"
+          },
+          "as_of": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "ts": "2026-09-20T13:39:29.200Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_shared_entity_rings",
+        "result": {
+          "ok": true,
+          "tool": "find_shared_entity_rings",
+          "as_of": "2016-11-27 14:41:26",
+          "via": "mcp",
+          "data": {
+            "rings": []
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "ts": "2026-09-20T13:39:29.200Z",
+      "case_id": "HHG-018",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_001",
+          "category": "device_identity",
+          "summary": "No shared device, address, or email links this card to any other account",
+          "entities": [],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.2,
+          "supports": [
+            "legitimate"
+          ],
+          "contradicts": [
+            "card_not_present_fraud",
+            "card_testing"
+          ],
+          "ts": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "ts": "2026-09-20T13:39:29.200Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_prior_cases",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19248-K1"
+          },
+          "as_of": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "ts": "2026-09-20T13:39:29.212Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_prior_cases",
+        "result": {
+          "ok": true,
+          "tool": "find_prior_cases",
+          "as_of": "2016-11-27 14:41:26",
+          "via": "mcp",
+          "data": {
+            "cases": [
+              {
+                "case_id": "CC-0255",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-0405",
+                "outcome": "cleared",
+                "pattern": "none"
+              },
+              {
+                "case_id": "CC-0454",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-0631",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-1450",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-1699",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-2051",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-2187",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-2432",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-2589",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-3085",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-3537",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-3634",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-3899",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-4070",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-4436",
+                "outcome": "",
+                "pattern": ""
+              },
+              {
+                "case_id": "CC-4721",
+                "outcome": "",
+                "pattern": ""
+              },
+              {
+                "case_id": "CC-4942",
+                "outcome": "",
+                "pattern": ""
+              },
+              {
+                "case_id": "CC-5441",
+                "outcome": "",
+                "pattern": ""
+              },
+              {
+                "case_id": "CC-5558",
+                "outcome": "confirmed_fraud",
+                "pattern": "card_not_present_fraud"
+              }
+            ]
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 14,
+      "ts": "2026-09-20T13:39:29.212Z",
+      "case_id": "HHG-018",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_002",
+          "category": "prior_cases",
+          "summary": "Prior confirmed fraud case(s) CC-0255, CC-0454, CC-0631, CC-1450, CC-1699, CC-2051, CC-2187, CC-2432, CC-2589, CC-3085, CC-3537, CC-3634, CC-3899, CC-4070, CC-5558 (pattern account_takeover/account_takeover/out_of_region_use/account_takeover/account_takeover/account_takeover/account_takeover/account_takeover/out_of_region_use/account_takeover/out_of_region_use/account_takeover/account_takeover/account_takeover/card_not_present_fraud); cleared case(s) CC-0405",
+          "entities": [
+            {
+              "type": "ClosedCase",
+              "id": "CC-0255"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-0405"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-0454"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-0631"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-1450"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-1699"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2051"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2187"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2432"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2589"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3085"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3537"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3634"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3899"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-4070"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-4436"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-4721"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-4942"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-5441"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-5558"
+            }
+          ],
+          "source_tool": "find_prior_cases",
+          "weight_hint": 0.5,
+          "supports": [
+            "account_takeover"
+          ],
+          "contradicts": [],
+          "ts": "2016-11-27 14:41:26"
+        }
+      }
+    },
+    {
+      "seq": 15,
+      "ts": "2026-09-20T13:39:29.212Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "ASSESSING",
+      "payload": {}
+    },
+    {
+      "seq": 16,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "assessment_updated",
+      "state": "ASSESSING",
+      "payload": {
+        "assessment": {
+          "hypotheses": [
+            {
+              "fraud_type": "account_takeover",
+              "probability": 0.833333,
+              "supporting": [],
+              "contradicting": []
+            },
+            {
+              "fraud_type": "legitimate",
+              "probability": 0.166667,
+              "supporting": [],
+              "contradicting": []
+            }
+          ],
+          "risk_level": "HIGH",
+          "risk_score": 0.5,
+          "confidence": 0.5,
+          "sufficiency": {
+            "sufficient": false,
+            "missing": [
+              {
+                "what": "additional independent evidence categories",
+                "why": "only 2 independent categories consulted so far (need ≥3 or all exhausted)",
+                "would_change_decision": true
+              },
+              {
+                "what": "confidence or probability margin",
+                "why": "top hypothesis does not yet lead the runner-up by ≥0.25 with confidence ≥0.75",
+                "would_change_decision": true
+              }
+            ],
+            "stop_reason": null
+          },
+          "legit_hypothesis_probability": 0.166667
+        }
+      }
+    },
+    {
+      "seq": 17,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {}
+    },
+    {
+      "seq": 18,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "tool_call",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "tool": "request_evidence",
+        "args": {
+          "type": "analyst_info",
+          "target": {
+            "type": "Card",
+            "id": "C19248-K1"
+          },
+          "reason": "Separates \"account_takeover\" (p=0.83) from \"legitimate\" (p=0.17)."
+        }
+      }
+    },
+    {
+      "seq": 19,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "evidence_requested",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "type": "analyst_info",
+        "target": {
+          "type": "Card",
+          "id": "C19248-K1"
+        },
+        "reason": "Separates \"account_takeover\" (p=0.83) from \"legitimate\" (p=0.17).",
+        "discrimination_score": 0.333334,
+        "friction_cost": 1
+      }
+    },
+    {
+      "seq": 20,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {}
+    },
+    {
+      "seq": 21,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "tool_result",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {
+        "tool": "request_evidence",
+        "result": {
+          "ok": true,
+          "tool": "request_evidence",
+          "as_of": "n/a",
+          "via": "policy",
+          "data": {
+            "request_type": "analyst_info",
+            "responded": true,
+            "response_text": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+            "evidence": {
+              "id": "ev_resp_0005",
+              "category": "customer_response",
+              "summary": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+              "entities": [
+                {
+                  "type": "Card",
+                  "id": "C19248-K1"
+                }
+              ],
+              "source_tool": "request_evidence",
+              "weight_hint": 0.45,
+              "supports": [
+                "fraud"
+              ],
+              "contradicts": [],
+              "ts": "2026-09-20T13:39:37.641Z"
+            }
+          },
+          "evidence_refs": [
+            "ev_resp_0005"
+          ],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 22,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {}
+    },
+    {
+      "seq": 23,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "evidence_added",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {
+        "evidence": {
+          "id": "ev_resp_0005",
+          "category": "customer_response",
+          "summary": "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
+          "entities": [
+            {
+              "type": "Card",
+              "id": "C19248-K1"
+            }
+          ],
+          "source_tool": "request_evidence",
+          "weight_hint": 0.45,
+          "supports": [
+            "fraud"
+          ],
+          "contradicts": [],
+          "ts": "2026-09-20T13:39:37.641Z"
+        }
+      }
+    },
+    {
+      "seq": 24,
+      "ts": "2026-09-20T13:39:37.641Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "ASSESSING",
+      "payload": {}
+    },
+    {
+      "seq": 25,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "assessment_updated",
+      "state": "ASSESSING",
+      "payload": {
+        "assessment": {
+          "hypotheses": [
+            {
+              "fraud_type": "account_takeover",
+              "probability": 0.833333,
+              "supporting": [],
+              "contradicting": []
+            },
+            {
+              "fraud_type": "legitimate",
+              "probability": 0.166667,
+              "supporting": [],
+              "contradicting": []
+            }
+          ],
+          "risk_level": "HIGH",
+          "risk_score": 0.5,
+          "confidence": 0.5,
+          "sufficiency": {
+            "sufficient": true,
+            "missing": [],
+            "stop_reason": "sufficient_evidence"
+          },
+          "legit_hypothesis_probability": 0.166667
+        }
+      }
+    },
+    {
+      "seq": 26,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "DECIDING",
+      "payload": {}
+    },
+    {
+      "seq": 27,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "APPROVAL_ROUTING",
+      "payload": {}
+    },
+    {
+      "seq": 28,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      }
+    },
+    {
+      "seq": 29,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_ALL_CARDS",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 30,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      }
+    },
+    {
+      "seq": 31,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_CARD",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 32,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "CREATE_CASE",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 33,
+      "ts": "2026-09-20T13:39:44.887Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "EXPLAINING",
+      "payload": {}
+    },
+    {
+      "seq": 34,
+      "ts": "2026-09-20T13:39:44.888Z",
+      "case_id": "HHG-018",
+      "type": "explanation",
+      "state": "EXPLAINING",
+      "payload": {
+        "explanation": {
+          "evidence_used": [
+            "ev_001: No shared device, address, or email links this card to any other account",
+            "ev_002: Prior confirmed fraud case(s) CC-0255, CC-0454, CC-0631, CC-1450, CC-1699, CC-2051, CC-2187, CC-2432, CC-2589, CC-3085, CC-3537, CC-3634, CC-3899, CC-4070, CC-…",
+            "ev_resp_0005: Analyst notes this device profile / region cluster has been flagged on other accounts before."
+          ],
+          "why_more_evidence": "R1: probability 0.83 on a weak/ambiguous signal was below the 0.70 block threshold, so \"analyst_info\" was requested before any enforcement (assumed response simulated deterministically: Analyst notes this device profile / region cluster has been flagged on other accounts before.).",
+          "why_actions": {
+            "BLOCK_ALL_CARDS": "R10: two of the customer's cards show confirmed fraud",
+            "BLOCK_CARD": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00",
+            "CREATE_CASE": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+          },
+          "remaining_uncertainty": "Top hypothesis \"account_takeover\" at 0.83 versus legitimate at 0.17; model confidence 0.50. Uncertainty is driven by the evidence set itself.",
+          "what_would_change_the_decision": "If the customer had instead confirmed the purchase, R3 would apply and the case would close as legitimate."
+        }
+      }
+    },
+    {
+      "seq": 35,
+      "ts": "2026-09-20T13:39:44.888Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "MEMORY_UPDATE",
+      "payload": {}
+    },
+    {
+      "seq": 36,
+      "ts": "2026-09-20T13:39:44.888Z",
+      "case_id": "HHG-018",
+      "type": "memory_written",
+      "state": "MEMORY_UPDATE",
+      "payload": {
+        "graph_case_id": "GRAPH-HHG-018"
+      }
+    },
+    {
+      "seq": 37,
+      "ts": "2026-09-20T13:39:44.888Z",
+      "case_id": "HHG-018",
+      "type": "state_entered",
+      "state": "DONE",
+      "payload": {
+        "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision."
+      }
+    },
+    {
+      "seq": 38,
+      "ts": "2026-09-20T13:39:44.888Z",
+      "case_id": "HHG-018",
+      "type": "done",
+      "state": "DONE",
+      "payload": {
+        "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision."
+      }
+    }
+  ],
   "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision.",
   "tool_calls": 9,
-  "tokens": 20596,
-  "latency_s": 528.67
+  "tokens": 500,
+  "latency_s": 16.23
 }

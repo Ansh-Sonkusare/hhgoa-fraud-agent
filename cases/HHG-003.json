@@ -34,7 +34,7 @@
       {
         "claim": "Analyst has no additional signal beyond what the graph already shows.",
         "source": "customer",
-        "ref": "ev_resp_0011",
+        "ref": "ev_resp_0010",
         "entity_ids": [
           "C19739-K1"
         ]
@@ -104,8 +104,739 @@
     "total_amount_usd": 0,
     "activity_dates": []
   },
+  "investigation_record": [
+    {
+      "seq": 0,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "TRIGGERED",
+      "payload": {
+        "trigger": {
+          "kind": "customer_report",
+          "customer_id": "C08623",
+          "txn_ids": [
+            "3530164"
+          ],
+          "text": "Customer C08623 message: 'I never made this $49.00 purchase. Please check my card.' Refers to 3530164."
+        }
+      }
+    },
+    {
+      "seq": 1,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "CASE_OPENED",
+      "payload": {}
+    },
+    {
+      "seq": 2,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "CASE_OPENED",
+      "payload": {
+        "tool": "case_open",
+        "args": {
+          "trigger": {
+            "kind": "customer_report",
+            "customer_id": "C08623",
+            "txn_ids": [
+              "3530164"
+            ],
+            "text": "Customer C08623 message: 'I never made this $49.00 purchase. Please check my card.' Refers to 3530164."
+          },
+          "as_of": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "CASE_OPENED",
+      "payload": {
+        "tool": "case_open",
+        "result": {
+          "ok": true,
+          "tool": "case_open",
+          "as_of": "2016-12-10 15:01:21",
+          "via": "local",
+          "data": {
+            "case_id": "HHG-003",
+            "graph_case_id": "GRAPH-HHG-003"
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "INVESTIGATING",
+      "payload": {}
+    },
+    {
+      "seq": 5,
+      "ts": "2026-09-20T13:40:48.485Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "resolve_trigger",
+        "args": {
+          "trigger": {
+            "kind": "customer_report",
+            "customer_id": "C08623",
+            "txn_ids": [
+              "3530164"
+            ],
+            "text": "Customer C08623 message: 'I never made this $49.00 purchase. Please check my card.' Refers to 3530164."
+          },
+          "as_of": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "ts": "2026-09-20T13:40:48.519Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "resolve_trigger",
+        "result": {
+          "ok": true,
+          "tool": "resolve_trigger",
+          "as_of": "2016-12-10 15:01:21",
+          "via": "mcp",
+          "data": {
+            "card": {
+              "type": "Card",
+              "id": "C19739-K1"
+            },
+            "customer": {
+              "type": "Customer",
+              "id": "C08623"
+            },
+            "identity": {
+              "type": "Identity",
+              "id": "107af61666be0821"
+            }
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "ts": "2026-09-20T13:40:48.519Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "get_transaction_history",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19739-K1"
+          },
+          "window": {
+            "hours": 2
+          },
+          "as_of": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 8,
+      "ts": "2026-09-20T13:40:48.527Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "get_transaction_history",
+        "result": {
+          "ok": true,
+          "tool": "get_transaction_history",
+          "as_of": "2016-12-10 15:01:21",
+          "via": "mcp",
+          "data": {
+            "rows": [],
+            "stats": {
+              "count": 0,
+              "total_amount_usd": 0,
+              "window": "2h"
+            }
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 9,
+      "ts": "2026-09-20T13:40:48.527Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_shared_entity_rings",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19739-K1"
+          },
+          "as_of": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "ts": "2026-09-20T13:40:48.542Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_shared_entity_rings",
+        "result": {
+          "ok": true,
+          "tool": "find_shared_entity_rings",
+          "as_of": "2016-12-10 15:01:21",
+          "via": "mcp",
+          "data": {
+            "rings": []
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "ts": "2026-09-20T13:40:48.542Z",
+      "case_id": "HHG-003",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_001",
+          "category": "device_identity",
+          "summary": "No shared device, address, or email links this card to any other account",
+          "entities": [],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.2,
+          "supports": [
+            "legitimate"
+          ],
+          "contradicts": [
+            "card_not_present_fraud",
+            "card_testing"
+          ],
+          "ts": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "ts": "2026-09-20T13:40:48.542Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_prior_cases",
+        "args": {
+          "entity": {
+            "type": "Card",
+            "id": "C19739-K1"
+          },
+          "as_of": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "ts": "2026-09-20T13:40:48.551Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "INVESTIGATING",
+      "payload": {
+        "tool": "find_prior_cases",
+        "result": {
+          "ok": true,
+          "tool": "find_prior_cases",
+          "as_of": "2016-12-10 15:01:21",
+          "via": "mcp",
+          "data": {
+            "cases": [
+              {
+                "case_id": "CC-1589",
+                "outcome": "cleared",
+                "pattern": "none"
+              },
+              {
+                "case_id": "CC-2817",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-2935",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-3327",
+                "outcome": "confirmed_fraud",
+                "pattern": "account_takeover"
+              },
+              {
+                "case_id": "CC-3682",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              },
+              {
+                "case_id": "CC-4957",
+                "outcome": "confirmed_fraud",
+                "pattern": "out_of_region_use"
+              }
+            ]
+          },
+          "evidence_refs": [],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 14,
+      "ts": "2026-09-20T13:40:48.551Z",
+      "case_id": "HHG-003",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_002",
+          "category": "prior_cases",
+          "summary": "Prior confirmed fraud case(s) CC-2817, CC-2935, CC-3327, CC-3682, CC-4957 (pattern out_of_region_use/out_of_region_use/account_takeover/out_of_region_use/out_of_region_use); cleared case(s) CC-1589",
+          "entities": [
+            {
+              "type": "ClosedCase",
+              "id": "CC-1589"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2817"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-2935"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3327"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-3682"
+            },
+            {
+              "type": "ClosedCase",
+              "id": "CC-4957"
+            }
+          ],
+          "source_tool": "find_prior_cases",
+          "weight_hint": 0.5,
+          "supports": [
+            "out_of_region_use"
+          ],
+          "contradicts": [],
+          "ts": "2016-12-10 15:01:21"
+        }
+      }
+    },
+    {
+      "seq": 15,
+      "ts": "2026-09-20T13:40:48.551Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "ASSESSING",
+      "payload": {}
+    },
+    {
+      "seq": 16,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "assessment_updated",
+      "state": "ASSESSING",
+      "payload": {
+        "assessment": {
+          "hypotheses": [
+            {
+              "fraud_type": "out_of_region_use",
+              "probability": 0.833333,
+              "supporting": [],
+              "contradicting": []
+            },
+            {
+              "fraud_type": "legitimate",
+              "probability": 0.166667,
+              "supporting": [],
+              "contradicting": []
+            }
+          ],
+          "risk_level": "HIGH",
+          "risk_score": 0.5,
+          "confidence": 0.5,
+          "sufficiency": {
+            "sufficient": false,
+            "missing": [
+              {
+                "what": "additional independent evidence categories",
+                "why": "only 2 independent categories consulted so far (need ≥3 or all exhausted)",
+                "would_change_decision": true
+              },
+              {
+                "what": "confidence or probability margin",
+                "why": "top hypothesis does not yet lead the runner-up by ≥0.25 with confidence ≥0.75",
+                "would_change_decision": true
+              }
+            ],
+            "stop_reason": null
+          },
+          "legit_hypothesis_probability": 0.166667
+        }
+      }
+    },
+    {
+      "seq": 17,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {}
+    },
+    {
+      "seq": 18,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "tool_call",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "tool": "request_evidence",
+        "args": {
+          "type": "analyst_info",
+          "target": {
+            "type": "Card",
+            "id": "C19739-K1"
+          },
+          "reason": "Separates \"out_of_region_use\" (p=0.83) from \"legitimate\" (p=0.17)."
+        }
+      }
+    },
+    {
+      "seq": 19,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "evidence_requested",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "type": "analyst_info",
+        "target": {
+          "type": "Card",
+          "id": "C19739-K1"
+        },
+        "reason": "Separates \"out_of_region_use\" (p=0.83) from \"legitimate\" (p=0.17).",
+        "discrimination_score": 0.333334,
+        "friction_cost": 1
+      }
+    },
+    {
+      "seq": 20,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {}
+    },
+    {
+      "seq": 21,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "tool_result",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {
+        "tool": "request_evidence",
+        "result": {
+          "ok": true,
+          "tool": "request_evidence",
+          "as_of": "n/a",
+          "via": "policy",
+          "data": {
+            "request_type": "analyst_info",
+            "responded": true,
+            "response_text": "Analyst has no additional signal beyond what the graph already shows.",
+            "evidence": {
+              "id": "ev_resp_0010",
+              "category": "customer_response",
+              "summary": "Analyst has no additional signal beyond what the graph already shows.",
+              "entities": [
+                {
+                  "type": "Card",
+                  "id": "C19739-K1"
+                }
+              ],
+              "source_tool": "request_evidence",
+              "weight_hint": 0.2,
+              "supports": [],
+              "contradicts": [],
+              "ts": "2026-09-20T13:40:52.444Z"
+            }
+          },
+          "evidence_refs": [
+            "ev_resp_0010"
+          ],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 22,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {}
+    },
+    {
+      "seq": 23,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "evidence_added",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {
+        "evidence": {
+          "id": "ev_resp_0010",
+          "category": "customer_response",
+          "summary": "Analyst has no additional signal beyond what the graph already shows.",
+          "entities": [
+            {
+              "type": "Card",
+              "id": "C19739-K1"
+            }
+          ],
+          "source_tool": "request_evidence",
+          "weight_hint": 0.2,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2026-09-20T13:40:52.444Z"
+        }
+      }
+    },
+    {
+      "seq": 24,
+      "ts": "2026-09-20T13:40:52.444Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "ASSESSING",
+      "payload": {}
+    },
+    {
+      "seq": 25,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "assessment_updated",
+      "state": "ASSESSING",
+      "payload": {
+        "assessment": {
+          "hypotheses": [
+            {
+              "fraud_type": "out_of_region_use",
+              "probability": 0.833333,
+              "supporting": [],
+              "contradicting": []
+            },
+            {
+              "fraud_type": "legitimate",
+              "probability": 0.166667,
+              "supporting": [],
+              "contradicting": []
+            }
+          ],
+          "risk_level": "HIGH",
+          "risk_score": 0.5,
+          "confidence": 0.5,
+          "sufficiency": {
+            "sufficient": true,
+            "missing": [],
+            "stop_reason": "sufficient_evidence"
+          },
+          "legit_hypothesis_probability": 0.166667
+        }
+      }
+    },
+    {
+      "seq": 26,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "DECIDING",
+      "payload": {}
+    },
+    {
+      "seq": 27,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "APPROVAL_ROUTING",
+      "payload": {}
+    },
+    {
+      "seq": 28,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_ALL_CARDS",
+        "route": "L2",
+        "reason": "R10: two of the customer's cards show confirmed fraud"
+      }
+    },
+    {
+      "seq": 29,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_ALL_CARDS",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 30,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00"
+      }
+    },
+    {
+      "seq": 31,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_CARD",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 32,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "action_result",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "CREATE_CASE",
+        "result": "EXECUTED"
+      }
+    },
+    {
+      "seq": 33,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "EXPLAINING",
+      "payload": {}
+    },
+    {
+      "seq": 34,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "explanation",
+      "state": "EXPLAINING",
+      "payload": {
+        "explanation": {
+          "evidence_used": [
+            "ev_001: No shared device, address, or email links this card to any other account",
+            "ev_002: Prior confirmed fraud case(s) CC-2817, CC-2935, CC-3327, CC-3682, CC-4957 (pattern out_of_region_use/out_of_region_use/account_takeover/out_of_region_use/out_o…",
+            "ev_resp_0010: Analyst has no additional signal beyond what the graph already shows."
+          ],
+          "why_more_evidence": "R1: probability 0.83 on a weak/ambiguous signal was below the 0.70 block threshold, so \"analyst_info\" was requested before any enforcement (assumed response simulated deterministically: Analyst has no additional signal beyond what the graph already shows.).",
+          "why_actions": {
+            "BLOCK_ALL_CARDS": "R10: two of the customer's cards show confirmed fraud",
+            "BLOCK_CARD": "R2: customer denied the transaction(s) or fraud probability 0.83 exceeds the 0.70 block threshold; exposure $0.00",
+            "CREATE_CASE": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+          },
+          "remaining_uncertainty": "Top hypothesis \"out_of_region_use\" at 0.83 versus legitimate at 0.17; model confidence 0.50. Uncertainty is driven by the evidence set itself.",
+          "what_would_change_the_decision": "Evidence that raises confidence above 0.75 (e.g. a customer confirmation or step-up authentication) would let the recommender act without further verification."
+        }
+      }
+    },
+    {
+      "seq": 35,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "MEMORY_UPDATE",
+      "payload": {}
+    },
+    {
+      "seq": 36,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "memory_written",
+      "state": "MEMORY_UPDATE",
+      "payload": {
+        "graph_case_id": "GRAPH-HHG-003"
+      }
+    },
+    {
+      "seq": 37,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "state_entered",
+      "state": "DONE",
+      "payload": {
+        "stop_reason": "Fraud probability 0.83 with three independent evidence categories (device_identity, prior_cases, customer_response) clears the 0.75 confidence threshold; further investigation would not change the decision."
+      }
+    },
+    {
+      "seq": 38,
+      "ts": "2026-09-20T13:40:57.481Z",
+      "case_id": "HHG-003",
+      "type": "done",
+      "state": "DONE",
+      "payload": {
+        "stop_reason": "Fraud probability 0.83 with three independent evidence categories (device_identity, prior_cases, customer_response) clears the 0.75 confidence threshold; further investigation would not change the decision."
+      }
+    }
+  ],
   "stop_reason": "Fraud probability 0.83 with three independent evidence categories (device_identity, prior_cases, customer_response) clears the 0.75 confidence threshold; further investigation would not change the decision.",
   "tool_calls": 9,
-  "tokens": 652,
-  "latency_s": 5.97
+  "tokens": 252,
+  "latency_s": 9.47
 }
