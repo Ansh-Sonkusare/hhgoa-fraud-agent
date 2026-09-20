@@ -18,6 +18,7 @@ import type {
   ToolCatalog,
 } from "@hhgoa/contracts";
 import { buildEvidenceForTool, createEvidenceIdGen, type EvidenceIdGen } from "./evidenceBuilder.js";
+import { assessSharedOrigin } from "./sharedOrigin.js";
 
 /**
  * The run-local investigation state the machine accumulates as tools are
@@ -191,6 +192,41 @@ async function priorCases(g: GatherRuntime): Promise<void> {
   if (!res.ok) return;
   f.prior_cases = (res.data as FindPriorCasesData).cases ?? [];
   await emitEvidence(g, "find_prior_cases", res.data);
+}
+
+/**
+ * Second-opinion step after the compact sweep. NOT part of
+ * `COMPACT_GATHER_STEPS` (the recorded fixtures never made it) and not a call
+ * every case should pay for: `community_lookup` is a whole-graph computation
+ * (~5-12s, docs/decisions.md).
+ *
+ * A plausible shared-element ring alone does not prove a common actor — a
+ * coarse device fingerprint or a popular billing region collides often. When
+ * the ring is not already corroborated by prior confirmed fraud, ask the graph
+ * for the seed card's community; its confirmed-fraud concentration is the
+ * policy's "another customer's fraud" test (§3a/R6). Then narrow the derived
+ * connected-card/device lists to corroborated rings only, so the answer file
+ * cannot report a 500-card fingerprint crowd as a compromise.
+ */
+export async function runSharedOriginCorroboration(g: GatherRuntime): Promise<void> {
+  const f = g.facts;
+  if (f.primary_card && !f.community) {
+    const pre = assessSharedOrigin(f);
+    const needsCommunity =
+      pre.signals.plausible_ring &&
+      !pre.signals.prior_confirmed_fraud &&
+      !pre.signals.community_confirmed;
+    if (needsCommunity) {
+      const res = await g.catalog.get_community(f.primary_card, g.asOf);
+      if (res.ok) {
+        f.community = res.data as CommunityData;
+        await emitEvidence(g, "get_community", res.data);
+      }
+    }
+  }
+  const a = assessSharedOrigin(f);
+  f.connected_card_ids = a.connected_card_ids;
+  f.device_profiles = a.device_profiles;
 }
 
 async function emitEvidence(g: GatherRuntime, tool: string, data: unknown): Promise<void> {

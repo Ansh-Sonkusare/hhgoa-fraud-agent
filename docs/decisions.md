@@ -2,6 +2,25 @@
 
 One entry per decision that wasn't already dictated by `PRD.md`/`docs/DATASET_README.md`. Newest first. Each entry: what was decided, why, and what it overrides (if anything).
 
+## 2026-09-20 — WS4: `shared_origin_connection` requires a corroborated common actor, not any shared attribute
+
+**Problem (measured, not hypothesised):** the policy's `shared_origin_connection` was computed as `facts.rings.some(r => r.card_ids.length > 1)` (`agent/src/caseState.ts`) — "this card shares *some* attribute with *some* other card". Combined with `MAX_PLAUSIBLE_RING_SIZE = 50` (`agent/src/mcpClient.ts`), a real run produced a ring of 29-47 cards through a coarse `DeviceProfile` fingerprint (`DeviceInfo + OS + browser + screen`), unioning to 533 "connected cards" and forcing `FILE_REPORT` under R6 on a case whose only shared element was a collision. Policy §3a/R6 defines the field as connecting to a shared device/region/**another card's fraud**; the code only tested the first clause, and never the "fraud" part.
+
+**Decided — corroboration, not attribute-sharing.** `shared_origin_connection` is now `plausible_ring && (prior_confirmed_fraud || community_confirmed)`:
+- **`plausible_ring`** — a ring of `2..MAX_CORROBORATING_RING_SIZE` (**10**). Chosen from measurement: the three genuine discovered components are 5/5/9 cards while the observed noise bands are 29-47 (HHG-007) and 45 (HHG-001). `mcpClient.ts`'s 50 cap stays as the transport-level sentinel guard; 10 is the evidence bar.
+- **`prior_confirmed_fraud`** — a `find_prior_cases` hit with `outcome = "confirmed_fraud"` (already in the compact sweep). §3a's literal "another customer's fraud".
+- **`community_confirmed`** — `get_community` reports `size >= 2` **and** `confirmed_fraud_rate >= COMMUNITY_FRAUD_RATE_MIN` (**0.90**). The bar deliberately equals the discovery pass's `min_confirmed_pct = 90`: the graph's genuine clusters sit at 100%, the rejected 274-card volume artifact at 81.6% (below the 83.2% dataset baseline). This is the "is this a *genuine* cluster" question, answered by the graph's own WCC, not re-derived from raw ring sizes.
+
+**Decided — a conditional second-opinion call (`runSharedOriginCorroboration`, `agent/src/investigation.ts`).** When the compact sweep found a plausible ring that prior fraud does not already corroborate, the machine makes exactly one extra graph call, `get_community` (backed by `community_lookup`, the same 2-distinct-types + overlap WCC as the discovery pass). Short-circuits when there is no plausible ring or prior confirmed fraud already corroborates, so most cases pay nothing; `community_lookup` is a ~5-12s whole-graph computation when it does run. It is *not* part of `COMPACT_GATHER_STEPS` (the recorded fixtures never made the call) and it charges budget like every other graph tool.
+
+**Decided — report only corroborated rings.** `connected_card_ids` / `connected_device_profiles` now derive from corroborated rings only (empty when not corroborated), matching the answer format's "other cards caught in the same compromise, ring, or device" and the sample answer. HHG-007's 533-card list becomes empty; a genuine 2-card link is unaffected. `recommend.ts`'s R6 reason now cites the actual corroborator ("another card's confirmed fraud" or "community of N cards at X% confirmed-fraud incidence") rather than always claiming "other card fraud".
+
+**Rejected: a TS multi-type/entity-size bar.** `community_lookup`'s card-side guard is a Jaccard overlap on each card's *uncapped* footprint, and `addr1` is a billing *region* (332 values / 16,324 cards) / email a *domain* (60 values) — "popular" is their normal condition, so a TS size cap would both fail to reproduce the guard and kill legitimate address/email corroboration (docs/decisions.md, 2026-09-19). Delegating the "genuine cluster" decision to the graph avoids re-approximating it.
+
+**Known limitation (accepted):** a first-time, single-type, device-only pair with no prior case and no multi-type community is not corroborated → `shared_origin_connection: false`. That is the hardest case, and the README treats a lone unusual online purchase as ambiguous (verify under R1), not as proven shared origin.
+
+**Tests:** `tests/ws4/sharedOrigin.test.ts` (unit: uncorroborated ring, prior-fraud, crowd-scale, community bar at exactly 0.90, plausibility at exactly 10; integration: `get_community` is called only when a plausible ring lacks prior-fraud corroboration). Full `make test` green (9 packages), `pnpm typecheck` clean, `make lint` clean. No `contracts/`, `policy/` or `gsql/` changes — corroboration reads existing fields (`CommunityData.stats` was already `Record<string, number>`).
+
 ## 2026-09-20 — WS7 submission-gap fix: investigation record in the answer file, and real case write-back to TigerGraph
 
 The submission brief requires (a) the internal investigation record per case and (b) that "the case should also be written to the graph" as case memory the next investigation finds. The implementation fell short on both, so these were fixed (user-approved):

@@ -1,6 +1,7 @@
 import type { Assessment, EvidenceItem } from "@hhgoa/contracts";
 import { CaseStateForPolicySchema, type CaseStateForPolicy } from "@hhgoa/policy";
 import type { InvestigationFacts } from "./investigation.js";
+import { assessSharedOrigin } from "./sharedOrigin.js";
 import { distinctEvidenceCategories, topFraudHypothesis } from "./assess.js";
 
 /**
@@ -20,7 +21,11 @@ export function buildCaseStateForPolicy(
   const fraudProb = topFraud?.probability ?? assessment.legit_hypothesis_probability;
   const categories = distinctEvidenceCategories(evidence);
 
-  const sharedOrigin = facts.rings.some((r) => r.card_ids.length > 1);
+  // Not "shares any attribute with another card" — a corroborated shared
+  // origin only (see sharedOrigin.ts): a plausible ring plus either prior
+  // confirmed fraud or a fraud-concentrated community. Otherwise a coarse
+  // fingerprint collision would force a SAR.
+  const sharedOrigin = assessSharedOrigin(facts).shared_origin_connection;
   const coordinated = facts.patterns.some(
     (p) => p.pattern_id === "undocumented" || p.pattern_id === "coordinated",
   );

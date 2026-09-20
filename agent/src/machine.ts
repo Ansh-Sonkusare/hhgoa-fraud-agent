@@ -24,7 +24,7 @@ import { getPolicyConfig, sarRequired, type PolicyToolAdapters } from "@hhgoa/po
 import { assess, canonicalPattern, distinctEvidenceCategories, topFraudHypothesis } from "./assess.js";
 import { buildExplanation } from "./explain.js";
 import { buildContextBundle, renderContextBundle } from "./contextBuilder.js";
-import { createFacts, createEvidenceIdGen, runStandardGather, type InvestigationFacts } from "./investigation.js";
+import { createFacts, createEvidenceIdGen, runSharedOriginCorroboration, runStandardGather, type InvestigationFacts, type GatherRuntime } from "./investigation.js";
 import { planEvidenceGathering, type PreferenceBand } from "./planner.js";
 import { recommendActions, summarizeChange, type Recommendations } from "./recommend.js";
 import { describeEvaluateStop, evaluateStop, type StopRuleDecision, type StopReason } from "./stopRule.js";
@@ -537,7 +537,7 @@ export class FraudInvestigationMachine {
     this.graphCaseId = open.ok ? ((open.data as { graph_case_id?: string })?.graph_case_id ?? this.deps.caseId) : this.deps.caseId;
 
     this.emitState("INVESTIGATING");
-    await runStandardGather({
+    const gatherRuntime: GatherRuntime = {
       catalog: this.registry.catalog,
       facts: this.facts,
       idGen: this.idGen,
@@ -546,7 +546,10 @@ export class FraudInvestigationMachine {
         this.onEvidence(item, "INVESTIGATING");
         return Promise.resolve();
       },
-    });
+    };
+    await runStandardGather(gatherRuntime);
+    // Corroboration second opinion (conditional; see investigation.ts).
+    await runSharedOriginCorroboration(gatherRuntime);
 
     let stopDecision: StopRuleDecision = { stop: false, reason: null };
     let stopReasonText = "";

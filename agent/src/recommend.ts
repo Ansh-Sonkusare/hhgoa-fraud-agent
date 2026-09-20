@@ -7,6 +7,7 @@ import type {
 import { policyCheck } from "@hhgoa/policy";
 import type { InvestigationFacts } from "./investigation.js";
 import { buildCaseStateForPolicy } from "./caseState.js";
+import { assessSharedOrigin } from "./sharedOrigin.js";
 import { canonicalPattern, topFraudHypothesis } from "./assess.js";
 import { sarRequired } from "@hhgoa/policy";
 
@@ -73,6 +74,7 @@ export function recommendActions(
 
   const exposure = facts.exposure_usd;
   const shared = cs.shared_origin_connection;
+  const sharedOrigin = assessSharedOrigin(facts);
   const coordinated = cs.coordinated_or_undocumented;
   const sar = sarRequired(cs);
 
@@ -92,13 +94,13 @@ export function recommendActions(
     }
     add("CREATE_CASE", `R6 / §3a: fraud probability reached 0.30 and a case must be opened`);
     if (shared) {
-      add("MONITOR_CONNECTED_CARDS", `R6: same device profile also used on ${facts.connected_card_ids.join(", ")}`);
+      add("MONITOR_CONNECTED_CARDS", `R6: ${sharedOrigin.reason}; connected card(s) ${facts.connected_card_ids.join(", ")}`);
     }
     if (coordinated) {
       add("FILE_REPORT", `R9: coordinated/undocumented pattern (undocumented or multi-card); report regardless of exposure`);
     }
     if (sar && !coordinated) {
-      add("FILE_REPORT", `R6: shared device profile links this to other card fraud; a report is required regardless of exposure`);
+      add("FILE_REPORT", `R6: ${sharedOrigin.reason}; a report is required regardless of exposure`);
     }
     if (cs.confirmed_fraud_card_count >= 2) {
       add("BLOCK_ALL_CARDS", `R10: two of the customer's cards show confirmed fraud`);
