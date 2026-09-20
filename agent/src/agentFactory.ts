@@ -1,5 +1,5 @@
 import type { LlmClient, MockScriptEntry } from "./llm.js";
-import { MockLlmClient, OllamaLlmClient } from "./llm.js";
+import { MockLlmClient, OllamaLlmClient, OpenAiCompatLlmClient } from "./llm.js";
 import { createMcpClient, type McpClient } from "./mcpClient.js";
 import { FraudInvestigationMachine, type MachineDeps, type RunResult } from "./machine.js";
 import { persistCaseToGraph } from "./persistCase.js";
@@ -51,8 +51,9 @@ export const DEFAULT_MOCK_SCRIPT: readonly MockScriptEntry[] = [
   },
 ];
 
-export function createLlmClient(backend: "mock" | "ollama", script?: readonly MockScriptEntry[]): LlmClient {
+export function createLlmClient(backend: "mock" | "ollama" | "openai", script?: readonly MockScriptEntry[]): LlmClient {
   if (backend === "ollama") return new OllamaLlmClient();
+  if (backend === "openai") return new OpenAiCompatLlmClient();
   return new MockLlmClient(script ?? DEFAULT_MOCK_SCRIPT);
 }
 

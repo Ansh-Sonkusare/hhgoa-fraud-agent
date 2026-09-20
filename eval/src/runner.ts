@@ -9,13 +9,14 @@ import { env, parseSeconds, repoRoot } from "./env.js";
 /** Backend selection — switchable exactly like the API (PRD §16 WS6 / §8.6). */
 export interface RunMode {
   toolsBackend: "fake" | "real";
-  llmBackend: "mock" | "ollama";
+  llmBackend: "mock" | "ollama" | "openai";
   model: string;
 }
 
 export function runModeFromEnv(tools?: string, llm?: string): RunMode {
   const toolsBackend = ((tools ?? env("TOOLS_BACKEND", "real")) === "real" ? "real" : "fake") as "real" | "fake";
-  const llmBackend = (llm ?? env("LLM_BACKEND", "ollama")) === "ollama" ? "ollama" : "mock";
+  const llmStr = llm ?? env("LLM_BACKEND", "ollama");
+  const llmBackend = (llmStr === "ollama" || llmStr === "openai" ? llmStr : "mock") as "mock" | "ollama" | "openai";
   return { toolsBackend, llmBackend, model: env("OLLAMA_MODEL", "llama3.1") };
 }
 
@@ -47,7 +48,7 @@ export interface CaseRun {
 
 export interface RunOneOptions {
   toolsBackend?: "fake" | "real";
-  llmBackend?: "mock" | "ollama";
+  llmBackend?: "mock" | "ollama" | "openai";
   /** Skip the `.cache/` replay. */
   noCache?: boolean;
   cacheDir?: string;
@@ -77,7 +78,7 @@ function readCache(file: string): { answer: AnswerFile; events: AgentEvent[]; me
   }
 }
 
-/** Preflight for a real-tools batch run: Ollama reachability (fail fast on LLM_BACKEND=ollama). */
+/** Preflight for a real-tools batch run: fail fast on an unreachable LLM backend. */
 export async function preflight(mode: RunMode): Promise<string[]> {
   const problems: string[] = [];
   if (mode.llmBackend === "ollama") {
@@ -87,6 +88,17 @@ export async function preflight(mode: RunMode): Promise<string[]> {
       if (!res.ok) problems.push(`Ollama responded ${res.status} at ${host} — is OLLAMA_HOST right?`);
     } catch {
       problems.push(`Ollama not reachable at ${host} (LLM_BACKEND=ollama). Start it or run with LLM_BACKEND=mock.`);
+    }
+  }
+  if (mode.llmBackend === "openai") {
+    const base = env("LLM_BASE_URL", "http://localhost:8080").replace(/\/$/, "");
+    try {
+      const res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) problems.push(`OpenAI-compatible endpoint responded ${res.status} at ${base} — is LLM_BASE_URL right?`);
+    } catch {
+      problems.push(
+        `No OpenAI-compatible endpoint at ${base} (LLM_BACKEND=openai). Start llama-server or run with LLM_BACKEND=mock.`,
+      );
     }
   }
   return problems;
@@ -132,7 +144,8 @@ async function runTarget(target: RunTarget, queryMode: RunMode, opts: RunOneOpti
   const timeoutS = opts.caseTimeoutS ?? parseSeconds(env("CASE_TIMEOUT_S", "900"));
   try {
     const { runAgent, createLlmClient } = await import("@hhgoa/agent");
-    const llm = mode.llmBackend === "ollama" ? createLlmClient("ollama") : undefined;
+    const llm =
+      mode.llmBackend === "ollama" || mode.llmBackend === "openai" ? createLlmClient(mode.llmBackend) : undefined;
     const runPromise = runAgent({
       caseId: target.caseId,
       asOf: target.asOf,

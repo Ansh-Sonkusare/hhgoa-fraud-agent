@@ -76,11 +76,17 @@ function defaultUnits(): LiveRunUnit[] {
  * Runs the real WS4 agent for one case and forwards every `AgentEvent` to
  * `onEvent` as the machine emits it. Services default from the environment
  * exactly like `runAgent` does (agent/src/agentFactory.ts): fake MCP + mock
- * LLM unless `TOOLS_BACKEND=real` / `LLM_BACKEND=ollama`.
+ * LLM unless `TOOLS_BACKEND=real` / `LLM_BACKEND=ollama|openai`.
  *
  * The `@hhgoa/agent` import is dynamic so a fixture-only server (the
  * default) never loads WS4's module graph.
  */
+function llmBackendFromEnv(): "mock" | "ollama" | "openai" {
+  const llm = process.env.LLM_BACKEND;
+  if (llm === "ollama" || llm === "openai") return llm;
+  return "mock";
+}
+
 async function machineRunner(
   options: RunAgentOptions,
   onEvent: (event: AgentEvent) => void,
@@ -93,7 +99,7 @@ async function machineRunner(
     caseId: options.caseId,
     asOf: options.asOf,
     trigger: options.trigger,
-    llm: options.llm ?? createLlmClient(process.env.LLM_BACKEND === "ollama" ? "ollama" : "mock"),
+    llm: options.llm ?? createLlmClient(llmBackendFromEnv()),
     mcp: options.mcp ?? createMcpClient(backend),
     providers: options.providers ?? (await createToolProviders(backend, options.caseId)),
     policies: options.policies ?? createPolicyAdapters(),

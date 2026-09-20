@@ -9,6 +9,10 @@
  *    `.env.example` still references from an earlier milestone. A real
  *    Ollama server is not running in this worktree, so tests are never
  *    allowed to hit it — they use `MockLlmClient`.
+ *  - `OpenAiCompatLlmClient` talks to any OpenAI-compatible chat endpoint
+ *    (`POST {baseUrl}/v1/chat/completions`, `stream: false`) — e.g. a local
+ *    llama.cpp `llama-server` (`LLM_BACKEND=openai`, `LLM_BASE_URL`,
+ *    `LLM_MODEL`), which does not speak Ollama's `/api/chat` protocol.
  *  - `MockLlmClient` is a deterministic in-memory script (used by every
  *    test and as the default when `LLM_BACKEND=mock`). It returns texts
  *    verbatim from a script, so full machine runs are reproducible without
@@ -108,6 +112,84 @@ export class OllamaLlmClient implements LlmClient {
       usage: {
         input_tokens: usage.prompt_eval_count ?? 0,
         output_tokens: usage.eval_count ?? 0,
+      },
+    };
+  }
+}
+
+export interface OpenAiCompatOptions {
+  baseUrl?: string;
+  model?: string;
+  fetchFn?: typeof fetch;
+}
+
+/**
+ * OpenAI-compatible chat client (`LLM_BACKEND=openai`). Talks to any server
+ * speaking the OpenAI `/v1/chat/completions` shape — a local llama.cpp
+ * `llama-server` (`llama-server -hf Qwen/Qwen2.5-7B-Instruct-GGUF:Q4_K_M`),
+ * for example, which does not implement Ollama's `/api/chat`. Never used by
+ * tests (they inject `fetchFn` or use `MockLlmClient`).
+ */
+export class OpenAiCompatLlmClient implements LlmClient {
+  readonly model: string;
+  private readonly baseUrl: string;
+  private readonly fetchFn: typeof fetch;
+
+  constructor(opts: OpenAiCompatOptions = {}) {
+    // LLM_MODEL wins over OLLAMA_MODEL so a llama.cpp-backed run can name
+    // its own checkpoint without touching the Ollama configuration.
+    this.model = opts.model ?? envOr(envOr("llama3.1", "OLLAMA_MODEL"), "LLM_MODEL");
+    this.baseUrl = opts.baseUrl ?? envOr("http://localhost:8080", "LLM_BASE_URL");
+    this.fetchFn = opts.fetchFn ?? fetch;
+  }
+
+  async complete(call: LlmCall): Promise<LlmResult> {
+    const messages: LlmMessage[] = [];
+    if (call.system) messages.push({ role: "system", content: call.system });
+    if (call.messages.length > 0) messages.push(...call.messages);
+
+    const body: Record<string, unknown> = {
+      model: this.model,
+      messages,
+      temperature: call.temperature ?? 0.7,
+      stream: false,
+    };
+    if (call.jsonMode) body["response_format"] = { type: "json_object" };
+
+    const res = await this.fetchFn(`${this.baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.text();
+        detail = body.trim().slice(0, 300);
+      } catch {
+        // body not readable; fall through to the generic error
+      }
+      throw new Error(
+        `OpenAiCompatLlmClient: ${this.baseUrl}/v1/chat/completions failed with HTTP ${res.status} ` +
+          `(${this.model}); is a llama.cpp/Ollama llama-server (or other OpenAI-compatible ` +
+          `endpoint) running at ${this.baseUrl}?${detail ? ` server said: ${detail}` : ""}`,
+      );
+    }
+    const payload: unknown = await res.json();
+    const choices = (payload as { choices?: { message?: { content?: unknown } }[] }).choices;
+    const content = choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") {
+      throw new Error(`OpenAiCompatLlmClient: /v1/chat/completions response missing choices[0].message.content`);
+    }
+    const usage = (payload as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
+    return {
+      text: content,
+      model: (payload as { model?: unknown }).model && typeof (payload as { model?: unknown }).model === "string"
+        ? ((payload as { model: string }).model)
+        : this.model,
+      usage: {
+        input_tokens: usage?.prompt_tokens ?? 0,
+        output_tokens: usage?.completion_tokens ?? 0,
       },
     };
   }
