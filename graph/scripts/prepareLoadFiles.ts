@@ -3,7 +3,7 @@
  * graph/scripts/prepareLoadFiles.ts — WS1: derive the entity/edge CSVs under
  * graph/build/ from data/*.csv, for the GSQL LOADING JOBs.
  *
- * Cardinal derivation (documented honestly, see graph/README.md):
+ * Cardinal derivation (documented honestly here; schema.gsql points to this header):
  *   - Card id is NOT derivable from card1: one card1 value covers many cards,
  *     and the dataset's own ids are opaque. Deriving `C<card1>-K<rank>` scored
  *     0/5565 exact matches against closed-case card ids while accidentally

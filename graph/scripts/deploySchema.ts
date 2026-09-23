@@ -6,8 +6,8 @@
  * Why one statement per invocation: this TigerGraph Community Edition
  * 4.3.0-rc1 build silently aborts a multi-statement `gsql -f` batch (RC=0,
  * zero output, nothing applied) when a later statement fails, so batch
- * deploys were not trustworthy during bring-up (see graph/README.md,
- * "Schema deployment"). Individual statements are reliable and fail loudly.
+ * deploys were not trustworthy during bring-up. Individual statements are
+ * reliable and fail loudly.
  *
  * Usage:
  *   tsx graph/scripts/deploySchema.ts                # idempotent: skip existing types

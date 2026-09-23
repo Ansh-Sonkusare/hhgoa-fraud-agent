@@ -7,14 +7,14 @@
 // the running agent writes at investigation time (Finding, ActionRecord,
 // Decision, EvidenceItem, Pattern, PolicyChunk, EvidenceType) are declared
 // here so WS3 (rag/memory.ts) and WS4 (agent/) have a schema to write against,
-// but WS1 does not populate them (see graph/README.md).
+// but WS1 does not populate them.
 //
 // Column provenance: docs/DATA_MAP.md. V1-V339 and id_12..id_38 (except the
 // few readable ones) are NOT loaded here - DuckDB via get_wide_features per
 // PRD sec.7/sec.8.4. Every time-bearing vertex/edge carries a timestamp so `as_of`
 // filtering works (PRD sec.7 rule, sec.8.1).
 //
-// Run via graph/scripts/gsqlExec.ts (see graph/README.md), idempotent-ish:
+// Run via graph/scripts/gsqlExec.ts, idempotent-ish:
 // safe to re-run against a graph that doesn't exist yet.
 
 // ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ CREATE VERTEX Customer (
 
 // One Card per distinct (card1..card6) tuple actually observed for a
 // customer, plus stub cards for IDs referenced only in closed-case /
-// case-pack files (see graph/README.md "Card ID derivation").
+// case-pack files (derivation: graph/scripts/prepareLoadFiles.ts header).
 CREATE VERTEX Card (
   PRIMARY_ID id STRING,
   customer_id STRING,
@@ -76,9 +76,8 @@ CREATE VERTEX Txn (
 ) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
 
 // Derived actor-resolution key (PRD sec.7): heuristic hash(card1, addr1,
-// estimated first-transaction-day). See graph/README.md for the exact
-// derivation and its known limitations. Purity/merge-rate validation
-// against closed cases is WS2's job (docs/IDENTITY_VALIDATION.md).
+// estimated first-transaction-day). The exact derivation and its known
+// limitations are in the graph/scripts/prepareLoadFiles.ts header.
 CREATE VERTEX Identity (
   PRIMARY_ID id STRING,
   card1 STRING,
@@ -87,7 +86,7 @@ CREATE VERTEX Identity (
   card_count UINT
 ) WITH PRIMARY_ID_AS_ATTRIBUTE="true"
 
-// hash(DeviceInfo, id_30, id_31, id_33) - see graph/README.md.
+// hash(DeviceInfo, id_30, id_31, id_33) - see graph/scripts/prepareLoadFiles.ts.
 CREATE VERTEX Device (
   PRIMARY_ID id STRING,
   device_type STRING,
@@ -178,8 +177,8 @@ CREATE VERTEX Pattern (
 
 // embedding: LIST<DOUBLE> fallback - native VECTOR attribute syntax was not
 // accepted by this TigerGraph Community Edition 4.3.0-rc1 build (see
-// graph/README.md "Vector support" and docs/REQUESTS.md). WS3 should
-// re-verify before building retrieval on top of this.
+// docs/REQUESTS.md). Retrieval uses it through gsql/queries/vector_search.gsql,
+// which takes the query vector as a LIST<DOUBLE> parameter.
 CREATE VERTEX PolicyChunk (
   PRIMARY_ID id STRING,
   text STRING,
