@@ -1,112 +1,253 @@
-# hhgoa-fraud-agent
+# HHGOA Fraud Investigation Agent
 
-Agentic fraud-investigation system for the TigerGraph Hacker House Goa challenge: an
-LLM agent investigates card-fraud alerts over the IEEE-CIS-derived transaction dataset,
-builds and progresses cases on a TigerGraph graph, files suspicious activity reports,
-and recommends the next best action under the fraud policy.
+An agent that investigates card-fraud alerts over a TigerGraph transaction graph:
+it decides whether a flagged transaction is fraud or legitimate, names the fraud
+pattern when it can, recommends the next best action under fraud policy rules
+R1–R10, and writes one answer file per case in the format defined by
+[`docs/DATASET_README.md`](./docs/DATASET_README.md). Built for the TigerGraph
+Hacker House Goa hackathon on an IEEE-CIS-derived card-transaction dataset.
 
-This repository is a pnpm + Turborepo monorepo. TypeScript end to end; the only other
-languages are GSQL (TigerGraph's query language) and a single, isolated Python venv for
-the official `tigergraph-mcp` server.
+## Specification
 
-## Authoritative documents
+This README is an overview, not a spec. The two authoritative documents are:
 
-| Document | What it is |
-|---|---|
-| [`PRD.md`](./PRD.md) | The binding implementation plan (workstreams, milestones, definition of done) |
-| [`docs/DATASET_README.md`](./docs/DATASET_README.md) | The binding dataset spec, known fraud patterns, fraud policy, and answer format. **Wins on any disagreement** |
-| [`docs/DATA_MAP.md`](./docs/DATA_MAP.md) | Reconciled reference for files, columns, and patterns — read this instead of re-deriving from CSVs |
-| [`docs/context.md`](./docs/context.md) | Living project snapshot; read first when resuming work |
-| [`CLAUDE.md`](./CLAUDE.md) | Working rules for contributors and agents |
+- [`docs/CHALLENGE_BRIEF.md`](./docs/CHALLENGE_BRIEF.md) — the hackathon
+  specification: required agent capabilities, required components, the
+  submission checklist, and the judging weights.
+- [`docs/DATASET_README.md`](./docs/DATASET_README.md) — authoritative for the
+  data (every file and column), the five known fraud patterns, fraud policy
+  rules R1–R10, and the exact answer-file format.
 
-## Layout
+Where anything below disagrees with those two files, they win. `docs/DATA_MAP.md`
+is a reconciled reference for columns and files, not a third spec.
 
-Ownership boundaries are defined in PRD §6. Do not edit another workstream's directory.
+## Architecture
 
-| Path | Workstream | Contents |
-|---|---|---|
-| `contracts/` | WS0 | Frozen shared types, tool catalog, fakes (frozen after M0) |
-| `graph/` | WS1 | TigerGraph schema, loading jobs, schema deploy / load / verify scripts, `mcp-server/` |
-| `gsql/` | WS2 | Installed queries, pattern detectors, graph algorithms, discovery |
-| `rag/` | WS3 | Retrieval and GraphRAG |
-| `agent/` | WS4 | Investigation agent and orchestration |
-| `policy/` | WS5 | Fraud policy and action/approval rules |
-| `api/` + `ui/` | WS6 | HTTP API and front end |
-| `eval/` + `cases/` | WS7 | Evaluation harness and case packs |
-| `submission/` | WS8 | Submission assembly |
-| `tests/` | all | Tests, one directory per workstream |
+### Case flow
 
-## Getting started
+```
+Trigger: risk score | customer report | analyst request
+   |
+   v
+TRIGGERED -> CASE_OPENED -> INVESTIGATING
+   |   evidence: TigerGraph GSQL queries (gsql/) via the official
+   |   tigergraph-mcp server (graph/mcp-server/)
+   |   retrieval: policy chunks + similar past cases via TigerGraph
+   |   vector search (rag/)
+   v
+ASSESSING
+   |   local LLM (llama.cpp llama-server, Qwen2.5-7B-Instruct Q4_K_M,
+   |   OpenAI-compatible endpoint) forms competing pattern hypotheses
+   |   with probabilities
+   |   pattern scoring: Jev (TypeSafe hosted scorer) re-splits the
+   |   documented-pattern mass; Kev (local scorer) is wired but parked,
+   |   untrained
+   |   code guards: singleSignal.ts (R1 single-signal cap),
+   |   patternRules.ts (device/channel corrections)
+   v
+EVIDENCE_PLANNING -> AWAITING_EVIDENCE -> EVIDENCE_RECEIVED
+   |   VERIFY_WITH_CUSTOMER / STEP_UP_AUTH requests are recorded, but no
+   |   reply is fabricated: evidence_requests records "no reply received,
+   |   none assumed" and R4 governs the re-recommendation instead
+   v
+DECIDING            (policy/src/engine.ts: actions + approval routes, R1-R10)
+   |
+   v
+APPROVAL_ROUTING -> EXPLAINING -> MEMORY_UPDATE -> DONE
+   |   answer file exported to cases/<case_id>.json; case written back
+   |   into TigerGraph as case memory for the next investigation
+```
 
-Requirements: Node 20+, pnpm 9 (`corepack enable`), and Docker (for TigerGraph CE
-and the MCP server).
+The state names above are the agent's actual 12-state machine
+(`contracts/src/state.ts`, driven by `agent/src/machine.ts`).
+
+### Components
+
+- **`contracts/`** — zod schemas and TypeScript types shared by every
+  workstream: the tool catalog, the answer-file schema, and in-memory fakes
+  used for testing without a live graph or LLM.
+- **`graph/`** — TigerGraph schema, loading jobs, and the `mcp-server/`
+  Python venv that runs the official `tigergraph-mcp` server
+  (https://github.com/tigergraph/tigergraph-mcp).
+- **`gsql/`** — the installed GSQL queries the agent calls through MCP:
+  transaction history, neighborhood/velocity, shared-entity rings, pattern
+  detectors, community lookup, prior-case retrieval, vector search.
+- **`rag/`** — GraphRAG: ingests the fraud policy and closed-case narratives,
+  builds the context bundle passed to the LLM, and reads/writes case memory.
+- **`agent/`** — the state machine, LLM client (Ollama or any OpenAI-compatible
+  endpoint), MCP client, assessor, pattern scorer, policy guards, evidence
+  planner, and explainer.
+- **`policy/`** — the fraud policy engine: actions, approval routing, R1–R10,
+  evidence handling, and SAR (suspicious activity report) generation.
+- **`api/` + `ui/`** — a Fastify API streaming agent events over SSE, and a
+  Next.js analyst UI showing case progression, evidence, and recommendations.
+- **`eval/` + `cases/`** — the benchmark runner and backtest harness;
+  `cases/` holds the 20 exported answer files.
+- **`submission/`** — the blog post and demo script for the hackathon
+  submission.
+
+## Repository layout
+
+```
+contracts/   WS0   frozen shared types, zod schemas, tool catalog, fakes
+graph/       WS1   TigerGraph schema, loading jobs, verify scripts, mcp-server/
+gsql/        WS2   installed queries, pattern detectors, algorithms, discovery
+rag/         WS3   GraphRAG: policy/case ingestion, retrieval, context, memory
+agent/       WS4   state machine, LLM/MCP clients, assessor, pattern scorer
+policy/      WS5   fraud policy engine, evidence, approvals, SAR
+api/         WS6   Fastify API + SSE event stream
+ui/          WS6   Next.js analyst UI
+eval/        WS7   benchmark runner, backtest harness, answer export/validation
+cases/       WS7   output: <case_id>.json, one per case-pack case
+submission/  WS8   blog post, demo script
+docs/        WS0   specs, context/decisions/logs/todo, data map, MCP tool map
+fixtures/    WS0   sample tool outputs, recorded case runs (UI/agent dev data)
+tests/       all   one test directory per workstream (tests/ws0, ws2-ws7)
+tools/       -     dev tooling (gsql-treesitter)
+data/        -     raw dataset CSVs; gitignored, never commit
+```
+
+Workstream ownership follows PRD §6: each directory belongs to one workstream,
+and `contracts/` is frozen after milestone M0.
+
+## Setup and running
+
+### Prerequisites
+
+- Node 20+ and pnpm (`corepack enable`).
+- Docker, for TigerGraph Community Edition and the `tigergraph-mcp` server
+  (`docker-compose.yml` defines the `tigergraph` and `mcp-server` services).
+- A local LLM server: either Ollama, or an OpenAI-compatible endpoint such as
+  llama.cpp's `llama-server` (used for real runs with
+  Qwen2.5-7B-Instruct Q4_K_M).
+- Python 3, only to build the isolated venv under `graph/mcp-server/` if you
+  run `tigergraph-mcp` natively instead of through Docker. The optional Kev
+  scorer is a separate Python service run outside this repository (`KEV_URL`);
+  no other Python is in the project.
+
+### Environment
+
+Copy `.env.example` to `.env`. Secrets and connection settings live only in
+`.env`, which is gitignored; never commit real values. Key variables:
+
+- `TOOLS_BACKEND` (`fake` | `real`) — `fake` uses `contracts/src/fakes.ts`.
+- `LLM_BACKEND` (`ollama` | `openai`) with `OLLAMA_HOST` / `OLLAMA_MODEL`, or
+  `LLM_BASE_URL` / `LLM_MODEL` for an OpenAI-compatible endpoint like
+  llama.cpp's `llama-server`.
+- `TIGERGRAPH_HOST`, `TIGERGRAPH_GRAPH_NAME`, `TIGERGRAPH_USERNAME`,
+  `TIGERGRAPH_PASSWORD`, `TIGERGRAPH_REST_PORT`, `TIGERGRAPH_GSQL_PORT`.
+- `TIGERGRAPH_MCP_URL` — where the agent connects to the running
+  `tigergraph-mcp` server.
+- `PATTERN_SCORER` (`jev` | `kev` | `none`), with `JEV_API_KEY` / `JEV_URL`
+  for the hosted scorer and `KEV_URL` for the (currently untrained) local one.
+- `RAG_VECTOR_BACKEND` (`tigergraph` | `local`) — whether similarity search
+  runs as a TigerGraph `vector_search` query or a local adapter.
+- `API_PORT`, `UI_PORT`, `RUN_SOURCE` (`fixture` | `live`).
+
+### Commands
 
 ```bash
 pnpm install
 
-# bring up TigerGraph CE and the TigerGraph MCP server
-make mcp-up
+make mcp-up              # start TigerGraph CE + the tigergraph-mcp server
 make mcp-down
+
+make test                # turbo run test, all workstreams
+make lint                # turbo run lint
+make verify-graph        # deploy schema + load + verify against the container
+make verify-gsql         # install gsql/ queries + run its test suite
+
+make run-case CASE=<id>  # run one benchmark case, e.g. make run-case CASE=HHG-017
+make run-all             # run all 20 case-pack cases
+make validate-answers    # validate cases/*.json against the dataset and schema
 ```
 
-Secrets and connection settings come from `.env` only (see `.env.example`). Raw dataset
-CSVs live in `data/` and are gitignored — never commit them.
+`make verify-graph` drops and reloads the graph, so run `make verify-gsql`
+again afterward to reinstall the queries the agent depends on.
 
-## Common commands
+### Backtest
+
+The backtest harness (`eval/src/backtest.ts`) replays closed, already-decided
+cases from `data/closed_cases_history.csv` (described in
+`docs/DATASET_README.md`) at their original `opened_at` time, with nothing
+after that time visible, and scores the agent against the analysts' recorded
+outcome:
 
 ```bash
-make test             # turbo run test (all workstreams)
-make lint             # turbo run lint
-make test-contracts   # contracts only
-make verify-graph     # deploy schema + load + verify against the running container
-make verify-gsql      # install WS2 queries + run the WS2 suite (idempotent)
-make mcp-up           # start TigerGraph CE + MCP server
-make mcp-down         # stop them
-
-make run-case CASE=<id>  # benchmark one case (e.g. HHG-017)
-make run-all             # benchmark all 20 cases
-make validate-answers    # validate cases/*.json against the dataset
+BACKTEST_SAMPLE=50 pnpm --filter @hhgoa/eval backtest --no-cache
 ```
 
-## Running the benchmark (WS7)
+Relevant options, all environment variables read by `backtest.ts`:
 
-Prereqs: `pnpm install`, a filled `.env` from `.env.example`
-(`TIGERGRAPH_*`, `TIGERGRAPH_MCP_URL`, `OLLAMA_MODEL` e.g. `qwen2.5:1.5b`), and the
-raw CSVs present in `data/`.
+- `BACKTEST_SAMPLE` — how many closed cases to draw.
+- `BACKTEST_SHARD="i/n"` — run every `n`-th case of the drawn sample starting
+  at `i`, so several shards can run in parallel against one LLM server.
+- `BACKTEST_EXCLUDE=<path>` — a file of case IDs, one per line, to leave out
+  (used to build a "fresh" sample of cases never touched during tuning).
+- `BACKTEST_SEED`, `BACKTEST_HOLDOUT`, `BACKTEST_FROM`,
+  `BACKTEST_CASE_RETRIES`, `BACKTEST_OUT_TAG` — sampling and retry controls;
+  see the file for defaults.
 
-```bash
-# 1. Graph up and MCP server running (first TigerGraph boot takes several minutes)
-make mcp-up
+## Temporal correctness
 
-# 2. Build the load files from data/ and load the full graph
-pnpm --filter @hhgoa/graph prepare-load   # data/*.csv -> graph/build/*.csv (derived ids)
-pnpm --filter @hhgoa/graph load           # load into TigerGraph
-pnpm --filter @hhgoa/graph verify         # vertex/edge count checks
+Every graph, RAG, and memory tool takes an `as_of` timestamp and must ignore
+information dated after it (PRD §8.1) — a case opened on 12 November cannot
+see anything from the 13th. This is enforced in the query and retrieval layers
+rather than left to the caller, and is tested directly: `tests/ws3/asofLeak.test.ts`
+checks retrieval, and `tests/ws7/noLeak.test.ts` (backed by `eval/src/noLeak.ts`)
+checks that no closed case or transaction returned for a benchmark case
+postdates that case's cutoff.
 
-# 3. Install the WS2 queries the agent calls through the MCP server (idempotent)
-make verify-gsql
+## Results
 
-# 4. Run all 20 cases against the real graph + Ollama
-make run-all            # answers -> cases/<id>.json, raw runs -> runs/<timestamp>/
+Leak-free backtests against closed cases, iteration 21 of the tuning process.
+"Fresh 50" is a sample of cases excluded from every tuning and measurement run
+before this one; "original 50" is the sample the agent was iterated on.
 
-# 5. Validate answers (dataset-id resolution + schema + cross-field rules)
-make validate-answers   # PASS means 20/20
+| Metric | Fresh 50 | Original 50 |
+|---|---|---|
+| Fraud pattern correct | 36/40 (90%) | 35/42 (83%) |
+| Fraud cases missed | 0/40 | 0/42 |
+| Cleared cases blocked | 0/10 | 1/8 |
+| Verdict agreement with analysts | 49/50 | 49/50 |
+| Report (`FILE_REPORT`) decision matches analysts | 46/50 (92%) | 46/50 (92%) |
+| Exposure within 25% of analysts' | 24/40 (60%) | 22/42 (52%) |
 
-# single case / forced fresh rerun (runs replay from runs/ cache by default)
-make run-case CASE=HHG-017
-pnpm --filter @hhgoa/eval run-benchmark --no-cache --case HHG-017
-```
+Each sample has around 40 fraud cases, so a run-to-run difference of about ±2
+cases on the pattern or exposure rows is within ordinary sampling noise, not a
+regression.
 
-Flags/env: `--backend fake|real`, `--llm mock|ollama`, `--timeout <seconds>`, `--plan-only`;
-env `TOOLS_BACKEND`, `LLM_BACKEND`, `OLLAMA_MODEL`, `CASE_TIMEOUT_S` (default 900).
+## Known limitations
 
-A standalone tree-sitter grammar and offline compiler/linter for this repo's GSQL
-dialect lives in its own repository: [Ansh-Sonkusare/gsql-treesitter](https://github.com/Ansh-Sonkusare/gsql-treesitter).
+- **Cleared alerts cannot be closed the way the analysts closed them.**
+  Closing them requires a cardholder reply confirming the transaction, and the
+  dataset does not provide customer or analyst replies. The agent never
+  invents one; a cleared alert ends as verify-then-monitor rather than
+  `CLOSE_NO_FRAUD`.
+- **Account takeover and out-of-region use are sometimes confused.** On the
+  evidence the agent can see, some cases have no feature combination that
+  separates the two patterns; this is measured as an irreducible error on
+  held-out data, not a bug to fix with more rules.
+- **Exposure is undercounted on long card-testing episodes.** Episodes
+  spanning many transactions over weeks are harder to scope completely than
+  short bursts.
+- **The Jev pattern scorer sends case evidence to TypeSafe's hosted API.** Kev,
+  the local alternative, is wired into the code path but not yet trained.
+- **`CREATE_CASE` is recommended on cleared alerts.** `docs/DATASET_README.md`
+  §3a calls for opening a case whenever fraud probability reaches 0.30, which
+  includes some cleared alerts; the analysts' historical `actions_taken`
+  records never list `CREATE_CASE` for those, so this shows up as a
+  disagreement against history even though it follows the written policy.
 
-## Rules
+## Further reading
 
-- `data/` and all raw CSVs are gitignored; never commit raw data.
-- Secrets only via `.env`; never commit credentials.
-- `contracts/` is frozen after milestone M0 — changes need explicit human approval.
-- Every graph, RAG, and memory tool takes `as_of` and must ignore information after it.
-- Tests live in `tests/<workstream>/`; do not write into another workstream's tests.
+- [`submission/BLOG_POST.md`](./submission/BLOG_POST.md) — the technical blog
+  post: what was built, the architecture, how TigerGraph is used, and what
+  would change with more time.
+- [`submission/demo_script.md`](./submission/demo_script.md) — the demo video
+  script.
+- [`docs/decisions.md`](./docs/decisions.md) — judgment calls made where the
+  spec was silent or ambiguous, with the reasoning behind each one.
+- [`docs/logs.md`](./docs/logs.md) — a chronological record of what was built,
+  measured, and changed, including the iteration history behind the results
+  above.
