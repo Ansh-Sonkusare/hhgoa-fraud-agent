@@ -84,6 +84,8 @@ ASSESSING
    |   pattern scoring: Jev (TypeSafe hosted scorer) re-splits the
    |   documented-pattern mass; Kev (local scorer) is wired but parked,
    |   untrained
+   |   model alerts: alertCalibration.ts sets the fraud probability
+   |   from the evidence (fitted and checked on held-out closed cases)
    |   code guards: singleSignal.ts (R1 single-signal cap),
    |   patternRules.ts (device/channel corrections)
    v
@@ -242,7 +244,7 @@ postdates that case's cutoff.
 
 ## Results
 
-Leak-free backtests against closed cases, iteration 21 of the tuning process.
+Leak-free backtests against closed cases, iteration 22 of the tuning process.
 "Fresh 50" is a sample of cases excluded from every tuning and measurement run
 before this one; "original 50" is the sample the agent was iterated on.
 
@@ -250,32 +252,49 @@ before this one; "original 50" is the sample the agent was iterated on.
 |---|---|---|
 | Fraud pattern correct | 36/40 (90%) | 35/42 (83%) |
 | Fraud cases missed | 0/40 | 0/42 |
-| Cleared cases blocked | 0/10 | 1/8 |
-| Verdict agreement with analysts | 49/50 | 49/50 |
+| Cleared cases called legitimate | 10/10 | 6/8 (2 uncertain) |
+| Cleared cases blocked | 0/10 | 0/8 |
+| Verdict agreement with analysts | 50/50 | 50/50 |
 | Report (`FILE_REPORT`) decision matches analysts | 46/50 (92%) | 46/50 (92%) |
-| Exposure within 25% of analysts' | 24/40 (60%) | 22/42 (52%) |
 
 Each sample has around 40 fraud cases, so a run-to-run difference of about ±2
-cases on the pattern or exposure rows is within ordinary sampling noise, not a
-regression.
+cases on the pattern row is within ordinary sampling noise, not a regression.
+
+Every fraud case in the history began as a cardholder dispute and every cleared
+case as a model alert, so the backtest never shows a model alert that turned out
+to be fraud. To test that, confirmed disputes are replayed as the alerts they
+could have been (their real disputed transaction and risk score). On 31 cleared
+alerts and 50 fraud-as-alert cases held out from every fit:
+
+| | Before calibration (iteration 21) | After (iteration 22) |
+|---|---|---|
+| Cleared alerts called legitimate | 0/45 | 18/31 (58%) |
+| Cleared alerts blocked | 6/45 (13%) | 5/31 (16%) |
+| Fraud alerts blocked | 32/69 (46%) | 25/50 (50%) |
+| Fraud alerts called legitimate | 1/69 (closed) | 4/50 (none closed or allowed) |
+| Probability error (Brier, 1:1 weighted) | 0.304 | 0.160 |
+
+The two replays drew different samples, so compare rates rather than cases.
 
 ## Known limitations
 
-- **Cleared alerts cannot be closed the way the analysts closed them.**
-  Closing them requires a cardholder reply confirming the transaction, and the
-  dataset does not provide customer or analyst replies. The agent never
-  invents one; a cleared alert ends as verify-then-monitor rather than
-  `CLOSE_NO_FRAUD`. We measured the alternative of assuming a confirmation
-  from the evidence: on 69 fraud cases replayed as model alerts plus 45 real
-  cleared alerts, the best rule would close 24 of 39 cleared alerts but also
-  6 of 37 fraud cases. No rule closed zero fraud, so it was not adopted
+- **Cleared alerts are called legitimate but not closed.** The analysts
+  closed a false alarm after the cardholder confirmed it; the dataset provides
+  no replies and the agent never invents one. So a legitimate reading asks the
+  cardholder (`VERIFY_WITH_CUSTOMER`, R3) and, with no reply, stays open under
+  `MONITOR_CARD` (R4) rather than `CLOSE_NO_FRAUD`. Closing on the evidence
+  alone was measured twice and rejected: the best rule on 45 cleared and 69
+  fraud replayed alerts closed 6 fraud cases, and the strictest cutoff of a
+  model fitted on 605 cases still closed 1 of 388 held-out fraud cases
   (`docs/decisions.md`).
-- **Fraud that arrives as a model alert is often held for verification rather
-  than blocked.** The history has no model alert that turned out to be fraud,
-  so we replayed confirmed fraud disputes as the alerts they could have been:
-  the agent blocked 32 of 69 (46%) and kept 36 open under verification and
-  monitoring. None had its transaction allowed; one (fraud probability 0.15)
-  was closed as legitimate with monitoring.
+- **Model-alert probabilities come from a calibrated evidence model, not the
+  LLM.** The LLM put every cleared alert at 0.50 or above. The replacement
+  (`agent/src/alertCalibration.ts`) was fitted on 605 replayed alerts and
+  checked on 629 held-out ones (AUC 0.909, predicted and actual fraud rates
+  within a few points across the range). In the end-to-end replay, 4 of 50
+  fraud alerts got a `legitimate` verdict; their actions stay
+  verify-then-monitor, so none was closed or allowed. The prior is a neutral 1:1, because the history holds no
+  alert population with both outcomes.
 - **Account takeover and out-of-region use are sometimes confused.** On the
   evidence the agent can see, some cases have no feature combination that
   separates the two patterns; this is measured as an irreducible error on
@@ -288,7 +307,7 @@ regression.
 - **`CREATE_CASE` on cleared alerts follows the written policy, not the
   history.** `docs/DATASET_README.md` §3a opens a case whenever fraud
   probability reaches 0.30 or evidence is requested, and the agent requests
-  cardholder verification on every uncertain alert. The analysts' records list
+  cardholder verification on every uncertain or legitimate alert. The analysts' records list
   `VERIFY_WITH_CUSTOMER|CLOSE_NO_FRAUD` with no case on all 900 cleared cases.
   We follow §3a deliberately, so a comparison against those records counts it
   as a disagreement.

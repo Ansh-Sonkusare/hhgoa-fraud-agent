@@ -660,3 +660,37 @@ benchmark is scored against the written policy; our own action scorer should cre
 Related fixes in the same batch: the low-probability "no pattern" close now opens a case when
 p >= 0.30 (§3a), its reasons no longer claim customer records support the close, and L1/L2
 actions stay PENDING_APPROVAL for a human instead of being reported executed.
+
+## Model-alert probabilities come from calibrated evidence; a legitimate reading still asks (2026-09-23)
+
+The local assessor's fraud probability does not separate the outcomes on model alerts: on the
+alert replay it put all 45 real cleared alerts at 0.50 or above (6 blocked) and called none of
+them legitimate, while `fraud_probability` is scored for calibration. The evidence does separate
+them, so on a `risk_score` trigger the fraud mass now comes from an evidence model
+(`agent/src/alertCalibration.ts`); the assessor keeps the pattern ranking.
+
+- Fitted on 300 cleared alerts plus 305 confirmed-fraud cases replayed as alerts (design set),
+  gathered with the agent's own tools, no LLM, none previously used. Logistic regression with sign
+  constraints (a fraud signal may only raise the probability, a legitimacy signal only lower it),
+  chosen on design cross-validation before any held-out look (AUC 0.851 vs 0.859 unconstrained;
+  the unconstrained fit gave a fraud signal a negative weight). Five features carry the model:
+  flagged charge online (+), flagged charge on a device new to the account (−), no prior cases (−),
+  a device-identity fraud signal (+), a cleared case on the same card (−).
+- Held-out check on 241 cleared alerts and 388 fraud-as-alert cases never used before, fitted on
+  the design set only: AUC 0.909; predicted vs actual fraud rate 0.16/0.05, 0.36/0.28, 0.61/0.62,
+  0.83/0.85, 0.92/0.91. After the R1 cap, verdicts would be: cleared 166 legitimate / 52 uncertain
+  / 23 fraud; fraud 23 legitimate / 152 uncertain / 213 fraud.
+- Prior: 1:1, the neutral choice. The history has no alert population with both outcomes (every
+  closed alert was cleared, every fraud case a dispute), so no measured alert fraud rate exists;
+  no benchmark answer distribution is used, and nothing is added to any prompt.
+- Not applied when the graph shows an undocumented signature (proxy device ring, structuring
+  burst): each is near-certain fraud in the history and never occurs in the design set. The proxy
+  device ring is also exempt from the R1 one-signal cap: 4 closed cases, all confirmed fraud, none
+  of the other 5,561. The evidence item states the sample is small.
+
+A legitimate reading does not close the case. Closing on evidence alone failed the user's
+zero-miss condition on held-out data (the strictest cutoff still closed 1 of 388 fraud cases), and
+R3 closes on the cardholder's confirmation. So a legitimate verdict asks the cardholder
+(`VERIFY_WITH_CUSTOMER`, §3a `CREATE_CASE`); with no reply R4 leaves it open under `MONITOR_CARD`.
+`CLOSE_NO_FRAUD` and `ALLOW_TRANSACTION` are recommended only after a confirmation, which this
+dataset never provides. Status is `closed_legitimate` only when `CLOSE_NO_FRAUD` was recommended.

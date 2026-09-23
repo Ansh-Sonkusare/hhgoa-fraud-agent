@@ -1278,3 +1278,69 @@ longer claim a customer confirmation. Agent tests 266/266.
 Correction (09:40): the deliverables entry above first said "13 fraud, 7 uncertain"; a recount of
 `cases/` gives 15 fraud and 5 uncertain (HHG-010, -013, -014, -017, -020). The same wrong count
 went into commit 65ef6ac's message and the blog post; the blog is corrected.
+
+### Iteration 22 batch: model-alert calibration and the legitimate-verdict flow (2026-09-23 09:45)
+
+- Evidence gathers (TigerGraph only, no LLM): design 900 cases → 605 with evidence (300 cleared,
+  305 fraud-as-alert; 295 fraud skipped because the bank's model scored them below 0.5, 0 failures);
+  held-out 1,041 → 629 (241 cleared, 388 fraud; 412 skipped, 0 failures).
+- Zero-miss closing re-checked on held-out: the full 80-feature model at its strictest design
+  cutoff closed 18 of 241 cleared and 1 of 388 fraud. Not adopted.
+- Calibration: sign-constrained logistic model adopted by a rule set before the held-out look
+  (design CV AUC 0.851 vs 0.859). Held-out AUC 0.909 with reliable probabilities (decisions.md).
+  TypeScript port matches the Python model on all 629 held-out cases (max difference 0.00014).
+- Code: `agent/src/alertCalibration.ts` (new); `machine.ts` applies it to `risk_score` triggers
+  (off via `calibrateAlerts: false` for band tests), exempts the proxy ring from the R1 cap, asks
+  the cardholder on a legitimate reading (also on the no-discriminating-evidence stop path), keeps
+  such cases `open`, and names R3 in the no-reply stop text; `recommend.ts` legitimate branch:
+  confirmed → R3 close, unasked → verify + monitor + case, no reply → R4 monitor + case;
+  proxy-ring evidence states its history sample.
+- Tests: `tests/ws4/alertCalibration.test.ts` (7 new); recommend/machine/verification tests updated
+  for the new flow. `make test` all packages pass (agent 273), `make lint` clean.
+- Baseline for the alert replay (iteration 21 agent, earlier sample of 45 cleared + 69 fraud):
+  cleared 0 legitimate / 39 uncertain / 6 fraud (6 blocked); fraud 1 legitimate (CC-1072 closed) /
+  36 uncertain / 32 fraud; 1:1 Brier 0.304.
+- Iteration 22 launched 09:47: alert replay on the held-out set (130 fraud sampled, 60 cleared),
+  then fresh 50 and original 50.
+
+### Iteration 22 result (2026-09-23 10:04)
+
+Chain `/tmp/hhgoa-run/chain_iter22.sh`, 0 errors, preflight/midflight/postflight OK (memory ≥ 8.8 GB).
+
+Alert replay on the held-out calibration set (fraud replayed as alerts; cleared are real alerts):
+
+| | iteration 21 (45 cleared, 69 fraud) | iteration 22 (31 cleared, 50 fraud) |
+|---|---|---|
+| cleared called legitimate | 0 | 18 (58%) |
+| cleared blocked | 6 (13%) | 5 (16%) |
+| fraud blocked | 32 (46%) | 25 (50%) |
+| fraud called legitimate | 1, closed (CC-1072) | 4, none closed or allowed |
+| Brier, 1:1 weighted | 0.304 | 0.160 |
+
+The samples differ (iteration 21's was drawn before the calibration sets existed), so the rows
+compare rates, not the same cases.
+
+| | fresh 50 i21 | fresh 50 i22 | original 50 i21 | original 50 i22 |
+|---|---|---|---|---|
+| pattern exact | 36/40 | 36/40 | 35/42 | 35/42 |
+| false negatives | 0 | 0 | 0 | 0 |
+| cleared legitimate | 0/10 | 10/10 | 0/8 | 6/8 (2 uncertain) |
+| cleared blocked | 0/10 | 0/10 | 1/8 | 0/8 (CC-1660 no longer blocked) |
+| decision agreement | 49/50 | 50/50 | 49/50 | 50/50 |
+
+Action gap that remains by design: analysts close cleared alerts with `VERIFY_WITH_CUSTOMER` +
+`CLOSE_NO_FRAUD`; ours end `CREATE_CASE` + `MONITOR_CARD` (no confirmation to close on), with
+`VERIFY_WITH_CUSTOMER` in the initial recommendation only.
+
+### Benchmark answers regenerated with iteration 22 (2026-09-23 10:13)
+
+- `cases/` regenerated twice: first at 10:04, then again after two wording fixes found in the
+  answers (`what_changed` named R1 for a legitimate reading's R3 request; the summary quoted the
+  flagged amount as "exposure" while `exposure_usd` was 0). `make validate-answers` PASS 20/20.
+- 13 fraud, 6 legitimate, 1 uncertain (was 15 fraud, 5 uncertain, 0 legitimate). HHG-005, -015,
+  -019 moved fraud → legitimate; HHG-010, -013, -020 uncertain → legitimate; all six sit at 0.37
+  (flagged charge online on a new device, prior cases present), a band where about a quarter of
+  held-out alerts were fraud, and all six ask the cardholder and stay open. HHG-014 moved
+  uncertain → fraud (undocumented proxy device ring, R9: case, report, escalation, block).
+  HHG-017 stays uncertain at 0.69 (calibrated high, capped by R1 on a single signal).
+- README, blog and demo script updated to iteration 22.
