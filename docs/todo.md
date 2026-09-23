@@ -2,6 +2,23 @@
 
 Living task list. Check items off in place; don't delete history — move completed items to the "Done" section instead of erasing them, so this doubles as a lightweight record of what's actually finished.
 
+## Now (2026-09-23 — submission)
+
+- [x] API + UI demo check, live and fixture modes, including a headless-browser run of both demo
+      cases (HHG-006, HHG-017/HHG-020) and the Approve click. Fixed on the way: the Evidence
+      Requests panel read the reply from the wrong field and labelled it "Assumed response"; a live
+      run's `done` event reached the UI before the answer was stored (answer panels empty until a
+      reload); ad-hoc queue rows showed no ids; the New Trigger examples used ids not in the data;
+      the explanation's "why more evidence" always cited R1, even at 0.37 (R3) or above 0.70 (§6).
+- [x] Regenerate the 20 answers with the explanation-citation fix → `make validate-answers` →
+      rebuild the two fixtures → commit and push (20/20 valid; verdicts and actions unchanged).
+- [ ] Record the demo video from `submission/demo_script.md` (live; HHG-910/920 fixtures as
+      fallback).
+- [ ] Publish the blog post (`submission/BLOG_POST.md`, local only until published).
+- [ ] Post on social (`submission/SOCIAL_POST.md`) linking the blog or video; tag TigerGraph.
+- [ ] Optional, cosmetic: the neighbourhood graph draws large shared-entity groups off-centre.
+- [ ] Parked: Kev local pattern scorer (export 1,419/1,584 states; Jev is in use).
+
 ## Now (WS0 — must land before m0)
 
 - [x] `fixtures/case-run-ambiguous.json` — the fixtures fork only delivered `case-run-clear-fraud.json`; wrote the ambiguous one by hand (case `HHG-920`), same ID conventions.
@@ -47,10 +64,10 @@ The four parallel implementation workstreams (WS1 `graph/`, WS3 `rag/`, WS4+WS5 
   - **Full real run complete (2026-09-20)**: all 20 case-pack cases ran on the real graph (WS1 full load) + real Ollama `qwen2.5:1.5b`, `from_cache:false` — `runs/20260920-001917`, answers written to `cases/*.json` (defaults: `runs/`, repo-root `cases/`).
   - **Validation green with real answers (2026-09-20)** — fixed the earlier false failures: `eval/src/dataset.ts` `loadIdIndex` now indexes the full id universe — reconstructs WS1's derived card ids (`C<card1>-K<rank>`, same cardinality/ranking logic as `prepareLoadFiles.ts`) and unions the graph's materialized entity files (`graph/build/cards.csv`, `stub_cards.csv`, `customers.csv`, `devices.csv`, `identities.csv`, `email_domains.csv`, `addresses.csv`); `eval/src/validateAnswers.ts` recognizes the case ledger's synthetic `graph_case_id` prefix `GRAPH-<case_id>` as run-assigned (caseLedger mints it because the graph has no case vertices on this build — `ALTER GRAPH` unsupported), so only genuinely unknown ids warn. Result: `pnpm validate-answers` = **PASS, 20/20, no warnings**; `tests/ws7/` 32/32 green; eval typecheck clean.
   - Did NOT commit: `data/` (gitignored), `graph/build/` (gitignored), `runs/` (gitignored); the 20 real-answers JSONs in `cases/` ARE committed as the deliverable.
-- [ ] WS8 (submission/): `BLOG_POST.md` and `demo_script.md` exist but predate iterations 1–17 and the Jev scorer — refresh with final numbers. Social post and demo video not started.
-- [ ] Real-time vs static: **PRD §2 lists "real-time streaming" as an explicit NON-GOAL.** Data is the static IEEE-CIS-derived `data/*.csv`. The SSE stream is agent-event streaming of a (fixture/replay) run, NOT live transaction data. Nothing to implement.
+- [x] WS8 (submission/): `BLOG_POST.md` and `demo_script.md` refreshed to iteration 23 and the R4 change; social post drafted (`SOCIAL_POST.md`). All three stay local, never committed. Demo video and posting tracked in "Now (2026-09-23 — submission)".
+- [x] Real-time vs static: **PRD §2 lists "real-time streaming" as an explicit NON-GOAL.** Data is the static IEEE-CIS-derived `data/*.csv`. The SSE stream is agent-event streaming of a (fixture/replay) run, NOT live transaction data. Nothing to implement.
 - [x] Ollama: installed & tested — `qwen2.5:1.5b` pulled, server running on `:11434`, `OLLAMA_MODEL` set in `.env`, full 32-event agent run driven end-to-end (291375f). Cloud models (gemma4:31b etc.) were attempted but the local binary 0.30.5 pulls them as local registry lookups and they're not usable via the `/api/chat` path — local small model works, stick with it. Also fixed `llm.ts` to read `OLLAMA_HOST` (repo convention) + env-loader inline-comment parsing.
-- [ ] Optional hardening (not urgent, localhost-only): change default `tigergraph` password via `gsql ALTER PASSWORD tigergraph` before any non-local exposure.
+- [x] (Duplicate of the optional password-hardening item under "infra prep"; tracked there.)
 
 ## Now (accuracy push — agreed sequence, 2026-09-22)
 
@@ -126,7 +143,7 @@ one earlier fix was silently lost that way.
       the evidence, not the line.
 
 - [x] **Iteration 4:** card_testing / account_takeover detectors rewritten to measured gold shape; card_testing 3/3 detected. Logged.
-- [ ] **Cleared-case false-block** — still open. 20-case runs since iteration 13: 1/3 escalated (CC-1660). 50-case run (iteration 17): 4/8 escalated, 3/8 blocked. Gap analysis in progress (`docs/logs.md`, "Gap analysis dispatched").
+- [x] **Cleared-case false-block** — resolved by alert calibration (iterations 22–23): 0/10 cleared blocked on the fresh 50, 0/8 on the original 50; 5/31 in the held-out alert replay, whose evidence profile is ~85% fraud in history (`docs/logs.md`). Was: 20-case runs since iteration 13: 1/3 escalated (CC-1660). 50-case run (iteration 17): 4/8 escalated, 3/8 blocked. Gap analysis in progress (`docs/logs.md`, "Gap analysis dispatched").
 - [x] **Waiter discipline:** key waiters on the `node` worker / chain script PID (`pgrep -af`), never on `pgrep -f <pattern> | head -1` from the launching shell — it self-matches three times tonight.
 
 ## Iteration 11+ (2026-09-23)
@@ -135,7 +152,7 @@ one earlier fix was silently lost that way.
 - [x] Kev trigger re-check: 11b/12/12b missed the bar; iteration 13 (no scorer, R1 guard) met it
       (47.1%, FN 0/17, cleared escalated 1/3). Kev/Jev stays wired but off; next lever for the
       card_not_present_fraud magnet.
-- [ ] CC-1660 cleared alert still escalated with two independent signals (ring + prior fraud on card).
+- [x] (Fixed in iteration 22: now `legitimate`, not blocked.) CC-1660 cleared alert still escalated with two independent signals (ring + prior fraud on card).
 - [x] Iteration 14 (evidence fixes) 6/17 = 35.3%: misses the Kev bar again; pattern choice by the 7B
       assessor is input-fragile at temperature 0. Next lever per the Kev trigger: pattern scorer
       (Jev hosted, or Kev local after finishing the export: 1,419/1,584 train states written).
@@ -146,7 +163,7 @@ one earlier fix was silently lost that way.
       declines the flagged authorization"): 20/20 validate; verdicts unchanged at 13 fraud / 6
       legitimate / 1 uncertain; the 7 no-reply cases now carry `DECLINE_TRANSACTION` in
       `next_best_actions.final`.
-- [ ] Gap analysis (3 subagents: cleared alerts, pattern misses, undocumented) → implement → tests →
+- [x] (Done: iterations 18–20.) Gap analysis (3 subagents: cleared alerts, pattern misses, undocumented) → implement → tests →
       one 50-case run. Baseline to beat: iteration 17 on 50 = 32/42 patterns (22/25 on the 30 new),
       0 FN, cleared 4/8 escalated / 3/8 blocked.
 

@@ -1499,3 +1499,34 @@ probability" (HHG-014: text 0.87, `fraud_probability` 1.00; before: 0.80 vs 0.90
   (1.00 -> 0.99); every verdict, pattern, status, exposure and action identical; every stop reason
   that quotes a fraud probability now matches `fraud_probability`. Verdicts 13 fraud /
   6 legitimate / 1 uncertain.
+
+### Demo recheck: API and UI, live and fixture (2026-09-23 12:55)
+
+- **Checked:** API started exactly as `submission/demo_script.md` says (`RUN_SOURCE=live
+  PATTERN_SCORER=jev RAG_VECTOR_BACKEND=tigergraph`). Queue (20 case-pack cases), case detail, SSE
+  events, answer, approvals (approve, bad body 400, repeat 409, unknown case 404) and the New
+  Trigger endpoint. HHG-006 and HHG-017 run live in ~8 s each with no failed tool calls; their live
+  verdicts and final actions match `cases/`. Fixture mode (`HHG-910`/`HHG-920`) replays the same
+  answers. Then a headless-browser run through the UI (Nix Chromium + playwright-core): both demo
+  pages, the Approve click, the Approvals inbox and the queue, with no console errors.
+- **Fixed:**
+  1. `ui/components/EvidenceRequestPanel.tsx` read `responded`/`response_text` from the top of the
+     tool envelope instead of `data`, so the honest no-reply showed as an empty green "Assumed
+     response:". It now shows "No reply: …" (and "Response: …" only if a reply ever exists).
+  2. `api/src/liveRunSource.ts`: the runner emits DONE before returning the answer, and the UI
+     fetches the answer the moment DONE arrives, so a live run could show no verdict, SAR or final
+     actions until a reload. DONE is now held until the answer is stored. New test in
+     `tests/ws6/liveRunSource.test.ts` fails without the fix.
+  3. `api/src/server.ts`: ad-hoc queue rows now show the submitted txn/card/customer/risk score.
+  4. `ui/components/NewTriggerForm.tsx`: the examples used ids not in the data (card C11891-K1 with
+     txn 3514030, customer "C1001234"); they are now the case pack's HHG-001/006/014 triggers.
+  5. `agent/src/explain.ts`: "why more evidence" always said "R1 … below the 0.70 block threshold",
+     including at 0.37 (legitimate reading, where the request cites R3) and above 0.70. It now uses
+     the planner's bands: R3 at ≤0.40, R1 below 0.70, §6 at or above 0.70. The old test asserted the
+     R1 text at 0.82; replaced with a test of all three bands.
+- **Regenerated** the 20 answers (`runs/bench-i26-1247`): `make validate-answers` 20/20; verdicts,
+  patterns, statuses, exposures and final actions unchanged (13 fraud / 6 legitimate / 1
+  uncertain). Five dispute/analyst-request cases moved in fraud probability, which comes from the
+  local model on those triggers and varies between runs (HHG-006 0.95→0.90, HHG-008 0.952→0.95,
+  HHG-009 0.99→0.90, HHG-014 0.99→0.95, HHG-018 0.90→0.74, still above 0.70). Fixtures rebuilt from
+  the same run. `make test` 9/9, `make lint` clean.
