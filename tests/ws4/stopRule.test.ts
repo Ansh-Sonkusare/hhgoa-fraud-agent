@@ -136,7 +136,9 @@ describe("describeEvaluateStop", () => {
     const text = describeEvaluateStop(input, evaluateStop(input));
     expect(text).toContain("three independent evidence categories");
     expect(text).toContain("txn_behavior, device_identity, prior_cases");
-    expect(text).toContain("0.75 confidence threshold");
+    // Names the condition that held (here the lead), not a threshold it missed.
+    expect(text).toContain("ahead of the next");
+    expect(text).not.toContain("0.75 confidence threshold");
   });
 
   it("customer denial has its own branch wording under a sufficient stop", () => {

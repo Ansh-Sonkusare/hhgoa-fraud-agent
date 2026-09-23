@@ -175,8 +175,22 @@ export function recommendActions(
         : signals.length === 1
           ? `a single independent signal (${signals[0]})`
           : `${signals.length} signals (${signals.join(", ")}) that together stay below the 0.70 block line`;
-    add("VERIFY_WITH_CUSTOMER", `R1: fraud probability ${fraudProb.toFixed(2)} rests on ${basis}; verify before any block`);
-    add("MONITOR_CARD", `Precautionary monitoring while awaiting the customer's response (R4)`);
+    if (facts.verification_unanswered) {
+      // README §3b: recommend, ask, recommend again. The cardholder was asked
+      // under R1 and no reply came back, so R4 ("no reply") governs now. R4's
+      // DECLINE_TRANSACTION is for *pending* authorizations, and the dataset
+      // records no authorization status to find one by, so none is invented.
+      add(
+        "MONITOR_CARD",
+        `R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring (the data records no pending authorization to decline)`,
+      );
+    } else {
+      add("VERIFY_WITH_CUSTOMER", `R1: fraud probability ${fraudProb.toFixed(2)} rests on ${basis}; verify before any block`);
+      add("MONITOR_CARD", `Precautionary monitoring while awaiting the customer's response (R4)`);
+    }
+    // §3a: "Open one whenever fraud probability reaches 0.30, whenever you
+    // request evidence". Every case in this band does both.
+    add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30 and verification is requested; open a case`);
     // R8 is scoped to an *uncertain verdict*, not to a probability band. A
     // cardholder who confirms the charge settles the case as legitimate even
     // at p=0.45, and escalating it anyway contradicts the answer we file —
@@ -184,7 +198,12 @@ export function recommendActions(
     // declared legitimate with $0 exposure.
     if (verdict === "uncertain") {
       if (exposure > 500) {
-        add("ESCALATE_TO_ANALYST", `R8: uncertain with exposure ${money(exposure)} > $500 — escalate to an analyst`);
+        add(
+          "ESCALATE_TO_ANALYST",
+          facts.verification_unanswered
+            ? `R4 and R8: no reply, uncertain, and exposure ${money(exposure)} > $500 — escalate to an analyst`
+            : `R8: uncertain with exposure ${money(exposure)} > $500 — escalate to an analyst`,
+        );
       } else if (conflicted) {
         add("ESCALATE_TO_ANALYST", `R8: uncertain and the evidence conflicts (${describeConflict(evidence, leading)}) — escalate to an analyst`);
       }
@@ -192,6 +211,9 @@ export function recommendActions(
   } else {
     // Low conviction, low probability.
     add("MONITOR_CARD", `Fraud probability ${fraudProb.toFixed(2)} is low; keep monitoring (R4)`);
+    if (fraudProb >= 0.3) {
+      add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case`);
+    }
     if (verdict === "uncertain" && exposure > 500) {
       add("ESCALATE_TO_ANALYST", `R8: uncertain with exposure ${money(exposure)} > $500 — escalate to an analyst`);
     }
@@ -208,6 +230,9 @@ export function recommendActions(
     const what = facts.proxy_device_ring
       ? describeProxyDeviceRing(facts.proxy_device_ring)
       : "a detector reported coordinated activity across customers";
+    // R9's reason for the case is the specific one; replace §3a's generic line.
+    const generic = cands.findIndex((c) => c.action === "CREATE_CASE");
+    if (generic >= 0) cands.splice(generic, 1);
     add("CREATE_CASE", `R9: ${what}`);
     add("FILE_REPORT", `R9: coordinated/undocumented pattern; report regardless of exposure`);
     add("ESCALATE_TO_ANALYST", `R9: coordinated abuse across customers needs an analyst`);
@@ -218,7 +243,10 @@ export function recommendActions(
       ACTION_ORDER.indexOf(a.action) - ACTION_ORDER.indexOf(b.action),
   );
 
-  const intendedAction = actions[0] ?? null;
+  // The intended action is the decision itself. CREATE_CASE is bookkeeping
+  // that §3a attaches to most cases, and it sorts early, so taking it would
+  // point the evidence planner and the stop rule at the wrong action.
+  const intendedAction = actions.find((a) => a.action !== "CREATE_CASE") ?? actions[0] ?? null;
   const intendedActionAllowed = intendedAction ? check(intendedAction.action).allowed : true;
 
   return { actions, intendedAction, intendedActionAllowed, why };
@@ -253,6 +281,12 @@ export function summarizeChange(
   if (dropped.length > 0) parts.push(`dropped ${dropped.join(", ")}`);
   if (parts.length === 0) parts.push("changed approval routes");
   const prob = fraudProbability(assessment).toFixed(2);
+  if (facts.verification_unanswered) {
+    return (
+      `Asked the cardholder to verify under R1 (${asked.join(" and ")}); no reply was received and none was assumed, ` +
+      `so R4 ("no reply") now governs at fraud probability ${prob}: ${parts.join("; ")}. Verification remains outstanding.`
+    );
+  }
   const lead = asked.length > 0 ? `After requesting ${asked.join(" and ")} (no reply received)` : "As further graph evidence came in";
   return `${lead}, fraud probability stands at ${prob}; ${parts.join("; ")}.`;
 }

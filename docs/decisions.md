@@ -613,3 +613,22 @@ still counts for §3a's report test ("the pattern is coordinated or undocumented
 suspected burst gets CREATE_CASE + BLOCK_CARD + FILE_REPORT via R2/§3a — which is also exactly the
 `actions_taken` on the three design-set cases. The §3a FILE_REPORT reason now names its real ground
 (shared origin / undocumented / exposure > $1,000) instead of always quoting the shared-origin text.
+
+## Unanswered verification is R4, and nothing about the reply is assumed (2026-09-23)
+
+README §3b wants recommend → ask → recommend again; §5 says replies "are not provided" and asks
+teams to simulate them. Per the standing no-fabrication rule we do not simulate a reply. The agent
+now does ask (customer_validation is recorded in `evidence_requests` with "no reply received,
+none assumed") and treats the unanswered request as what it is — no reply — so R4 governs the
+final recommendation. This cannot reproduce the analysts' CLOSE_NO_FRAUD on cleared alerts,
+which followed a real confirmation; that gap is accepted rather than closed with an invented reply.
+R4's DECLINE_TRANSACTION applies to pending authorizations; the dataset has no authorization
+status, so it is not recommended and the reason says why.
+
+## Episode scope: risk-scored same-channel charges, 2h lookback (2026-09-23)
+
+Measured against analysts' episode transactions on 2,406 held-out cases (see logs). The risk
+score scopes an episode the case is already about; it never decides a verdict (README: "a reason
+to look, never a verdict"). The lookback before the flagged charge is kept despite costing ~2
+points on the history, because the history's alignment of alert and first fraud charge is a
+property of how the backtest replays disputes, and the README warns it need not hold.

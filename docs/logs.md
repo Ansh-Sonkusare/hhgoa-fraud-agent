@@ -1172,3 +1172,67 @@ online flags **42%** (12/72 recall). Neither reaches a majority, so no rule — 
 scorer on the same evidence — can name them without losing more cases than it gains. These misses
 (CC-1665, CC-1171, CC-5475, CC-2520; likewise CC-3327) are the data's irreducible error for this
 evidence. Kev fine-tuning is not justified for them.
+
+### Fresh 50-case run (unseen cases, 3 parallel shards) — 07:30–07:34, 0 errors
+
+Sample excludes every case used to tune or measure anything (`BACKTEST_EXCLUDE`, 4,193 ids).
+Pattern exact **37/40 = 92.5%**, fraud missed 0/40, cleared blocked **0/10**, escalated 1/10,
+decision agreement 49/50. Misses: CC-4946 (CNP → new_device), CC-4196 (OOR → ATO), CC-2951
+(ATO → OOR). Three shards share llama-server's slots: 50 cases in 4.3 min (was ~10 min serial).
+
+### Next best action measured for the first time (judging: 25%)
+
+Nothing scored the actions before; "decision agreement" only compares verdicts. New scratch
+scorer compares final actions with the analysts' `actions_taken` / `report_filed`:
+iteration 20 exact action-set 34/50, fresh run 35/50, action F1 0.87–0.88. Findings:
+- **Analysts' report rule is exact:** confirmed-fraud reports were filed iff exposure > $1,000
+  (393/393) or on the undocumented cross-card ring (4/4); never otherwise (4,268). Our report
+  errors were exposure errors: 16/40 fresh fraud cases off by >25%, 4 on the wrong side of $1,000.
+- **Cleared alerts never close:** analysts filed VERIFY_WITH_CUSTOMER|CLOSE_NO_FRAUD after the
+  cardholder confirmed. No reply exists in the data (README §5), so closing would need an invented
+  reply — deliberately not done.
+- **Structural gaps (README §3b/§3a/§6):** uncertain cases recommended VERIFY but never asked
+  (evidence_requests empty, initial == final, what_changed "nothing"); no CREATE_CASE at p ≥ 0.30;
+  the stop reason said p=0.69 "clears the 0.75 confidence threshold" when the lead test held.
+
+### Iteration 21 batch — episode scope + the §3b verify → re-recommend flow
+
+- **Episode scope (investigation.ts `scopeEpisode`).** Measured on 2,406 held-out fraud cases
+  (neither 50-case set) against the analysts' episode txns. Old rule (suspicious within ±2h):
+  exposure within 25% on 57%, recall 0.49. New: flagged + same-channel charges with
+  risk_score ≥ 0.3 (or online < $5, R5 probes) from 2h before the flagged one to as_of: 68%,
+  recall 0.75, $1,000 side 95%. 2h lookback per user ("if 2hr is better keep it"; 24h: 62%).
+  Every history episode starts at the flagged charge, but that is the backtest's construction
+  (a replayed dispute points at `first_fraud_txn_id`) and the README says the flagged charge "is
+  not necessarily where the fraud started", so the scope still reaches back. Undocumented cases
+  re-scope by channel + product code after the detectors run (5/6 within 25% vs 0/6).
+- **Bug:** txn_history rows come newest first, so `first_suspicious_txn_id` was the *latest*
+  suspicious charge. Episode is now stored oldest first.
+- **§3b flow (machine.ts `verificationPending`).** A non-dispute case at 0.40 ≤ p < 0.85 asks the
+  cardholder (customer_validation) even when the stop rule is satisfied. No reply comes (§5), so
+  `verification_unanswered` is set and the case is re-recommended on the same assessment (no
+  second LLM call): R4 governs — MONITOR_CARD, CREATE_CASE, ESCALATE over $500. R4's
+  DECLINE_TRANSACTION is for *pending* authorizations and the data has no authorization status,
+  so none is invented. what_changed and stop_reason say exactly that.
+- **§3a:** CREATE_CASE whenever p ≥ 0.30 (uncertain and low bands). The intended action skips
+  CREATE_CASE so the planner and stop rule still see the decision; R9's reason overrides §3a's.
+- **Stop text** names the condition that held (confidence or lead) instead of the 0.75 threshold.
+- Tests: episodeScope (4), verificationFlow (7); stopRule text updated. make test all green, lint clean.
+
+### Iteration 21 result — 07:47–07:56, 3 shards per set, 0 errors, pre/mid/postflight OK
+
+| | fresh 50 (i20 code → i21) | original 50 (i20 → i21) |
+|---|---|---|
+| Pattern exact | 37/40 → 36/40 (90.0%) | 35/42 → 35/42 (83.3%) |
+| Fraud missed | 0 → 0 | 0 → 0 |
+| Cleared blocked | 0/10 → 0/10 | 1/8 → 1/8 (CC-1660) |
+| Decision agreement | 49 → 49/50 | 48 → 49/50 |
+| Report decision vs analysts | 45 → 46/50 | 44 → 46/50 |
+| Exposure within 25% | 24 → 24/40 | 19 → 22/42 |
+| Exposure wrong side of $1,000 | 4 → 3 | 7 → 5 |
+
+Fresh-set pattern change is one case (CC-4775 OOR → ATO), within run-to-run noise. The action-set
+F1 against `actions_taken` fell (0.87 → 0.78 fresh) by construction: the scorer reads only
+`final`, VERIFY_WITH_CUSTOMER now sits in `initial` (it was asked), and §3a's CREATE_CASE now
+appears on cleared alerts, which the analysts' records never list. Remaining exposure misses are
+long card-testing episodes (CC-2394: 65 txns over weeks, CC-2247: 71) and OOR over-counts.

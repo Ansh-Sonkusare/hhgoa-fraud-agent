@@ -51,6 +51,8 @@ export interface InvestigationFacts {
   /** The flagged charge's own time, read from its profile when the history window did not reach it. */
   txn_ts?: string;
   txn_rows: TransactionHistoryRow[];
+  /** Charges in the narrow burst around the flagged one; 1 means it stood alone (gates the baseline check). */
+  burst_txn_count: number;
   affected_txn_ids: string[];
   exposure_usd: number;
   velocity: VelocityData | null;
@@ -78,6 +80,13 @@ export interface InvestigationFacts {
    * pattern `undocumented` and triggers R9; null when the device is ordinary.
    */
   proxy_device_ring: ProxyDeviceRing | null;
+  /**
+   * The agent asked the cardholder to verify (customer validation or step-up)
+   * and no reply came back. The dataset supplies none (README §5), so this is
+   * the honest state after asking; R4 ("no reply") then governs the final
+   * recommendation. Nothing about the reply's content is assumed.
+   */
+  verification_unanswered: boolean;
 }
 
 export function createFacts(case_id: string, as_of: string, trigger: Trigger): InvestigationFacts {
@@ -92,6 +101,7 @@ export function createFacts(case_id: string, as_of: string, trigger: Trigger): I
     identity: null,
     txn: null,
     txn_rows: [],
+    burst_txn_count: 0,
     affected_txn_ids: [],
     exposure_usd: 0,
     velocity: null,
@@ -110,6 +120,7 @@ export function createFacts(case_id: string, as_of: string, trigger: Trigger): I
     customer_confirmed: false,
     dispute_recurring: false,
     proxy_device_ring: null,
+    verification_unanswered: false,
   };
 }
 
@@ -143,8 +154,8 @@ const CARD_TESTING_SMALL_NOISE = 5;
  * this case pack, not just for a cardholder who reports a charge late — so a
  * short lookback from `opened_at` misses the flagged transaction itself on
  * 16 of the 20 cases and the case lands with no episode and zero exposure.
- * Fetching wide is safe because `affected` is narrowed back to EPISODE_HOURS
- * either side of the flagged transaction below.
+ * Fetching wide is safe because `affected` is narrowed back to the episode
+ * around the flagged transaction below (scopeEpisode).
  *
  * 7 days rather than 3: measured over the 4,665 confirmed-fraud closed cases,
  * the oldest fraud transaction is a median 22h old at `opened_at` but p95 is
@@ -266,15 +277,17 @@ async function txnHistory(g: GatherRuntime): Promise<void> {
   // part of the sweep is the episode, so fall back to the narrow recent
   // window rather than calling three days of ordinary spending "affected".
   const anchorMs = flagged ? Date.parse(flagged.ts) : Date.parse(g.asOf);
-  const affected = rows.filter(
+  const burst = rows.filter(
     (r) =>
       (flagged !== null && r.txn_id === flagged.txn_id) ||
       (suspicious(r) && Math.abs(Date.parse(r.ts) - anchorMs) <= EPISODE_HOURS * 3_600_000),
   );
+  // The burst right around the flagged charge still decides whether the
+  // single-charge baseline check applies; the episode below is wider.
+  f.burst_txn_count = burst.length;
 
-  f.affected_txn_ids = affected.map((r) => r.txn_id);
-  // README: "Sum of absolute amounts of affected_txn_ids".
-  f.exposure_usd = affected.reduce((s, r) => s + Math.abs(r.amount_usd), 0);
+  const affected = flagged ? scopeEpisode(rows, flagged, "default") : burst;
+  setEpisode(f, affected);
 
   // The flagged charge can fall outside the sweep entirely -- an episode that
   // ran days before the case was opened, or a disputed charge older than the
@@ -321,9 +334,78 @@ export function shiftAsOf(asOf: string, hours: number): string {
   return new Date(ms).toISOString().slice(0, 19).replace("T", " ");
 }
 
+/**
+ * Which transactions belong to the fraud episode (README: affected_txn_ids is
+ * "every transaction you believe is part of the same fraud episode, including
+ * the flagged one"; exposure is their summed amount).
+ *
+ * Measured on 2,406 held-out confirmed-fraud closed cases (none of the 100
+ * backtest cases), against the analysts' own episode transactions:
+ * - the old rule (any "suspicious" charge within 2h either side of the flagged
+ *   one) got exposure within 25% on 57% of cases and missed half the episode
+ *   (recall 0.49);
+ * - the flagged charge plus every same-channel charge with risk_score >= 0.3
+ *   from 2h before it up to as_of gets 68%, recall 0.75, and puts exposure on
+ *   the right side of the $1,000 report line (R2, 3a) on 95% of cases.
+ * The risk score only scopes an episode the case is already about; it never
+ * decides the verdict. The lookback is deliberate: in this history every
+ * episode starts at the flagged charge (a 0h lookback scores 70%), but the
+ * README says the flagged charge "is not necessarily where the fraud started",
+ * so the scope still reaches back before it. Longer lookbacks only add
+ * ordinary spending here (6h: 67%, 24h: 62%).
+ *
+ * Tiny online charges (under $5) stay in as well: R5's card-testing probes
+ * score low but belong to the episode, as in the README's own card-testing
+ * example, and adding them costs nothing measurable on the held-out cases.
+ *
+ * Undocumented activity is scoped by channel and product code instead: the
+ * structuring bursts and the proxy-device ring score low, so the risk filter
+ * drops them (0 of 6 held-out undocumented cases within 25%, against 5 of 6).
+ */
+const EPISODE_LOOKBACK_HOURS = 2;
+const EPISODE_MIN_RISK = 0.3;
+
+export function scopeEpisode(
+  rows: readonly TransactionHistoryRow[],
+  flagged: TransactionHistoryRow,
+  mode: "default" | "undocumented",
+): TransactionHistoryRow[] {
+  const fromMs = Date.parse(flagged.ts) - EPISODE_LOOKBACK_HOURS * 3_600_000;
+  return rows.filter(
+    (r) =>
+      r.txn_id === flagged.txn_id ||
+      (Date.parse(r.ts) >= fromMs &&
+        r.channel === flagged.channel &&
+        (mode === "undocumented"
+          ? r.product_cd === flagged.product_cd
+          : r.risk_score >= EPISODE_MIN_RISK || (r.channel === "online" && r.amount_usd < CARD_TESTING_SMALL_NOISE))),
+  );
+}
+
+/** Records the episode oldest first, so affected_txn_ids[0] is the first suspicious charge. */
+function setEpisode(f: InvestigationFacts, affected: readonly TransactionHistoryRow[]): void {
+  const ordered = [...affected].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  f.affected_txn_ids = ordered.map((r) => r.txn_id);
+  // README: "Sum of absolute amounts of affected_txn_ids".
+  f.exposure_usd = ordered.reduce((s, r) => s + Math.abs(r.amount_usd), 0);
+}
+
+/**
+ * Re-scopes the episode once the graph has named the activity undocumented
+ * (the proxy-device ring or the amount-structuring burst), which is only known
+ * after the detectors run.
+ */
+function rescopeUndocumented(g: GatherRuntime): void {
+  const f = g.facts;
+  const undocumented = Boolean(f.proxy_device_ring) || f.patterns.some((p) => p.pattern_id === "undocumented");
+  const flagged = f.txn ? f.txn_rows.find((r) => r.txn_id === f.txn?.id) : undefined;
+  if (!undocumented || !flagged) return;
+  setEpisode(f, scopeEpisode(f.txn_rows, flagged, "undocumented"));
+}
+
 async function baseline(g: GatherRuntime): Promise<void> {
   const f = g.facts;
-  if (!f.txn || f.affected_txn_ids.length !== 1) return;
+  if (!f.txn || f.burst_txn_count !== 1) return;
   const res = await g.catalog.get_baseline_deviation(f.txn, g.asOf);
   if (!res.ok) return;
   f.baseline = res.data as BaselineDeviationData;
@@ -746,6 +828,7 @@ export async function runStandardGather(g: GatherRuntime): Promise<void> {
   await velocity(g);
   await similarCases(g);
   await flaggedTxnProfile(g);
+  rescopeUndocumented(g);
 }
 
 export {

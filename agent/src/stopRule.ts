@@ -143,10 +143,18 @@ export function describeEvaluateStop(
     if (input.customerDenied) {
       return "Customer denial settled the verdict; further steps would not change the block decision.";
     }
+    // Name the condition that actually held. This used to say "clears the 0.75
+    // confidence threshold" whichever one did, including on cases that stopped
+    // at p = 0.69 on the probability lead alone.
+    const p = top?.probability ?? 0;
+    const held =
+      input.assessment.confidence >= MIN_CONFIDENCE
+        ? `assessment confidence ${input.assessment.confidence.toFixed(2)} is at least ${MIN_CONFIDENCE}`
+        : `the leading reading is ${lead.toFixed(2)} ahead of the next (at least ${MIN_PROBABILITY_LEAD})`;
     return (
-      `Fraud probability ${top?.probability.toFixed(2)} with ${numberWord(cats)} independent evidence ` +
-      `categories ${formatCategories(input.categories)} clears the ${MIN_CONFIDENCE} confidence threshold; ` +
-      `further investigation would not change the decision.`
+      `Fraud probability ${p.toFixed(2)} with ${numberWord(cats)} independent evidence ` +
+      `categories ${formatCategories(input.categories)}; ${held}, and further steps are unlikely to change ` +
+      `the decision (README §6).`
     );
   }
   if (decision.reason === "budget_exhausted") {

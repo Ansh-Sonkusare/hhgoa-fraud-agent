@@ -140,6 +140,10 @@ export interface RunResult {
 }
 
 const VERIFICATION_ACTIONS = new Set<string>(["VERIFY_WITH_CUSTOMER", "STEP_UP_AUTH"]);
+/** R1's verification band starts here (recommend.ts: VERIFY_WITH_CUSTOMER at p >= 0.40). */
+const VERIFICATION_BAND_FROM = 0.4;
+/** README §6: a fraud probability at or above this, with two independent pieces, settles a case. */
+const DECISIVE_FRAUD_PROBABILITY = 0.85;
 
 function money(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -456,7 +460,12 @@ export class FraudInvestigationMachine {
     return action && VERIFICATION_ACTIONS.has(action) ? "verification" : "analysis";
   }
 
-  private async planAndRequestEvidence(assessment: Assessment, recs: Recommendations): Promise<void> {
+  private async planAndRequestEvidence(
+    assessment: Assessment,
+    recs: Recommendations,
+    /** Ask for this type rather than the planner's pick (R1's verification, README §3b). */
+    forced?: EvidenceRequestType,
+  ): Promise<void> {
     // Evidence rounds are capped (PRD §9.6, MAX_EVIDENCE_ROUNDS): once the
     // cap is hit there is nothing left to request, so mark the search
     // exhausted and let the stop rule close the loop.
@@ -480,12 +489,12 @@ export class FraudInvestigationMachine {
       previouslyRequested: this.reqLog.map((r) => r.type),
       preferenceBand: this.preferenceBandFor(recs),
     });
-    if (!plan.chosen) {
+    const chosen = forced ? (plan.scored.find((r) => r.type === forced) ?? null) : plan.chosen;
+    if (!chosen) {
       this.noDiscriminatingEvidence = true;
       return;
     }
 
-    const chosen = plan.chosen;
     this.emitState("EVIDENCE_PLANNING");
     const target = this.targetFor(chosen.type);
     const reason = chosen.rationale;
@@ -535,6 +544,9 @@ export class FraudInvestigationMachine {
       } else if (chosen.type === "step_up_auth" && evidence.supports.includes("legitimate")) {
         this.facts.customer_confirmed = true;
       }
+    } else if (chosen.type === "customer_validation" || chosen.type === "step_up_auth") {
+      // Asked, and nothing came back: R4 governs the next recommendation.
+      this.facts.verification_unanswered = true;
     }
     this.reqLog.push({
       type: chosen.type,
@@ -638,6 +650,24 @@ export class FraudInvestigationMachine {
     }
     if (denied && !confirmed) return "fraud";
     return "uncertain";
+  }
+
+  /**
+   * Whether the cardholder still has to be asked before the case can stop.
+   * README §6 stops an investigation at fraud probability >= 0.85 or <= 0.15
+   * with two independent pieces, or when "a verification response settles
+   * the question". Between R1's verification band (0.40) and 0.85 neither
+   * holds until the cardholder has been asked, unless they already spoke
+   * (a dispute is itself their denial).
+   */
+  private verificationPending(assessment: Assessment): boolean {
+    const f = this.facts;
+    if (f.customer_denied || f.customer_confirmed || f.verification_unanswered || f.dispute_recurring) return false;
+    if (this.reqLog.some((r) => r.type === "customer_validation" || r.type === "step_up_auth")) return false;
+    if (this.rounds >= this.maxRounds || this.registry.budgetExhausted) return false;
+    if (this.cachedVerdict === "legitimate") return false;
+    const p = fraudProbability(assessment);
+    return p >= VERIFICATION_BAND_FROM && p < DECISIVE_FRAUD_PROBABILITY;
   }
 
   private resolveStatus(): CaseStatus {
@@ -830,6 +860,34 @@ export class FraudInvestigationMachine {
       this.cachedVerdict = this.computeVerdict(assessment);
       if (this.initialRecs === null) this.initialRecs = recs;
       this.finalRecs = recs;
+      if (round.decision.stop && this.verificationPending(assessment)) {
+        // README §3b: "Recommend what the evidence supports now, then request
+        // more evidence if the policy calls for it, then recommend again."
+        // Inside the verification band the case is not settled until the
+        // cardholder has been asked (§6: "a verification response settles
+        // the question"), however confident the assessment looks.
+        const before = this.evidenceStore.length;
+        await this.planAndRequestEvidence(assessment, recs, "customer_validation");
+        if (this.evidenceStore.length === before && this.facts.verification_unanswered) {
+          // No reply, so nothing new to assess: recommend again on the same
+          // assessment (no second LLM call) with R4 now in force.
+          recs = recommendActions(this.facts, assessment, this.evidenceStore, this.cachedVerdict);
+          this.finalRecs = recs;
+          this.events.emit("assessment_updated", "EVIDENCE_RECEIVED", {
+            assessment,
+            recommendation_after_request: { rule: "R4", reason: "no reply to the R1 verification request", actions: recs.actions },
+          });
+          stopDecision = { stop: true, reason: "no_discriminating_evidence_available" };
+          stopReasonText =
+            `Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. ` +
+            `No other permitted step can change the decision, so the investigation stops here (README §6) ` +
+            (this.cachedVerdict === "fraud"
+              ? `with the block recommendation unchanged.`
+              : `and R4 ("no reply") governs the final recommendation.`);
+          break;
+        }
+        if (this.evidenceStore.length !== before) continue; // a reply arrived: reassess with it
+      }
       if (round.decision.stop) {
         stopDecision = round.decision;
         stopReasonText = round.stopReasonText;
