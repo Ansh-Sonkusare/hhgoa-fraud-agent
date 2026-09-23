@@ -8,9 +8,10 @@ const AS_OF = "2016-11-12T00:35:00Z";
 const TRIGGER: Trigger = { kind: "risk_score", risk_score: 0.78 };
 
 async function run(
-  overrides: { script?: MockScriptEntry[]; maxToolCalls?: number } = {},
+  overrides: { script?: MockScriptEntry[]; maxToolCalls?: number; calibrateAlerts?: boolean } = {},
 ) {
   return runAgent({
+    calibrateAlerts: overrides.calibrateAlerts,
     caseId: "HHG-WS4-1",
     asOf: AS_OF,
     trigger: TRIGGER,
@@ -204,7 +205,7 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
   });
 
   it("weak-assessment run enters the evidence round: request → respond → re-assessing", async () => {
-    const r = await run({ script: WEAK_SCRIPT });
+    const r = await run({ script: WEAK_SCRIPT, calibrateAlerts: false });
 
     const requested = r.events.filter((e) => e.type === "evidence_requested");
     expect(requested.length).toBeGreaterThanOrEqual(1);
@@ -308,7 +309,7 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
   // 35-case backtest. Nothing is invented now, so an evidence round cannot
   // move the verdict off what the graph evidence supports.
   it("an unanswered evidence request never moves the verdict", async () => {
-    const r = await run({ script: scriptAtProbability(0.55) });
+    const r = await run({ script: scriptAtProbability(0.55), calibrateAlerts: false });
 
     // The request was made and recorded, with the assumption stated plainly.
     const asked = r.answer.evidence_requests;
@@ -326,13 +327,21 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
   });
 
   it("verdict follows the probability bands when no cardholder answer settles it", async () => {
-    const high = await run({ script: scriptAtProbability(0.9) });
+    const high = await run({ script: scriptAtProbability(0.9), calibrateAlerts: false });
     expect(high.answer.evidence_requests).toEqual([]);
     expect(high.answer.case.verdict).toBe("fraud");
 
-    const low = await run({ script: scriptAtProbability(0.2) });
-    expect(low.answer.evidence_requests).toEqual([]);
+    // A legitimate reading still asks the cardholder (R3 closes only on a
+    // confirmation); with no reply it is filed legitimate but left open, and
+    // nothing is closed or allowed on the evidence alone.
+    const low = await run({ script: scriptAtProbability(0.2), calibrateAlerts: false });
+    expect(low.answer.evidence_requests.map((q) => q.type)).toEqual(["customer_validation"]);
     expect(low.answer.case.verdict).toBe("legitimate");
+    expect(low.answer.case.status).toBe("open");
+    const finalActions = low.answer.next_best_actions.final.map((a) => a.action);
+    expect(finalActions).not.toContain("CLOSE_NO_FRAUD");
+    expect(finalActions).not.toContain("ALLOW_TRANSACTION");
+    expect(finalActions).toContain("MONITOR_CARD");
   });
 });
 

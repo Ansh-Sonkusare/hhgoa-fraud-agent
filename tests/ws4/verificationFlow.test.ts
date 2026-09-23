@@ -107,6 +107,7 @@ describe("machine: a case in the verification band asks before it stops", () => 
       trigger: { kind: "risk_score", risk_score: 0.78 },
       llm: createLlmClient("mock", script(0.65, 0.8)),
       backend: "fake",
+      calibrateAlerts: false,
     });
     expect(r.answer.evidence_requests.map((q) => q.type)).toEqual(["customer_validation"]);
     expect(names(r.answer.next_best_actions.initial)).toContain("VERIFY_WITH_CUSTOMER");
@@ -124,6 +125,7 @@ describe("machine: a case in the verification band asks before it stops", () => 
       trigger: { kind: "risk_score", risk_score: 0.78 },
       llm: createLlmClient("mock", script(0.92, 0.9)),
       backend: "fake",
+      calibrateAlerts: false,
     });
     expect(r.answer.evidence_requests).toEqual([]);
     expect(r.answer.next_best_actions.what_changed).toBe("nothing");

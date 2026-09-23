@@ -24,6 +24,7 @@ import { AnswerFileSchema, AssessmentSchema, EvidenceRequestTypeSchema } from "@
 import { getPolicyConfig, sarRequired, type PolicyToolAdapters } from "@hhgoa/policy";
 import { assess, deriveRiskLevel, distinctEvidenceCategories, resolvePatternLabel, topFraudHypothesis, fraudProbability } from "./assess.js";
 import { capSingleSignal, type SingleSignalCap } from "./singleSignal.js";
+import { applyAlertCalibration, type AlertCalibration } from "./alertCalibration.js";
 import { applyChannelRule, applyNewDeviceRule, type ChannelRule, type NewDeviceRule } from "./patternRules.js";
 import { describeProxyDeviceRing, describeStructuringBurst } from "./evidenceBuilder.js";
 import { buildExplanation } from "./explain.js";
@@ -123,6 +124,12 @@ export interface MachineDeps {
    * fraud-vs-legitimate mass is kept.
    */
   scorer?: PatternScorer | null;
+  /**
+   * Evidence calibration of model-alert probabilities (alertCalibration.ts).
+   * On unless explicitly false; tests of the assessor's own probability bands
+   * turn it off so the scripted probability reaches the bands unchanged.
+   */
+  calibrateAlerts?: boolean;
 }
 
 export interface RunResult {
@@ -199,6 +206,7 @@ export class FraudInvestigationMachine {
   private noDiscriminatingEvidence = false;
   /** Set when the R1 single-signal guard capped the last assessment. */
   private singleSignalCap: SingleSignalCap | null = null;
+  private alertCalibration: AlertCalibration | null = null;
   private newDeviceRule: NewDeviceRule | null = null;
   private channelRule: ChannelRule | null = null;
   private writtenToGraph = false;
@@ -328,10 +336,35 @@ export class FraudInvestigationMachine {
     const newDevice = applyNewDeviceRule(out.assessment.hypotheses, this.evidenceStore);
     if (newDevice) out.assessment = { ...out.assessment, hypotheses: newDevice.hypotheses };
     this.newDeviceRule = newDevice;
+    // Model alerts (alertCalibration.ts): the fraud mass comes from the
+    // evidence, calibrated on held-out closed cases; the pattern ranking stays
+    // the assessor's. Not applied when the graph shows one of the undocumented
+    // signatures (proxy device ring, structuring burst): each is near-certain
+    // fraud in the history and neither ever occurred in the calibration set,
+    // so the model has no term for it.
+    this.alertCalibration = null;
+    if (this.deps.calibrateAlerts !== false && this.facts.trigger.kind === "risk_score" && !this.graphUndocumented()) {
+      const cal = applyAlertCalibration(out.assessment.hypotheses, this.evidenceStore);
+      if (cal) {
+        const legit = cal.hypotheses.find((h) => h.fraud_type === "legitimate")?.probability ?? 0;
+        out.assessment = {
+          ...out.assessment,
+          hypotheses: cal.hypotheses,
+          legit_hypothesis_probability: legit,
+          risk_level: deriveRiskLevel(cal.to),
+        };
+        this.alertCalibration = cal;
+      }
+    }
     // R1 guard (singleSignal.ts): a fraud reading resting on one independent
     // signal is filed just below the fraud line, so R1's verification runs
-    // before any block.
-    const capped = capSingleSignal(out.assessment.hypotheses, this.evidenceStore, FRAUD_VERDICT_THRESHOLD - 0.01);
+    // before any block. The proxy device ring is exempt: it is one device used
+    // on many customers' cards through an anonymous proxy, which fired on 4
+    // closed cases, all confirmed fraud, and on none of the other 5,561 -- a
+    // small sample, stated as such in the ring's evidence item.
+    const capped = this.facts.proxy_device_ring
+      ? null
+      : capSingleSignal(out.assessment.hypotheses, this.evidenceStore, FRAUD_VERDICT_THRESHOLD - 0.01);
     if (capped) {
       const legit = capped.hypotheses.find((h) => h.fraud_type === "legitimate")?.probability ?? 0;
       out.assessment = {
@@ -374,6 +407,15 @@ export class FraudInvestigationMachine {
               to: this.channelRule.to,
               moved: this.channelRule.moved,
               evidence: this.channelRule.item,
+            },
+          }
+        : {}),
+      ...(this.alertCalibration
+        ? {
+            alert_calibration: {
+              fraud_probability_from: this.alertCalibration.from,
+              fraud_probability_to: this.alertCalibration.to,
+              terms: this.alertCalibration.terms,
             },
           }
         : {}),
@@ -656,6 +698,48 @@ export class FraudInvestigationMachine {
   }
 
   /**
+   * Asks the cardholder (customer_validation). "no_reply" when the request was
+   * made and nothing came back -- the final recommendation is then recomputed
+   * on the same assessment with R4 in force (no second LLM call); "reply" when
+   * new evidence arrived; "none" when no request could be made.
+   */
+  private async requestVerification(assessment: Assessment): Promise<"no_reply" | "reply" | "none"> {
+    const before = this.evidenceStore.length;
+    const recsBefore = this.finalRecs;
+    if (!recsBefore) return "none";
+    await this.planAndRequestEvidence(assessment, recsBefore, "customer_validation");
+    if (this.evidenceStore.length !== before) return "reply";
+    if (!this.facts.verification_unanswered) return "none";
+    const recs = recommendActions(this.facts, assessment, this.evidenceStore, this.cachedVerdict);
+    this.finalRecs = recs;
+    this.events.emit("assessment_updated", "EVIDENCE_RECEIVED", {
+      assessment,
+      recommendation_after_request: {
+        rule: "R4",
+        reason: `no reply to the ${this.cachedVerdict === "legitimate" ? "R3" : "R1"} verification request`,
+        actions: recs.actions,
+      },
+    });
+    return "no_reply";
+  }
+
+  private noReplyStopText(): string {
+    const why =
+      this.cachedVerdict === "legitimate"
+        ? `under R3 (the evidence reads legitimate, and closing needs the cardholder's confirmation)`
+        : `under R1`;
+    return (
+      `Customer verification was requested ${why} and no reply is available in this round (README §5), and none was assumed. ` +
+      `No other permitted step can change the decision, so the investigation stops here (README §6) ` +
+      (this.cachedVerdict === "fraud"
+        ? `with the block recommendation unchanged.`
+        : this.cachedVerdict === "legitimate"
+          ? `with the case left open under monitoring rather than closed (R4 governs the final recommendation).`
+          : `and R4 ("no reply") governs the final recommendation.`)
+    );
+  }
+
+  /**
    * Whether the cardholder still has to be asked before the case can stop.
    * README §6 stops an investigation at fraud probability >= 0.85 or <= 0.15
    * with two independent pieces, or when "a verification response settles
@@ -668,7 +752,10 @@ export class FraudInvestigationMachine {
     if (f.customer_denied || f.customer_confirmed || f.verification_unanswered || f.dispute_recurring) return false;
     if (this.reqLog.some((r) => r.type === "customer_validation" || r.type === "step_up_auth")) return false;
     if (this.rounds >= this.maxRounds || this.registry.budgetExhausted) return false;
-    if (this.cachedVerdict === "legitimate") return false;
+    // A legitimate reading closes only on the cardholder's confirmation (R3):
+    // closing on the evidence alone was measured to close confirmed fraud
+    // (docs/decisions.md, 2026-09-23), so the cardholder is asked here too.
+    if (this.cachedVerdict === "legitimate") return true;
     const p = fraudProbability(assessment);
     return p >= VERIFICATION_BAND_FROM && p < DECISIVE_FRAUD_PROBABILITY;
   }
@@ -689,7 +776,10 @@ export class FraudInvestigationMachine {
     }
     const v = this.cachedVerdict;
     if (v === "fraud") return "closed_fraud";
-    if (v === "legitimate") return "closed_legitimate";
+    // A legitimate reading is closed only when CLOSE_NO_FRAUD was recommended,
+    // which needs the cardholder's confirmation (R3); without one the case
+    // stays open under monitoring.
+    if (v === "legitimate" && recs?.actions.some((a) => a.action === "CLOSE_NO_FRAUD")) return "closed_legitimate";
     return "open";
   }
 
@@ -799,7 +889,11 @@ export class FraudInvestigationMachine {
     const summary =
       `Investigated card ${this.facts.primary_card?.id ?? "?"} after trigger; pattern ${pattern}, ` +
       `top probability ${topProb.toFixed(2)}, ${distinctEvidenceCategories(this.evidenceStore).length} evidence ` +
-      `categories, exposure ${money(this.facts.exposure_usd)}. Verdict: ${verdict}.`;
+      `categories, ` +
+      (verdict === "legitimate"
+        ? `no fraud exposure (flagged amount ${money(this.facts.exposure_usd)}, not closed: awaiting the cardholder's confirmation). `
+        : `exposure ${money(this.facts.exposure_usd)}. `) +
+      `Verdict: ${verdict}.`;
 
     const answer = {
       case_id: this.facts.case_id,
@@ -869,27 +963,14 @@ export class FraudInvestigationMachine {
         // Inside the verification band the case is not settled until the
         // cardholder has been asked (§6: "a verification response settles
         // the question"), however confident the assessment looks.
-        const before = this.evidenceStore.length;
-        await this.planAndRequestEvidence(assessment, recs, "customer_validation");
-        if (this.evidenceStore.length === before && this.facts.verification_unanswered) {
-          // No reply, so nothing new to assess: recommend again on the same
-          // assessment (no second LLM call) with R4 now in force.
-          recs = recommendActions(this.facts, assessment, this.evidenceStore, this.cachedVerdict);
-          this.finalRecs = recs;
-          this.events.emit("assessment_updated", "EVIDENCE_RECEIVED", {
-            assessment,
-            recommendation_after_request: { rule: "R4", reason: "no reply to the R1 verification request", actions: recs.actions },
-          });
+        const asked = await this.requestVerification(assessment);
+        if (asked === "no_reply") {
+          recs = this.finalRecs ?? recs;
           stopDecision = { stop: true, reason: "no_discriminating_evidence_available" };
-          stopReasonText =
-            `Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. ` +
-            `No other permitted step can change the decision, so the investigation stops here (README §6) ` +
-            (this.cachedVerdict === "fraud"
-              ? `with the block recommendation unchanged.`
-              : `and R4 ("no reply") governs the final recommendation.`);
+          stopReasonText = this.noReplyStopText();
           break;
         }
-        if (this.evidenceStore.length !== before) continue; // a reply arrived: reassess with it
+        if (asked === "reply") continue; // a reply arrived: reassess with it
       }
       if (round.decision.stop) {
         stopDecision = round.decision;
@@ -924,6 +1005,16 @@ export class FraudInvestigationMachine {
       // Bounded loop guarded above; this branch is unreachable in practice
       // (at least one ASSESSING pass always runs before the break).
       throw new Error(`FraudInvestigationMachine: run failed to produce an assessment for ${this.deps.caseId}`);
+    }
+
+    if (stopDecision.stop && this.verificationPending(assessment)) {
+      // The stop came from a path other than the round's own stop rule (no
+      // discriminating evidence left); the cardholder is still owed the
+      // verification request before the final recommendation.
+      if ((await this.requestVerification(assessment)) === "no_reply") {
+        recs = this.finalRecs ?? recs;
+        stopReasonText = this.noReplyStopText();
+      }
     }
 
     if (!stopDecision.stop && assessment) {

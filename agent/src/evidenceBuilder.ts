@@ -1260,7 +1260,11 @@ function profileEvidence(data: unknown, idGen: EvidenceIdGen, asOf: string): Evi
       {
         id: idGen.next("get_entity_profile"),
         category: "device_identity",
-        summary: `${describeProxyDeviceRing(ring)}. The flagged charge was made on this device.`,
+        summary:
+          `${describeProxyDeviceRing(ring)}. The flagged charge was made on this device. ` +
+          `In the closed-case history this device signature fired on 4 cases, all confirmed fraud of the ` +
+          `undocumented type, and on none of the other 5,561 -- a small sample, so it is reported as strong ` +
+          `graph evidence rather than proof`,
         entities: [d.entity, { type: "Device", id: ring.device_id }],
         source_tool: "get_entity_profile",
         weight_hint: 0.9,

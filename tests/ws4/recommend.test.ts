@@ -80,8 +80,7 @@ describe("recommendActions", () => {
     expect(recs.actions.map((a) => a.action)).toContain("ESCALATE_TO_ANALYST");
   });
 
-  it("legitimate pattern with sub-half probability allows the transaction and closes no-fraud", () => {
-    const f = baseFacts();
+  it("a legitimate reading closes only on the cardholder's confirmation (R3)", () => {
     // A genuinely legitimate assessment names no fraud hypothesis at all and
     // holds a high probability for `legitimate`; fraud probability is its
     // complement. The shared assess() helper always emits two hypotheses, so
@@ -97,17 +96,38 @@ describe("recommendActions", () => {
       [],
       SUFFICIENT,
     );
-    const recs = recommendActions(f, legitOnly, [], "legitimate");
-    const actions = recs.actions.map((a) => a.action);
-    expect(actions).toContain("ALLOW_TRANSACTION");
-    expect(actions).toContain("CLOSE_NO_FRAUD");
-    expect(actions).not.toContain("BLOCK_CARD");
-    // p = 0 is below §3a's 0.30 line: no case.
-    expect(actions).not.toContain("CREATE_CASE");
+    const names = (f: ReturnType<typeof baseFacts>) =>
+      recommendActions(f, legitOnly, [], "legitimate").actions.map((a) => a.action);
+
+    // Confirmed: R3 allows and closes. p = 0 is below §3a's 0.30 line: no case.
+    const confirmed = baseFacts();
+    confirmed.customer_confirmed = true;
+    expect(names(confirmed)).toEqual(expect.arrayContaining(["ALLOW_TRANSACTION", "CLOSE_NO_FRAUD"]));
+    expect(names(confirmed)).not.toContain("CREATE_CASE");
+    expect(names(confirmed)).not.toContain("BLOCK_CARD");
+
+    // Not yet asked: ask first. Closing on the evidence alone was measured to
+    // close confirmed fraud, so nothing is closed or allowed here; §3a opens a
+    // case because evidence is requested.
+    const unasked = names(baseFacts());
+    expect(unasked).toEqual(expect.arrayContaining(["VERIFY_WITH_CUSTOMER", "MONITOR_CARD", "CREATE_CASE"]));
+    expect(unasked).not.toContain("CLOSE_NO_FRAUD");
+    expect(unasked).not.toContain("ALLOW_TRANSACTION");
+    expect(unasked).not.toContain("BLOCK_CARD");
+
+    // Asked, no reply: R4 monitoring, still not closed.
+    const noReply = baseFacts();
+    noReply.verification_unanswered = true;
+    const after = names(noReply);
+    expect(after).toEqual(expect.arrayContaining(["MONITOR_CARD", "CREATE_CASE"]));
+    expect(after).not.toContain("VERIFY_WITH_CUSTOMER");
+    expect(after).not.toContain("CLOSE_NO_FRAUD");
+    expect(after).not.toContain("ALLOW_TRANSACTION");
   });
 
-  it("§3a: a legitimate close at fraud probability 0.30-0.50 still opens a case", () => {
+  it("§3a: a confirmed legitimate close at fraud probability 0.30-0.50 still opens a case", () => {
     const f = baseFacts();
+    f.customer_confirmed = true;
     // Pattern resolves to "none" with 0.40 fraud mass when the only fraud
     // hypothesis is an `undocumented` one the graph does not support.
     const lean = finalizeAssessment(

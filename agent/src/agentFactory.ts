@@ -161,6 +161,8 @@ export interface RunAgentOptions {
   writeBackCase?: boolean;
   /** Pattern scorer; defaults to patternScorerFromEnv() on a real backend, none otherwise. */
   scorer?: PatternScorer | null;
+  /** Evidence calibration of model-alert probabilities (alertCalibration.ts); on by default. */
+  calibrateAlerts?: boolean;
 }
 
 /** Build and run a full case end-to-end with default (fake/mock) services. */
@@ -234,6 +236,7 @@ async function buildMachine(options: RunAgentOptions): Promise<FraudInvestigatio
     maxEvidenceRounds: options.maxEvidenceRounds,
     maxInvestigateLoops: options.maxInvestigateLoops,
     scorer: options.scorer !== undefined ? options.scorer : backend === "real" ? patternScorerFromEnv() : null,
+    calibrateAlerts: options.calibrateAlerts ?? true,
   });
   return machine;
 }

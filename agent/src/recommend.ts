@@ -136,20 +136,40 @@ export function recommendActions(
     add("CREATE_CASE", `R7 / §3a: the customer disputed a charge, and every dispute opens a case`);
     add("VERIFY_WITH_CUSTOMER", `R7: the disputed charge repeats this card's own monthly charge (same amount and product code); confirm with the customer rather than block`);
     add("WARN_CUSTOMER", `R7: remind the customer of the recurring charge they appear to have forgotten`);
-  } else if (pattern === "none" && fraudProb < 0.5 && !cs.customer_denied) {
-    // A disputed charge never reaches this branch: R2 governs a denial even
-    // when no fraud pattern is named, and allowing a charge the cardholder
-    // says they never made would contradict it.
-    // Legitimate / not suspicious → allow + close (R3).
-    // §3a still opens a case once fraud probability reaches 0.30; a case "can
-    // be closed as fraud or as legitimate".
-    if (fraudProb >= 0.3) {
-      add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case, then close it as legitimate`);
+  } else if ((fraudProb <= 0.4 || (pattern === "none" && fraudProb < 0.5)) && !cs.customer_denied) {
+    // The evidence reads legitimate. A disputed charge never reaches this
+    // branch: R2 governs a denial even when no fraud pattern is named.
+    if (facts.customer_confirmed) {
+      // R3: the cardholder confirmed. §3a still opens a case once fraud
+      // probability reaches 0.30; a case "can be closed as fraud or as legitimate".
+      if (fraudProb >= 0.3) {
+        add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case, then close it as legitimate`);
+      }
+      if (exposure > 0) {
+        add("ALLOW_TRANSACTION", `R3: the cardholder confirmed the transaction; allow it`);
+      }
+      add("CLOSE_NO_FRAUD", `R3: the cardholder confirmed the transaction; close the case as legitimate and note the confirmation`);
+    } else if (facts.verification_unanswered) {
+      // Asked under R3, no reply: R4 governs. Closing on the evidence alone was
+      // measured and rejected -- even the strictest evidence-only cutoff closed
+      // confirmed fraud (docs/decisions.md, 2026-09-23) -- so the case stays
+      // open under monitoring rather than closed on a reply nobody gave.
+      add(
+        "MONITOR_CARD",
+        `R4: the evidence reads legitimate (fraud probability ${fraudProb.toFixed(2)}) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring (the data records no pending authorization to decline)`,
+      );
+      add("CREATE_CASE", `§3a: evidence was requested from the cardholder; open a case`);
+    } else {
+      add(
+        "VERIFY_WITH_CUSTOMER",
+        `R3: the evidence reads legitimate (fraud probability ${fraudProb.toFixed(2)}); closing as legitimate needs the cardholder's confirmation, so ask before closing`,
+      );
+      add("MONITOR_CARD", `Precautionary monitoring while awaiting the customer's response (R4)`);
+      add("CREATE_CASE", `§3a: evidence is requested from the cardholder; open a case`);
     }
-    if (exposure > 0) {
-      add("ALLOW_TRANSACTION", `R3 (on the evidence; no cardholder confirmation was obtained): fraud probability ${fraudProb.toFixed(2)} and no fraud pattern found; allow the flagged transaction`);
+    if (verdict === "uncertain" && exposure > 500) {
+      add("ESCALATE_TO_ANALYST", `R8: uncertain with exposure ${money(exposure)} > $500 — escalate to an analyst`);
     }
-    add("CLOSE_NO_FRAUD", `R3 (on the evidence; no cardholder confirmation was obtained): fraud probability ${fraudProb.toFixed(2)} and no fraud pattern found; close the alert as legitimate`);
   } else if (fraudProb >= 0.7 || cs.customer_denied) {
     // High conviction OR customer denial → enforce.
     const largestCleared = facts.txn_rows.reduce((m, r) => Math.max(m, r.amount_usd), 0);
@@ -213,16 +233,9 @@ export function recommendActions(
         add("ESCALATE_TO_ANALYST", `R8: uncertain and the evidence conflicts (${describeConflict(evidence, leading)}) — escalate to an analyst`);
       }
     }
-  } else {
-    // Low conviction, low probability.
-    add("MONITOR_CARD", `Fraud probability ${fraudProb.toFixed(2)} is low; keep monitoring (R4)`);
-    if (fraudProb >= 0.3) {
-      add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case`);
-    }
-    if (verdict === "uncertain" && exposure > 500) {
-      add("ESCALATE_TO_ANALYST", `R8: uncertain with exposure ${money(exposure)} > $500 — escalate to an analyst`);
-    }
   }
+  // (Every probability at or below 0.40 is handled above: a denial by the R2 branch,
+  // anything else by the legitimate-reading branch.)
 
   // R9 carries no probability condition: coordinated abuse across customers
   // is opened, reported and escalated whatever this case's own probability
@@ -288,7 +301,9 @@ export function summarizeChange(
   const prob = fraudProbability(assessment).toFixed(2);
   if (facts.verification_unanswered) {
     return (
-      `Asked the cardholder to verify under R1 (${asked.join(" and ")}); no reply was received and none was assumed, ` +
+      // A legitimate reading asks under R3 (closing needs a confirmation); a
+      // mid-band one under R1 (verify before any block).
+      `Asked the cardholder to verify under ${fraudProbability(assessment) <= 0.4 ? "R3" : "R1"} (${asked.join(" and ")}); no reply was received and none was assumed, ` +
       `so R4 ("no reply") now governs at fraud probability ${prob}: ${parts.join("; ")}. Verification remains outstanding.`
     );
   }
