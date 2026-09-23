@@ -91,21 +91,16 @@ async function machineRunner(
   options: RunAgentOptions,
   onEvent: (event: AgentEvent) => void,
 ): Promise<{ answer: AnswerFile }> {
-  const { FraudInvestigationMachine, createLlmClient, createMcpClient, createPolicyAdapters, createToolProviders } =
-    await import("@hhgoa/agent");
+  const { createAgentMachine, createLlmClient } = await import("@hhgoa/agent");
 
-  const backend = options.backend ?? (process.env.TOOLS_BACKEND === "real" ? "real" : "fake");
-  const machine = new FraudInvestigationMachine({
-    caseId: options.caseId,
-    asOf: options.asOf,
-    trigger: options.trigger,
+  // Same factory as the benchmark runner (runAgent): on a real backend that
+  // brings the pattern scorer, alert calibration and the case write-back to
+  // TigerGraph. Building the machine by hand here skipped the last two
+  // services, so live UI runs never called the scorer or wrote the case.
+  const machine = await createAgentMachine({
+    ...options,
+    backend: options.backend ?? (process.env.TOOLS_BACKEND === "real" ? "real" : "fake"),
     llm: options.llm ?? createLlmClient(llmBackendFromEnv()),
-    mcp: options.mcp ?? createMcpClient(backend),
-    providers: options.providers ?? (await createToolProviders(backend, options.caseId)),
-    policies: options.policies ?? createPolicyAdapters(),
-    maxToolCalls: options.maxToolCalls,
-    maxEvidenceRounds: options.maxEvidenceRounds,
-    maxInvestigateLoops: options.maxInvestigateLoops,
   });
   const unsubscribe = machine.eventLog.subscribe(onEvent);
   try {
