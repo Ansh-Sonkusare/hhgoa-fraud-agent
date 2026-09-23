@@ -31,6 +31,7 @@ export { buildExplanation } from "./explain.js";
 export type { Explanation } from "./explain.js";
 export { buildContextBundle, renderContextBundle } from "./contextBuilder.js";
 export { buildCaseStateForPolicy } from "./caseState.js";
+export { independentFraudSignals } from "./singleSignal.js";
 
 // LLM + MCP plumbing.
 export { MockLlmClient, OllamaLlmClient, script } from "./llm.js";

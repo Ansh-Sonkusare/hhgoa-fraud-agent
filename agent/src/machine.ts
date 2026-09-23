@@ -561,14 +561,17 @@ export class FraudInvestigationMachine {
     this.emitState("APPROVAL_ROUTING");
     const l1l2 = recs.actions.filter((a) => a.route === "L1" || a.route === "L2");
     const auto = recs.actions.filter((a) => a.route === "auto");
+    // An L1/L2 action waits for a human (docs/DATASET_README.md approval routes):
+    // it is recorded as PENDING_APPROVAL and gets no action_result here. The
+    // approvals inbox (api/src/replaySession.ts resolveApproval) appends the
+    // result when an analyst approves or denies it.
     for (const a of l1l2) {
       this.events.emit("approval_requested", "APPROVAL_ROUTING", {
         action: a.action,
         route: a.route,
         reason: a.reason,
       });
-      await this.registry.caseRecordAction(a, "EXECUTED");
-      this.events.emit("action_result", "APPROVAL_ROUTING", { action: a.action, result: "EXECUTED" });
+      await this.registry.caseRecordAction(a, "PENDING_APPROVAL");
     }
     for (const a of auto) {
       this.events.emit("action_result", "APPROVAL_ROUTING", { action: a.action, result: "EXECUTED" });

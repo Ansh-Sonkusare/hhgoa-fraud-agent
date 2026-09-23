@@ -195,6 +195,12 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     expect(approvalActions).toEqual(["BLOCK_CARD", "FILE_REPORT"]);
     expect(approvals[0]!.payload["route"]).toBe("L1");
     expect(approvals[1]!.payload["route"]).toBe("L2");
+    // L1/L2 actions wait for a human: the agent never reports them executed.
+    const executed = r.events
+      .filter((e) => e.type === "action_result" && e.payload["result"] === "EXECUTED")
+      .map((e) => e.payload["action"]);
+    expect(executed).not.toContain("BLOCK_CARD");
+    expect(executed).not.toContain("FILE_REPORT");
   });
 
   it("weak-assessment run enters the evidence round: request → respond → re-assessing", async () => {

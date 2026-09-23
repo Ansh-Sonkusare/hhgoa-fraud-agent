@@ -141,10 +141,15 @@ export function recommendActions(
     // when no fraud pattern is named, and allowing a charge the cardholder
     // says they never made would contradict it.
     // Legitimate / not suspicious → allow + close (R3).
-    if (exposure > 0) {
-      add("ALLOW_TRANSACTION", `R3: cardholder activity consistent with legitimate use; allow the flagged transaction`);
+    // §3a still opens a case once fraud probability reaches 0.30; a case "can
+    // be closed as fraud or as legitimate".
+    if (fraudProb >= 0.3) {
+      add("CREATE_CASE", `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case, then close it as legitimate`);
     }
-    add("CLOSE_NO_FRAUD", `R3: no fraud indicated; customer records support legitimate activity`);
+    if (exposure > 0) {
+      add("ALLOW_TRANSACTION", `R3 (on the evidence; no cardholder confirmation was obtained): fraud probability ${fraudProb.toFixed(2)} and no fraud pattern found; allow the flagged transaction`);
+    }
+    add("CLOSE_NO_FRAUD", `R3 (on the evidence; no cardholder confirmation was obtained): fraud probability ${fraudProb.toFixed(2)} and no fraud pattern found; close the alert as legitimate`);
   } else if (fraudProb >= 0.7 || cs.customer_denied) {
     // High conviction OR customer denial → enforce.
     const largestCleared = facts.txn_rows.reduce((m, r) => Math.max(m, r.amount_usd), 0);

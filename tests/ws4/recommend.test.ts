@@ -102,6 +102,32 @@ describe("recommendActions", () => {
     expect(actions).toContain("ALLOW_TRANSACTION");
     expect(actions).toContain("CLOSE_NO_FRAUD");
     expect(actions).not.toContain("BLOCK_CARD");
+    // p = 0 is below §3a's 0.30 line: no case.
+    expect(actions).not.toContain("CREATE_CASE");
+  });
+
+  it("§3a: a legitimate close at fraud probability 0.30-0.50 still opens a case", () => {
+    const f = baseFacts();
+    // Pattern resolves to "none" with 0.40 fraud mass when the only fraud
+    // hypothesis is an `undocumented` one the graph does not support.
+    const lean = finalizeAssessment(
+      {
+        hypotheses: [
+          { fraud_type: "legitimate", probability: 0.6, supporting: [], contradicting: [] },
+          { fraud_type: "undocumented", probability: 0.4, supporting: [], contradicting: [] },
+        ],
+        risk_level: "LOW",
+        risk_score: 0.4,
+        confidence: 0.8,
+        legit_hypothesis_probability: 0.6,
+      },
+      [],
+      SUFFICIENT,
+    );
+    const actions = recommendActions(f, lean, [], "legitimate").actions.map((a) => a.action);
+    expect(actions).toContain("CREATE_CASE");
+    expect(actions).toContain("CLOSE_NO_FRAUD");
+    expect(actions).not.toContain("BLOCK_CARD");
   });
 
   // R10 ("never BLOCK_ALL_CARDS unless at least two of the customer's CARDS
