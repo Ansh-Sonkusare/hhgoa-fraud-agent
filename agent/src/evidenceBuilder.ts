@@ -24,6 +24,19 @@ function ringIdLabel(ring: { shared_type: string; shared_id: string }): string {
   return ring.shared_type === "address" ? regionLabel(ring.shared_id) : ring.shared_id;
 }
 
+function sharedTypeEntityType(sharedType: string): string {
+  switch (sharedType) {
+    case "device":
+      return "Device";
+    case "address":
+      return "Address";
+    case "email":
+      return "EmailDomain";
+    default:
+      return sharedType;
+  }
+}
+
 
 /**
  * Marks a claim that decides *which* fraud pattern a case would be if it is
@@ -762,7 +775,7 @@ function ringsEvidence(
     ];
   }
   const items = rings.map((ring): EvidenceItem => {
-    const entities = [ref("Device", ring.shared_id), ...ring.card_ids.map((c) => ref("Card", c))];
+    const entities = [ref(sharedTypeEntityType(ring.shared_type), ring.shared_id), ...ring.card_ids.map((c) => ref("Card", c))];
     // card_ids includes the seed card itself (shared_rings.gsql), so counting
     // it would report a card as sharing a device with itself — HHG-011 filed
     // 420 items reading "with 1 other cards" for devices no one else used.
