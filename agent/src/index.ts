@@ -40,3 +40,5 @@ export type { McpClient, McpClientConfig } from "./mcpClient.js";
 export { structuredCall, describeSchema, estimateTokens } from "./structured.js";
 export type { StructuredCallOptions, StructuredCallResult } from "./structured.js";
 export { EventLog } from "./events.js";
+export { SCORER_PATTERNS, PATTERN_QUESTION, renderScorerState, applyPatternScore, SystemOneScorer, patternScorerFromEnv } from "./patternScorer.js";
+export type { ScorerPattern, PatternScore, PatternScorer } from "./patternScorer.js";

@@ -1,6 +1,6 @@
 import type { Assessment, EvidenceItem } from "@hhgoa/contracts";
 import type { InvestigationFacts } from "./investigation.js";
-import { topFraudHypothesis, legitHypothesis } from "./assess.js";
+import { topFraudHypothesis, legitHypothesis, fraudProbability } from "./assess.js";
 import type { Recommendations } from "./recommend.js";
 import type { StopReason } from "./stopRule.js";
 
@@ -35,7 +35,7 @@ export function buildExplanation(options: {
 
   const topFraud = topFraudHypothesis(assessment);
   const legit = legitHypothesis(assessment);
-  const topProb = topFraud?.probability ?? assessment.legit_hypothesis_probability ?? 0;
+  const topProb = fraudProbability(assessment);
   const legitProb = legit?.probability ?? 0;
 
   const evidence_used = evidence.map((e) => `${e.id}: ${truncate(e.summary, 160)}`);
@@ -46,7 +46,8 @@ export function buildExplanation(options: {
     why_more_evidence =
       `R1: probability ${topProb.toFixed(2)} on a weak/ambiguous signal was below the ` +
       `0.70 block threshold, so "${firstRequest.type}" was requested before any enforcement ` +
-      `(assumed response simulated deterministically: ${truncate(firstRequest.assumed_response, 120)}).`;
+      `(no reply is available -- the dataset supplies none and none was assumed: ` +
+      `${truncate(firstRequest.assumed_response, 120)}).`;
   } else if (stopReason && stopReason !== "sufficient_evidence") {
     why_more_evidence = `Investigation stopped with reason "${stopReason}"`;
   }
@@ -68,6 +69,16 @@ export function buildExplanation(options: {
     what_would_change_the_decision =
       `If the customer had instead denied the purchase, R2 would apply and the ` +
       `case would escalate to a block; a confirmation clears it (R3).`;
+  } else if (facts.dispute_recurring) {
+    what_would_change_the_decision =
+      `The dispute repeats this card's own monthly charge, so R7 recommends ` +
+      `verification without a block; if the customer does not recognise the ` +
+      `recurring charge either, R2 would apply and the card would be blocked.`;
+  } else if (facts.customer_denied && facts.trigger.kind === "customer_report") {
+    what_would_change_the_decision =
+      `The cardholder disputed the charge, so R2 applies. A match to their own ` +
+      `monthly recurring charge (R7) would have downgraded this to verification ` +
+      `without a block; no such recurring charge was established.`;
   } else if (facts.customer_denied) {
     what_would_change_the_decision =
       `If the customer had instead confirmed the purchase, R3 would apply and the ` +

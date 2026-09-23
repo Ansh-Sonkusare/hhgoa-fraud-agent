@@ -84,13 +84,29 @@ export function assessSharedOrigin(facts: InvestigationFacts): SharedOriginAsses
     (r) => r.card_ids.length >= 2 && r.card_ids.length <= MAX_CORROBORATING_RING_SIZE,
   );
   const primary = facts.primary_card?.id ?? null;
-  const priorConfirmedFraud = facts.prior_cases.some((c) => c.outcome === "confirmed_fraud");
+  // R2/R6 and §3a speak of *another* card's or customer's fraud. The card's
+  // own earlier fraud is a fact about this card, not a link to anyone else:
+  // on 150 cleared + 150 fraud closed cases the cited fraud was the card's own
+  // history in 43/43 and 107/110 hits, and the old reading reported every one
+  // of them as a shared origin (CC-1660: 30 unrelated cards put under
+  // monitoring). find_prior_cases marks own cases; recordings made before
+  // that field existed keep the old reading.
+  const priorConfirmedFraud = facts.prior_cases.some(
+    (c) => c.outcome === "confirmed_fraud" && (c as { own?: boolean }).own !== true,
+  );
   const rate = facts.community?.stats["confirmed_fraud_rate"] ?? null;
+  // A community corroborates only if its cases resolve as fraud more often
+  // than closed cases do generally at the same as_of (community_lookup.gsql
+  // population_confirmed_fraud_rate); most closed cases are disputes, so the
+  // raw rate clears a fixed bar almost everywhere. Absent the population
+  // figure (older recordings), the fixed bar alone applies as before.
+  const population = facts.community?.stats["population_confirmed_fraud_rate"];
   const communityConfirmed =
     facts.community !== null &&
     facts.community.size >= 2 &&
     rate !== null &&
-    rate >= COMMUNITY_FRAUD_RATE_MIN;
+    rate >= COMMUNITY_FRAUD_RATE_MIN &&
+    (population === undefined || population <= 0 || rate > population);
 
   const plausibleRing = plausible.length > 0;
   const shared = plausibleRing && (priorConfirmedFraud || communityConfirmed);

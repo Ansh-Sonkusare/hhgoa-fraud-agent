@@ -65,13 +65,21 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     // tool_call payloads use {tool,args}; tool_result {tool,result}.
     const gthCall = r.events.find((e) => e.type === "tool_call" && e.payload["tool"] === "get_transaction_history");
     expect(Object.keys(gthCall!.payload).sort()).toEqual(["args", "tool"]);
-    expect((gthCall!.payload["args"] as Record<string, unknown>)["window"]).toEqual({ hours: 2 });
+    // 168h, not 2h: a case is opened *after* the episode has run, not during
+    // it, so a short lookback misses most of it. Measured over the 4665
+    // confirmed-fraud closed cases, the oldest fraud transaction is a median
+    // 22h old at opened_at but p95 is 109h; 72h fully covers 89.8% of cases
+    // and 168h covers 97.8% (see LOOKBACK_HOURS in investigation.ts).
+    expect((gthCall!.payload["args"] as Record<string, unknown>)["window"]).toEqual({ hours: 168 });
     const gthResult = r.events.find((e) => e.type === "tool_result" && e.payload["tool"] === "get_transaction_history");
     expect(gthResult!.payload["result"]).toHaveProperty("ok", true);
     expect(gthResult!.payload["result"]).toHaveProperty("via", "mcp");
     expect(gthResult!.payload["result"]).toHaveProperty("as_of", AS_OF);
 
-    // No baseline call for the multi-txn shape; exactly 3 gather graph tools.
+    // No baseline call for the multi-txn shape. The sweep is a superset of the
+    // original three graph tools since detect_patterns/compute_velocity/
+    // retrieve_similar_cases/lookup_external joined it, so this asserts
+    // containment rather than an exact list.
     const tools = r.events
       .filter((e) => e.type === "tool_call")
       .map((e) => e.payload["tool"] as string);
@@ -86,23 +94,70 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
       ]),
     );
 
-    // Evidence: 3 independent categories, deterministic ids, fixture weights.
+    // Evidence: four independent categories now, deterministic ids. `policy_match`
+    // arrives from the GSQL pattern detectors (detect_patterns), which joined the
+    // standard sweep after an audit against CHALLENGE_BRIEF's evidence list found
+    // six catalog tools that no case ever called. More independent categories also
+    // loosens the confidence cap, which is the point of counting them.
     const cats = r.evidence.map((e) => e.category);
-    expect(cats.sort()).toEqual(["device_identity", "prior_cases", "txn_behavior"]);
-    expect(r.evidence.map((e) => e.id)).toEqual(["ev_001", "ev_002", "ev_003"]);
-    expect(r.evidence.map((e) => e.weight_hint)).toEqual([0.7, 0.65, 0.5]);
-    expect(r.evidence.every((e) => e.supports.includes("card_testing"))).toBe(true);
+    expect([...new Set(cats)].sort()).toEqual([
+      "device_identity",
+      "policy_match",
+      "prior_cases",
+      "txn_behavior",
+    ]);
+    // Ids stay stable and sequential in emission order.
+    expect(r.evidence.map((e) => e.id)).toEqual(
+      r.evidence.map((_, i) => `ev_${String(i + 1).padStart(3, "0")}`),
+    );
+    // ev_001 is the structural channel claim: the flagged charge is online, so
+    // the card-present patterns are ruled out definitionally. It shares the
+    // txn_behavior category with the card-testing detector, so items outnumber
+    // independent categories.
+    const structural = r.evidence.find((e) => e.summary.includes("card-not-present (online)"));
+    expect(structural).toBeDefined();
+    expect(structural?.contradicts).toContain("out_of_region_use");
+    // The evidence points toward fraud, but only the detector that actually
+    // identifies card testing (small authorizations then a large purchase)
+    // names the pattern; the ring and prior-case items carry the generic
+    // "fraud" label so they vote on the verdict without voting on the
+    // diagnosis. See evidenceBuilder.ts — labelling every signal
+    // `card_testing` held backtest pattern accuracy to 19%.
+    expect(r.evidence.every((e) => !e.supports.includes("legitimate"))).toBe(true);
+    // Aggregate per category: there is more than one txn_behavior item now, and a
+    // Map built from the pairs keeps only the last, which quietly hid the label.
+    const supportsByCat = new Map<string, string[]>();
+    for (const e of r.evidence) {
+      supportsByCat.set(e.category, [...(supportsByCat.get(e.category) ?? []), ...e.supports]);
+    }
+    expect(supportsByCat.get("txn_behavior")).toContain("card_testing");
+    // The fixture card shares a single device profile. One shared profile is
+    // household-level overlap (1-2 on 47% of cleared vs 10% of fraud), so the
+    // ring is recorded but does not vote.
+    expect(supportsByCat.get("device_identity")).toEqual([]);
 
     // Single sufficient assessment (no evidence round).
     expect(r.answer.evidence_requests).toEqual([]);
     expect(r.rounds).toBe(0);
     expect(r.stopDecision).toEqual({ stop: true, reason: "sufficient_evidence" });
-    expect(r.answer.stop_reason).toContain("three independent evidence categories");
+    // Four now, not three: detect_patterns contributes a `policy_match` category.
+    expect(r.answer.stop_reason).toContain("four independent evidence categories");
 
-    // Budget: open + 3 gather + assessment + 2 records (BLOCK_CARD L1,
-    // FILE_REPORT L2 — shared device ring makes SAR required) = 7, exactly
-    // matching recorded fixture HHG-910's `tool_calls: 7`.
-    expect(r.toolCalls).toBe(7);
+    // Budget: open + 3 original gather + the 4 added sweep tools
+    // (detect_patterns, compute_velocity, retrieve_similar_cases, and the
+    // get_entity_profile that external enrichment reads the email domain from —
+    // the history row cannot carry it, TransactionHistoryRow being a frozen
+    // 6-field type) + the pre-window get_transaction_history that establishes
+    // the card's home region before the lookback window (so a clone's away
+    // purchases cannot define "home") + assessment + 2 records (BLOCK_CARD L1,
+    // FILE_REPORT L2 — shared device ring makes SAR required) = 12.
+    //
+    // This deliberately no longer matches recorded fixture HHG-910's
+    // `tool_calls: 7`. That fixture was recorded against a sweep that never
+    // called the pattern detectors, case-memory retrieval or external lookup,
+    // all of which CHALLENGE_BRIEF asks for; the extra coverage is worth losing
+    // parity on a call count. Still well inside DEFAULT_MAX_TOOL_CALLS (25).
+    expect(r.toolCalls).toBe(12);
     expect(r.answer.tool_calls).toBe(r.toolCalls);
 
     // Verdict/actions: high conviction → BLOCK_CARD (L1) + auto actions.
@@ -119,7 +174,9 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     expect(r.answer.case.graph_case_id).toBe("");
     expect(r.answer.case.written_to_graph).toBe(false);
     expect(r.answer.case.similar_prior_cases).toEqual(["CC-0500", "CC-0501"]);
-    expect(r.answer.case.evidence).toHaveLength(3);
+    // The structural channel claim shares txn_behavior with the card-testing
+    // detector, so items outnumber independent categories.
+    expect(r.answer.case.evidence.length).toBeGreaterThanOrEqual(4);
     expect(r.answer.case.evidence.every((e) => e.source === "graph")).toBe(true);
 
     const actions = r.recommendations.actions.map((a) => a.action);
@@ -160,9 +217,14 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     const reqResult = r.events.find((e) => e.type === "tool_result" && e.payload["tool"] === "request_evidence");
     expect(reqResult!.state).toBe("AWAITING_EVIDENCE");
 
-    // Evidence round ≤ maxEvidenceRounds; a customer_response item appears.
+    // The round still happens and is still recorded, but an unanswered request
+    // contributes no evidence: README §5 supplies no replies, so the responder
+    // reports a non-response instead of inventing one, and the machine declines
+    // to fold that into the store. Counting it would add an evidence category
+    // that raises the confidence cap while saying nothing.
+    expect(r.answer.evidence_requests.length).toBeGreaterThanOrEqual(1);
     const customerCategories = r.evidence.filter((e) => e.category === "customer_response");
-    expect(customerCategories.length).toBe(Math.min(r.rounds, 2));
+    expect(customerCategories.length).toBe(0);
     expect(r.rounds).toBeLessThanOrEqual(2);
 
     // asked_after_step points at the seq of the evidence_requested event.
@@ -183,12 +245,29 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     expect(r.answer.stop_reason).toContain("budget exhausted");
     expect(r.events.some((e) => e.type === "evidence_requested")).toBe(false);
     expect(r.answer.evidence_requests).toEqual([]);
-    // 4 budget (case_open + 3 gather; resolve_trigger free) + 1 assessment
-    // + 2 records (BLOCK_CARD + FILE_REPORT, SAR required on the shared ring).
-    expect(r.toolCalls).toBe(7);
+    // 4 budget (case_open + 3 gather; resolve_trigger free) + 1 assessment.
+    // The 3 gather calls are the window history, the pre-window home-region
+    // history and the ring query; the budget runs out before any profile or
+    // precedent lookup. What was gathered argues fraud from one category
+    // (txn_behavior), so the R1 guard (singleSignal.ts) files the mock's
+    // p = 0.89 just below the fraud line: R1 then asks for verification
+    // before any block, and FILE_REPORT must not appear on evidence the run
+    // never gathered.
+    expect(r.toolCalls).toBe(5);
+    const cap = r.events.find((e) => e.type === "assessment_updated")!.payload["r1_single_signal_cap"] as
+      | { independent_signals: string[]; fraud_probability_to: number }
+      | undefined;
+    expect(cap?.independent_signals).toEqual(["txn_behavior"]);
+    expect(cap!.fraud_probability_to).toBeLessThan(0.7);
+    const budgetActions = r.recommendations.actions.map((a) => a.action);
+    expect(budgetActions).toContain("VERIFY_WITH_CUSTOMER");
+    expect(budgetActions).not.toContain("BLOCK_CARD");
+    expect(budgetActions).not.toContain("FILE_REPORT");
     expect(r.answer.tool_calls).toBe(r.toolCalls);
-    // Still completes: decision + explanation + memory + done all emitted.
-    for (const t of ["approval_requested", "explanation", "memory_written", "done"]) {
+    // Still completes: explanation + memory + done all emitted. No block is
+    // recommended, so there is nothing to put up for approval.
+    expect(r.events.some((e) => e.type === "approval_requested")).toBe(false);
+    for (const t of ["explanation", "memory_written", "done"]) {
       expect(r.events.some((e) => e.type === t)).toBe(true);
     }
   });
@@ -211,7 +290,62 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
       true,
     );
   });
+
+  // Regression, three bugs one test. (a) `customer_denied` used to be set by
+  // *any* fraud-supporting evidence response -- an analyst note or a timed-out
+  // step-up included -- and a whole benchmark run closed as fraud at
+  // probabilities as low as 0.25. (b) The reply was then applied a second time
+  // in computeVerdict as an absolute veto, on top of the assessor having
+  // already weighed it as evidence. (c) The reply itself was fabricated by a
+  // hash bit, so (a) and (b) were amplifying noise: 6 of 6 confirmed-fraud
+  // cases drawing a scripted "customer confirms" closed legitimate in a
+  // 35-case backtest. Nothing is invented now, so an evidence round cannot
+  // move the verdict off what the graph evidence supports.
+  it("an unanswered evidence request never moves the verdict", async () => {
+    const r = await run({ script: scriptAtProbability(0.55) });
+
+    // The request was made and recorded, with the assumption stated plainly.
+    const asked = r.answer.evidence_requests;
+    expect(asked.length).toBeGreaterThanOrEqual(1);
+    for (const q of asked) {
+      expect(q.assumed_response).toMatch(/no .*(reply|outcome|analyst note) was (received|returned)/i);
+      expect(q.assumed_response).not.toMatch(/confirms|denies|did not make|completed successfully/i);
+    }
+
+    // 0.55 is the assessor's own figure and it survives the round untouched:
+    // no reply was received, so there is nothing to revise it with.
+    expect(r.answer.case.fraud_probability).toBeCloseTo(0.55, 5);
+    // Mid-band and unresolved -- not closed on a reply we made up.
+    expect(r.answer.case.verdict).toBe("uncertain");
+  });
+
+  it("verdict follows the probability bands when no cardholder answer settles it", async () => {
+    const high = await run({ script: scriptAtProbability(0.9) });
+    expect(high.answer.evidence_requests).toEqual([]);
+    expect(high.answer.case.verdict).toBe("fraud");
+
+    const low = await run({ script: scriptAtProbability(0.2) });
+    expect(low.answer.evidence_requests).toEqual([]);
+    expect(low.answer.case.verdict).toBe("legitimate");
+  });
 });
+
+function scriptAtProbability(p: number): MockScriptEntry[] {
+  return [
+    {
+      json: {
+        hypotheses: [
+          { fraud_type: "card_testing", probability: p, supporting: [], contradicting: [] },
+          { fraud_type: "legitimate", probability: 1 - p, supporting: [], contradicting: [] },
+        ],
+        risk_level: "MEDIUM",
+        risk_score: p,
+        confidence: 0.6,
+        legit_hypothesis_probability: 1 - p,
+      },
+    },
+  ];
+}
 
 class SingleTxnMcpClient implements McpClient {
   private readonly inner = new FakeMcpClient();
@@ -243,3 +377,39 @@ class SingleTxnMcpClient implements McpClient {
     return Promise.reject(new Error("SingleTxnMcpClient: no runInstalledQuery in this test harness"));
   }
 }
+
+describe("backtest isolation", () => {
+  it("reports written_to_graph only when persistCase is wired", async () => {
+    // The backtest scores the agent against closed cases living in the same
+    // graph it would write to, so persisting mid-sample lets later cases read
+    // earlier ones back as genuine prior cases. eval passes writeBackCase:false,
+    // and agentFactory then leaves deps.persistCase undefined. This pins both
+    // halves: wired => the write runs and is reported; absent => honest false.
+    const { FraudInvestigationMachine } = await import("../../agent/src/machine.js");
+    const { createToolProviders, createPolicyAdapters } = await import("../../agent/src/agentFactory.js");
+    const { createMcpClient } = await import("../../agent/src/mcpClient.js");
+
+    const build = async (persistCase?: unknown) =>
+      new FraudInvestigationMachine({
+        caseId: "HHG-WS4-1",
+        asOf: AS_OF,
+        trigger: TRIGGER,
+        llm: createLlmClient("mock"),
+        mcp: createMcpClient("fake"),
+        providers: await createToolProviders("fake", "HHG-WS4-1"),
+        policies: createPolicyAdapters(),
+        persistCase,
+      } as never).run();
+
+    const seen: string[] = [];
+    const wired = await build(async (req: { case_id: string }) => {
+      seen.push(req.case_id);
+      return { ok: true as const, graphCaseId: `GRAPH-${req.case_id}`, memoryWritten: true };
+    });
+    expect(seen).toEqual(["HHG-WS4-1"]);
+    expect(wired.answer?.case.written_to_graph).toBe(true);
+
+    const absent = await build(undefined);
+    expect(absent.answer?.case.written_to_graph).toBe(false);
+  });
+});

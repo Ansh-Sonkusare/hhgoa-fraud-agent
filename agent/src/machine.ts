@@ -11,6 +11,7 @@ import type {
   EvidenceRequest,
   EvidenceRequestType,
   EvidenceResponse,
+  Hypothesis,
   MissingEvidence,
   NextBestAction,
   Pattern,
@@ -21,7 +22,10 @@ import type {
 } from "@hhgoa/contracts";
 import { AnswerFileSchema, AssessmentSchema, EvidenceRequestTypeSchema } from "@hhgoa/contracts";
 import { getPolicyConfig, sarRequired, type PolicyToolAdapters } from "@hhgoa/policy";
-import { assess, canonicalPattern, distinctEvidenceCategories, topFraudHypothesis } from "./assess.js";
+import { assess, deriveRiskLevel, distinctEvidenceCategories, resolvePatternLabel, topFraudHypothesis, fraudProbability } from "./assess.js";
+import { capSingleSignal, type SingleSignalCap } from "./singleSignal.js";
+import { applyChannelRule, applyNewDeviceRule, type ChannelRule, type NewDeviceRule } from "./patternRules.js";
+import { describeProxyDeviceRing, describeStructuringBurst } from "./evidenceBuilder.js";
 import { buildExplanation } from "./explain.js";
 import { buildContextBundle, renderContextBundle } from "./contextBuilder.js";
 import { createFacts, createEvidenceIdGen, runSharedOriginCorroboration, runStandardGather, type InvestigationFacts, type GatherRuntime } from "./investigation.js";
@@ -30,11 +34,12 @@ import { recommendActions, summarizeChange, type Recommendations } from "./recom
 import { describeEvaluateStop, evaluateStop, type StopRuleDecision, type StopReason } from "./stopRule.js";
 import { estimateTokens } from "./structured.js";
 import { EventLog } from "./events.js";
-import { DEFAULT_MAX_TOOL_CALLS, ToolRegistry } from "./toolsRegistry.js";
+import { DEFAULT_MAX_TOOL_CALLS, ToolBudgetExceededError, ToolRegistry } from "./toolsRegistry.js";
 import type { LlmClient } from "./llm.js";
 import type { McpClient } from "./mcpClient.js";
 import type { ToolCatalog } from "@hhgoa/contracts";
 import { buildCaseStateForPolicy } from "./caseState.js";
+import { applyPatternScore, renderScorerState, type PatternScorer } from "./patternScorer.js";
 
 /**
  * The WS4 state machine (PRD §9.2). Drives exactly the states and event
@@ -112,6 +117,12 @@ export interface MachineDeps {
   maxToolCalls?: number;
   maxEvidenceRounds?: number;
   maxInvestigateLoops?: number;
+  /**
+   * Optional pattern scorer (Jev / Kev decision model). When present it
+   * re-ranks the documented patterns after each assessment; the LLM's
+   * fraud-vs-legitimate mass is kept.
+   */
+  scorer?: PatternScorer | null;
 }
 
 export interface RunResult {
@@ -135,21 +146,38 @@ function money(n: number): string {
 }
 
 function toCaseEvidence(item: EvidenceItem): CaseEvidence {
+  // README's own worked example files a GSQL query result as source `graph` with
+  // ref `query:card_window(...)`, and reserves `document` for text cited by
+  // section. The `policy_match` category is emitted only by detect_patterns,
+  // which is a GSQL query over the graph -- it matches the *documented* patterns
+  // but the evidence is computed by traversal, not read out of the policy. It was
+  // being filed as `document`, overstating that a policy passage had been read.
   const source: CaseEvidence["source"] =
     item.category === "customer_response"
       ? "customer"
       : item.category === "external"
         ? "external"
-        : item.category === "policy_match"
+        : item.category === "policy_match" && item.source_tool !== "detect_patterns"
           ? "document"
           : "graph";
   return {
     claim: item.summary,
     source,
     ref: item.id,
-    entity_ids: item.entities.map((e) => e.id),
+    // Cards the dataset never names carry a synthetic "X<card1>-K<rank>" id
+    // (see graph/scripts/prepareLoadFiles.ts). They are real vertices, but not
+    // real dataset ids, and every id an answer cites has to exist in the
+    // dataset or it scores as fabricated.
+    entity_ids: item.entities.map((e) => e.id).filter((id) => !SYNTHETIC_CARD_ID.test(id)),
   };
 }
+
+const SYNTHETIC_CARD_ID = /^X\d+-K\d+$/;
+
+/** Probability at or above which the evidence alone reads as fraud. */
+const FRAUD_VERDICT_THRESHOLD = 0.7;
+/** Probability at or below which the evidence alone reads as legitimate. */
+const LEGITIMATE_VERDICT_THRESHOLD = 0.4;
 
 export class FraudInvestigationMachine {
   private readonly events: EventLog;
@@ -165,6 +193,10 @@ export class FraudInvestigationMachine {
   private rounds = 0;
   private tokens = 0;
   private noDiscriminatingEvidence = false;
+  /** Set when the R1 single-signal guard capped the last assessment. */
+  private singleSignalCap: SingleSignalCap | null = null;
+  private newDeviceRule: NewDeviceRule | null = null;
+  private channelRule: ChannelRule | null = null;
   private writtenToGraph = false;
 
   constructor(private readonly deps: MachineDeps) {
@@ -198,6 +230,46 @@ export class FraudInvestigationMachine {
     this.events.emit("evidence_added", state, { evidence: item });
   }
 
+  /** The LLM-free evidence sweep that opens every run. */
+  private async gather(): Promise<void> {
+    const gatherRuntime: GatherRuntime = {
+      catalog: this.registry.catalog,
+      facts: this.facts,
+      idGen: this.idGen,
+      asOf: this.deps.asOf,
+      onEvidence: (item) => {
+        this.onEvidence(item, "INVESTIGATING");
+        return Promise.resolve();
+      },
+    };
+    // The sweep is best-effort against the tool budget. beginTool throws
+    // ToolBudgetExceededError once the budget is gone, and the gather steps have
+    // no view of the registry to check first, so exhaustion partway through has
+    // to be caught here: the run then assesses on the evidence it did collect
+    // and the stop rule finalizes as budget_exhausted. Before the sweep grew to
+    // cover the brief's full evidence list it happened to fit inside even a
+    // 4-call budget, so this path was never exercised and the error escaped
+    // run() instead of stopping the case cleanly.
+    try {
+      await runStandardGather(gatherRuntime);
+      // Corroboration second opinion (conditional; see investigation.ts).
+      await runSharedOriginCorroboration(gatherRuntime);
+    } catch (err) {
+      if (!(err instanceof ToolBudgetExceededError)) throw err;
+    }
+  }
+
+  /**
+   * Runs only the evidence sweep and returns what it collected: no case is
+   * opened, no LLM is called, nothing is written. The Kev training export uses
+   * this so the states a scorer learns from are built by exactly the code that
+   * builds them at inference.
+   */
+  async collectEvidence(): Promise<EvidenceItem[]> {
+    await this.gather();
+    return [...this.evidenceStore];
+  }
+
   private async assessRound(): Promise<{
     assessment: Assessment;
     recs: Recommendations;
@@ -214,17 +286,60 @@ export class FraudInvestigationMachine {
     });
     const contextText = renderContextBundle(bundle);
     const placeholder: Sufficiency = { sufficient: false, missing: [], stop_reason: null };
+    // Assessor stage count is a measured switch, not a preference. Two-stage
+    // (triage classifies with no numbers, then calibration scores the
+    // survivors over a distilled brief) was tried to break the single-call
+    // hedge where 7 of 20 probabilities sat on exactly 0.65. On the same
+    // leak-free 20-case sample it did the opposite of what it was for:
+    // pattern exact 47.1% -> 17.6%, false negatives 0/17 -> 6/17, decision
+    // agreement 85% -> 60%. Two of those false negatives were the 7B triage
+    // marking card_testing fits=false on 300+ evidence items, so calibration
+    // never saw a fraud hypothesis and filed ALLOW + CLOSE_NO_FRAUD on
+    // confirmed fraud. The split hands a small model a judgement it makes
+    // worse in pieces than in one pass. Single-stage is the default; set
+    // ASSESSOR_STAGES=2 to measure the other path again.
+    const prompts = await import("./prompts.js");
+    const stages: 1 | 2 = process.env.ASSESSOR_STAGES === "2" ? 2 : 1;
     const out = await assess({
       llm: this.llm,
-      systemPrompt: await import("./prompts.js").then((p) => p.assessSystemPrompt()),
+      stages,
+      systemPrompt: prompts.assessSystemPrompt(),
+      triageSystemPrompt: prompts.triageSystemPrompt(),
+      calibrateSystemPrompt: prompts.calibrateSystemPrompt(),
       contextText,
       trigger: this.facts.trigger,
       evidence: this.evidenceStore,
       sufficiency: placeholder,
     });
     this.tokens += out.structured.rawTexts.reduce((s, t) => s + estimateTokens(t), 0);
+    const reranked = await this.scorerRerank(out.assessment.hypotheses);
+    if (reranked) out.assessment = { ...out.assessment, hypotheses: reranked };
+    // Channel rule (patternRules.ts): a card-present pattern does not top a
+    // case whose flagged charge was online.
+    const channel = applyChannelRule(out.assessment.hypotheses, this.evidenceStore);
+    if (channel) out.assessment = { ...out.assessment, hypotheses: channel.hypotheses };
+    this.channelRule = channel;
+    // Pattern 3's definition (patternRules.ts): a CNP reading of a case whose
+    // flagged charge is on a New device is the new-device pattern.
+    const newDevice = applyNewDeviceRule(out.assessment.hypotheses, this.evidenceStore);
+    if (newDevice) out.assessment = { ...out.assessment, hypotheses: newDevice.hypotheses };
+    this.newDeviceRule = newDevice;
+    // R1 guard (singleSignal.ts): a fraud reading resting on one independent
+    // signal is filed just below the fraud line, so R1's verification runs
+    // before any block.
+    const capped = capSingleSignal(out.assessment.hypotheses, this.evidenceStore, FRAUD_VERDICT_THRESHOLD - 0.01);
+    if (capped) {
+      const legit = capped.hypotheses.find((h) => h.fraud_type === "legitimate")?.probability ?? 0;
+      out.assessment = {
+        ...out.assessment,
+        hypotheses: capped.hypotheses,
+        legit_hypothesis_probability: legit,
+        risk_level: deriveRiskLevel(capped.to),
+      };
+    }
+    this.singleSignalCap = capped;
 
-    const recs = recommendActions(this.facts, out.assessment, this.evidenceStore);
+    const recs = recommendActions(this.facts, out.assessment, this.evidenceStore, this.computeVerdict(out.assessment));
     const categories = distinctEvidenceCategories(this.evidenceStore);
     const allExhausted =
       this.rounds >= this.maxRounds || this.registry.budgetExhausted || this.noDiscriminatingEvidence;
@@ -242,7 +357,32 @@ export class FraudInvestigationMachine {
     const assessment = finalizeWithSufficiency(out.assessment, decision.stop, decision.reason, this.missingFor(decision, categories));
     // Silent (budgeted) case bookkeeping, then surface the assessed state.
     await this.registry.caseUpdateAssessment(assessment);
-    this.events.emit("assessment_updated", "ASSESSING", { assessment });
+    this.events.emit("assessment_updated", "ASSESSING", {
+      assessment,
+      ...(this.newDeviceRule
+        ? { pattern_rule: { rule: "new_device_is_pattern_3", moved: this.newDeviceRule.moved, evidence: this.newDeviceRule.item } }
+        : {}),
+      ...(this.channelRule
+        ? {
+            channel_rule: {
+              rule: "online_flag_rules_out_card_present",
+              from: this.channelRule.from,
+              to: this.channelRule.to,
+              moved: this.channelRule.moved,
+              evidence: this.channelRule.item,
+            },
+          }
+        : {}),
+      ...(this.singleSignalCap
+        ? {
+            r1_single_signal_cap: {
+              fraud_probability_from: this.singleSignalCap.from,
+              fraud_probability_to: this.singleSignalCap.to,
+              independent_signals: this.singleSignalCap.signals,
+            },
+          }
+        : {}),
+    });
 
     const stopReasonText = describeEvaluateStop(
       {
@@ -259,6 +399,28 @@ export class FraudInvestigationMachine {
     );
 
     return { assessment, recs, decision, stopReasonText };
+  }
+
+  /**
+   * The scorer's pattern distribution over the current evidence, applied to
+   * the assessor's hypotheses. Logged as a tool call (`<name>_pattern_score`)
+   * so the trail shows it; any failure leaves the assessor's ranking in place.
+   */
+  private async scorerRerank(hypotheses: Hypothesis[]): Promise<Hypothesis[] | null> {
+    const scorer = this.deps.scorer;
+    if (!scorer) return null;
+    const tool = `${scorer.name}_pattern_score`;
+    const state = renderScorerState(this.evidenceStore, scorer.stateLimits);
+    this.events.emit("tool_call", "ASSESSING", { tool, args: { state } });
+    try {
+      const score = await scorer.scorePattern(state);
+      this.events.emit("tool_result", "ASSESSING", { tool, result: { ok: true, data: score } });
+      return applyPatternScore(hypotheses, score, this.evidenceStore);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      this.events.emit("tool_result", "ASSESSING", { tool, result: { ok: false, error } });
+      return null;
+    }
   }
 
   private missingFor(decision: StopRuleDecision, categories: EvidenceCategory[]): MissingEvidence[] {
@@ -348,13 +510,31 @@ export class FraudInvestigationMachine {
 
     this.emitState("EVIDENCE_RECEIVED");
     const response: EvidenceResponse | null = envelope.ok ? (envelope.data as EvidenceResponse) : null;
-    const evidence = response?.evidence ?? null;
+    // A request that came back unanswered is not evidence. The dataset supplies
+    // no cardholder or analyst replies (README §5), so the responder reports a
+    // non-response rather than inventing one; folding that into the store would
+    // add a `customer_response` category that raises the confidence cap while
+    // saying nothing. The request itself is still recorded in `reqLog` below.
+    const evidence = response?.responded ? (response.evidence ?? null) : null;
     if (evidence) {
       // Result of the request is itself evidence (PRD §8.3, category
       // customer_response): surface it and fold its verdict into the facts.
       this.onEvidence(evidence, "EVIDENCE_RECEIVED");
-      if (evidence.supports.includes("fraud")) this.facts.customer_denied = true;
-      if (evidence.supports.includes("legitimate")) this.facts.customer_confirmed = true;
+      // These two facts mean what they say: the cardholder themselves
+      // answered. Only a cardholder-facing verification may set them. An
+      // analyst_info note is third-party colour and is already counted as
+      // ordinary evidence by onEvidence() above; promoting it to a cardholder
+      // statement is not harmless, because computeVerdict treats a denial as
+      // decisive and policy's `min_probability_unless_customer_denied` lets it
+      // bypass the probability prerequisite for blocking actions.
+      // A *failed* step-up is not a denial (the cardholder may simply never
+      // have answered), but a *completed* one is affirmative proof of presence.
+      if (chosen.type === "customer_validation") {
+        if (evidence.supports.includes("fraud")) this.facts.customer_denied = true;
+        if (evidence.supports.includes("legitimate")) this.facts.customer_confirmed = true;
+      } else if (chosen.type === "step_up_auth" && evidence.supports.includes("legitimate")) {
+        this.facts.customer_confirmed = true;
+      }
     }
     this.reqLog.push({
       type: chosen.type,
@@ -407,19 +587,73 @@ export class FraudInvestigationMachine {
     this.events.emit("memory_written", "MEMORY_UPDATE", { graph_case_id: this.graphCaseId });
   }
 
-  /** Verdict: customer denial or high conviction → fraud; low → legitimate. */
+  /** Verdict: a cardholder verification settles it; otherwise conviction bands. */
+  /**
+   * The probability we file, reconciled with a cardholder verification.
+   *
+   * `fraud_probability` is scored for calibration, so it has to agree with
+   * the verdict. The cardholder's own answer settles the question (README
+   * sec.6) and computeVerdict honours that, but the number came from the
+   * assessor, which weighs a denial as just one more evidence item — HHG-006
+   * filed `verdict: fraud` alongside `fraud_probability: 0.25` after the
+   * cardholder denied the charge. A verification answer is authoritative, so
+   * the posterior is pulled into the band its verdict implies rather than
+   * left to the model's own weighting of it.
+   */
+  private reconciledProbability(assessment: Assessment, verdict: Verdict): number {
+    const top = topFraudHypothesis(assessment);
+    const raw = fraudProbability(assessment);
+    const denied = this.facts.customer_denied;
+    const confirmed = this.facts.customer_confirmed;
+    if (denied === confirmed) return raw;
+    if (denied && verdict === "fraud") return Math.max(raw, FRAUD_VERDICT_THRESHOLD);
+    if (confirmed && verdict === "legitimate") return Math.min(raw, LEGITIMATE_VERDICT_THRESHOLD);
+    return raw;
+  }
+
   private computeVerdict(assessment: Assessment): Verdict {
     const top = topFraudHypothesis(assessment);
-    const topProb = top?.probability ?? assessment.legit_hypothesis_probability ?? 0;
-    if (this.facts.customer_denied) return "fraud";
-    if (topProb >= 0.7) return "fraud";
-    if (topProb <= 0.4) return "legitimate";
+    const topProb = fraudProbability(assessment);
+    // A verification response settles the question (README §6) — in *both*
+    // directions. A denial used to override the probability outright while a
+    // confirmation moved nothing, so cases closed as fraud at p=0.25.
+    const denied = this.facts.customer_denied;
+    const confirmed = this.facts.customer_confirmed;
+    // The reply is SIMULATED by us -- README §5 says cardholder and analyst
+    // replies "are not provided" and instructs us to simulate them, so it is a
+    // documented assumption, not a recorded fact. It reaches the assessor as an
+    // ordinary evidence item and is already priced into `topProb`. Applying it
+    // again here as a veto counted it twice: every confirmed-fraud case that
+    // drew a scripted "customer confirms" closed legitimate (6 of 6 in a
+    // 35-case backtest, 6 of the 8 false negatives), discarding graph evidence
+    // that ran to 159 items on one of them. The bands decide; a reply only
+    // breaks the tie inside the uncertain span, which is also how README's own
+    // worked example treats it ("denial raised probability from 0.72 to 0.86"
+    // -- an update, not an override).
+    if (topProb >= FRAUD_VERDICT_THRESHOLD) return "fraud";
+    if (topProb <= LEGITIMATE_VERDICT_THRESHOLD) {
+      // A denial against near-exculpatory evidence is a genuine conflict, not a
+      // clearance: report it as unresolved rather than closing either way.
+      return denied && !confirmed ? "uncertain" : "legitimate";
+    }
+    if (denied && !confirmed) return "fraud";
     return "uncertain";
   }
 
   private resolveStatus(): CaseStatus {
     const recs = this.finalRecs;
-    if (recs && recs.actions.some((a) => a.route === "L1" || a.route === "L2")) return "escalated";
+    // `open` means more evidence is still pending (README, Answer Format). A
+    // case handed to an analyst is not pending — it is escalated, whether it
+    // got there via an approval route or via R8's ESCALATE_TO_ANALYST (which
+    // is agent-executable, so it carries no L1/L2 route of its own).
+    if (
+      recs &&
+      recs.actions.some(
+        (a) => a.route === "L1" || a.route === "L2" || a.action === "ESCALATE_TO_ANALYST",
+      )
+    ) {
+      return "escalated";
+    }
     const v = this.cachedVerdict;
     if (v === "fraud") return "closed_fraud";
     if (v === "legitimate") return "closed_legitimate";
@@ -434,16 +668,14 @@ export class FraudInvestigationMachine {
 
   private async buildSar(assessment: Assessment, recs: Recommendations): Promise<Sar> {
     const cs = buildCaseStateForPolicy(this.facts, assessment, this.evidenceStore);
-    const top = topFraudHypothesis(assessment);
-    const pattern = canonicalPattern(top?.fraud_type ?? null);
+    const pattern = resolvePatternLabel(assessment, this.graphUndocumented());
     const pendingReport = recs.actions.some((a) => a.action === "FILE_REPORT");
     if (!pendingReport || !sarRequired(cs)) {
       return { file: false, reason: "", narrative: "", subjects: [], total_amount_usd: 0, activity_dates: [] };
     }
     const affectedSet = new Set(this.facts.affected_txn_ids);
     const affectedTxns = this.facts.txn_rows.filter((r) => affectedSet.has(r.txn_id));
-    const pattern_description =
-      pattern === "undocumented" ? `Top hypothesis "${top?.fraud_type ?? "undocumented"}"` : "";
+    const pattern_description = pattern === "undocumented" ? this.undocumentedDescription() : "";
     const channelSummary =
       affectedTxns.length > 0 && affectedTxns.every((t) => t.channel === "online")
         ? "entirely online (card-not-present)"
@@ -472,15 +704,62 @@ export class FraudInvestigationMachine {
     return this.policies.generate_sar(this.facts.case_id).then((env) => env.data);
   }
 
+  /**
+   * The graph names `undocumented`: the flagged charge's device is the
+   * cross-card anonymous-proxy ring, or detect_patterns found the
+   * amount-structuring burst. Either way it is a graph finding, not a guess.
+   */
+  private graphUndocumented(): boolean {
+    return (
+      Boolean(this.facts.proxy_device_ring) ||
+      this.facts.patterns.some((p) => p.pattern_id === "undocumented")
+    );
+  }
+
+  /**
+   * R9: an undocumented pattern is described "in your own words". The device
+   * ring describes itself from its own counts. Otherwise the case is fraud
+   * the documented patterns do not fit -- the old text quoted the model's
+   * hypothesis name, which was "legitimate" or empty by construction here.
+   */
+  private undocumentedDescription(): string {
+    const ring = this.facts.proxy_device_ring;
+    if (ring) return describeProxyDeviceRing(ring);
+    const structuring = this.facts.patterns.find((p) => p.pattern_id === "undocumented");
+    if (structuring) return describeStructuringBurst(structuring.evidence, this.facts.txn_rows, this.facts.primary_card?.id);
+    return this.facts.customer_denied
+      ? "Activity the cardholder does not recognise that matches none of the documented patterns"
+      : "Activity assessed as fraud that matches none of the five documented patterns";
+  }
+
   private async assemble(assessment: Assessment, recs: Recommendations, stopReasonText: string): Promise<AnswerFile> {
     const top = topFraudHypothesis(assessment);
-    const topProb = top?.probability ?? assessment.legit_hypothesis_probability ?? 0;
-    const pattern = canonicalPattern(top?.fraud_type ?? null) as Pattern;
+    const topProb = fraudProbability(assessment);
     const verdict = this.cachedVerdict;
     const legit = verdict === "legitimate";
-    const pattern_description =
-      pattern === "undocumented" ? `Top hypothesis "${top?.fraud_type ?? "undocumented"}"` : "";
+    // README: "Cleared cases have `pattern` = `none`" — so `none` belongs to a
+    // case we are clearing, not to one we are calling fraud. A cardholder
+    // denial can force a fraud verdict while the model's top hypothesis is
+    // still `legitimate`, which filed "fraud, pattern none". Activity we
+    // believe is fraud but cannot name is `undocumented` (R9), which the
+    // answer format requires to carry a description.
+    const named = resolvePatternLabel(assessment, this.graphUndocumented()) as Pattern;
+    // The pattern has to agree with the verdict in both directions: a case we
+    // are clearing carries `none`, and one we are calling fraud never does.
+    const pattern: Pattern = legit ? "none" : named === "none" ? "undocumented" : named;
+    const pattern_description = pattern === "undocumented" ? this.undocumentedDescription() : "";
     const cs = buildCaseStateForPolicy(this.facts, assessment, this.evidenceStore);
+
+    // README: affected_txn_ids is "every transaction you believe is part of
+    // the same fraud episode, including the flagged one". The flagged
+    // transaction can fall outside the history sweep (a disputed charge the
+    // window missed), so add it back rather than report an episode that
+    // omits the very transaction the case was opened on.
+    const flaggedId = this.facts.txn?.id ?? "";
+    const affectedTxnIds =
+      flaggedId && !this.facts.affected_txn_ids.includes(flaggedId)
+        ? [flaggedId, ...this.facts.affected_txn_ids]
+        : this.facts.affected_txn_ids;
 
     const sar = await this.buildSar(assessment, recs);
 
@@ -495,13 +774,11 @@ export class FraudInvestigationMachine {
       case: {
         status: this.resolveStatus(),
         verdict,
-        fraud_probability: Math.round(topProb * 1e6) / 1e6,
+        fraud_probability: Math.round(this.reconciledProbability(assessment, verdict) * 1e6) / 1e6,
         pattern,
         pattern_description,
-        affected_txn_ids: legit ? [] : this.facts.affected_txn_ids,
-        first_suspicious_txn_id: legit
-          ? ""
-          : (this.facts.affected_txn_ids[0] ?? this.facts.txn?.id ?? ""),
+        affected_txn_ids: legit ? [] : affectedTxnIds,
+        first_suspicious_txn_id: legit ? "" : (affectedTxnIds[0] ?? ""),
         connected_card_ids: this.facts.connected_card_ids,
         connected_device_profiles: this.facts.device_profiles,
         exposure_usd: legit ? 0 : Math.round(this.facts.exposure_usd * 100) / 100,
@@ -516,7 +793,7 @@ export class FraudInvestigationMachine {
         initial: this.initialRecs?.actions ?? [],
         final: recs.actions,
         what_changed: this.initialRecs
-          ? summarizeChange(this.initialRecs.actions, recs.actions, assessment, this.facts)
+          ? summarizeChange(this.initialRecs.actions, recs.actions, assessment, this.facts, this.reqLog)
           : "nothing",
       },
       sar,
@@ -537,19 +814,7 @@ export class FraudInvestigationMachine {
     this.graphCaseId = open.ok ? ((open.data as { graph_case_id?: string })?.graph_case_id ?? this.deps.caseId) : this.deps.caseId;
 
     this.emitState("INVESTIGATING");
-    const gatherRuntime: GatherRuntime = {
-      catalog: this.registry.catalog,
-      facts: this.facts,
-      idGen: this.idGen,
-      asOf: this.deps.asOf,
-      onEvidence: (item) => {
-        this.onEvidence(item, "INVESTIGATING");
-        return Promise.resolve();
-      },
-    };
-    await runStandardGather(gatherRuntime);
-    // Corroboration second opinion (conditional; see investigation.ts).
-    await runSharedOriginCorroboration(gatherRuntime);
+    await this.gather();
 
     let stopDecision: StopRuleDecision = { stop: false, reason: null };
     let stopReasonText = "";

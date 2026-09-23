@@ -4,7 +4,8 @@ import { createMcpClient, type McpClient } from "./mcpClient.js";
 import { FraudInvestigationMachine, type MachineDeps, type RunResult } from "./machine.js";
 import { persistCaseToGraph } from "./persistCase.js";
 import { InMemoryCaseLedger } from "./caseLedger.js";
-import type { ToolCatalog, Trigger } from "@hhgoa/contracts";
+import { patternScorerFromEnv, type PatternScorer } from "./patternScorer.js";
+import type { EvidenceItem, ToolCatalog, Trigger } from "@hhgoa/contracts";
 import { fakes } from "@hhgoa/contracts";
 import { createRagRuntime, type RagRuntime } from "@hhgoa/rag";
 import {
@@ -150,10 +151,57 @@ export interface RunAgentOptions {
   maxToolCalls?: number;
   maxEvidenceRounds?: number;
   maxInvestigateLoops?: number;
+  /**
+   * Write the closed case back into graph + RAG memory. On by default for a
+   * real backend. A measurement harness must pass false: the backtest scores
+   * the agent against closed cases that live in the same store, so persisting
+   * synthetic records mid-run contaminates the very memory being measured —
+   * later cases in the sample read earlier ones back as genuine prior cases.
+   */
+  writeBackCase?: boolean;
+  /** Pattern scorer; defaults to patternScorerFromEnv() on a real backend, none otherwise. */
+  scorer?: PatternScorer | null;
 }
 
 /** Build and run a full case end-to-end with default (fake/mock) services. */
 export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
+  return (await buildMachine(options)).run();
+}
+
+/**
+ * The evidence the agent would gather on this case at `asOf`, with no LLM call,
+ * no case opened and nothing written back. Used by the Kev training export.
+ */
+export async function collectCaseEvidence(options: RunAgentOptions): Promise<EvidenceItem[]> {
+  return (await buildMachine({ ...options, writeBackCase: false })).collectEvidence();
+}
+
+export interface EvidenceCollector {
+  collect(target: { caseId: string; asOf: string; trigger: Trigger }): Promise<EvidenceItem[]>;
+  close(): Promise<void>;
+}
+
+/**
+ * A reusable real-backend evidence collector: one RAG runtime and one MCP
+ * connection shared across many cases, where runAgent builds both per case.
+ */
+export async function createEvidenceCollector(): Promise<EvidenceCollector> {
+  const rag = createRagRuntime();
+  await rag.ensureIngested();
+  const mcp = createMcpClient("real");
+  return {
+    collect: async (target) =>
+      collectCaseEvidence({
+        ...target,
+        backend: "real",
+        mcp,
+        providers: await createToolProviders("real", target.caseId, rag),
+      }),
+    close: () => mcp.close(),
+  };
+}
+
+async function buildMachine(options: RunAgentOptions): Promise<FraudInvestigationMachine> {
   const backend = options.backend ?? "fake";
   const mcp = options.mcp ?? createMcpClient(backend);
   let providers = options.providers;
@@ -165,7 +213,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       const rag = createRagRuntime();
       await rag.ensureIngested();
       providers = await createToolProviders("real", options.caseId, rag);
-      persistCase = (request) => persistCaseToGraph(mcp, rag, request);
+      if (options.writeBackCase !== false) {
+        persistCase = (request) => persistCaseToGraph(mcp, rag, request);
+      }
     } else {
       providers = await createToolProviders("fake", options.caseId);
     }
@@ -183,6 +233,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     maxToolCalls: options.maxToolCalls,
     maxEvidenceRounds: options.maxEvidenceRounds,
     maxInvestigateLoops: options.maxInvestigateLoops,
+    scorer: options.scorer !== undefined ? options.scorer : backend === "real" ? patternScorerFromEnv() : null,
   });
-  return machine.run();
+  return machine;
 }

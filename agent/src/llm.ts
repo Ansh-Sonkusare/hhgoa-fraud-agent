@@ -34,6 +34,14 @@ export interface LlmCall {
   temperature?: number;
   /** Ask the model to stream JSON back (Ollama `format: "json"`). */
   jsonMode?: boolean;
+  /**
+   * JSON Schema the reply must satisfy. On an OpenAI-compatible server that
+   * supports it (llama.cpp does, via GBNF) this constrains decoding, so the
+   * shape is guaranteed rather than hoped for — `json_object` alone only
+   * promises *valid* JSON, which is how a 7B model came to flatten
+   * `hypotheses[]` into top-level keys and fail every parse.
+   */
+  jsonSchema?: { name: string; schema: Record<string, unknown> };
 }
 
 export interface LlmResult {
@@ -51,6 +59,10 @@ export interface OllamaOptions {
   baseUrl?: string;
   model?: string;
   fetchFn?: typeof fetch;
+  /** Waits between retries; injectable so tests do not sleep. */
+  sleepFn?: (ms: number) => Promise<void>;
+  /** Give up after this long spent retrying (ms). Default LLM_RETRY_MAX_WAIT_S, 900 s. */
+  maxRetryWaitMs?: number;
 }
 
 function envOr(fallback: string, envName: string): string {
@@ -70,9 +82,36 @@ export class OllamaLlmClient implements LlmClient {
     const hostFromEnv = process.env["OLLAMA_HOST"] ?? process.env["OLLAMA_URL"];
     this.baseUrl = opts.baseUrl ?? envOr("http://localhost:11434", hostFromEnv ?? "OLLAMA_URL");
     this.fetchFn = opts.fetchFn ?? fetch;
+    this.sleepFn = opts.sleepFn ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.maxRetryWaitMs = opts.maxRetryWaitMs ?? Number(process.env["LLM_RETRY_MAX_WAIT_S"] ?? "900") * 1000;
   }
 
+  private readonly sleepFn: (ms: number) => Promise<void>;
+  private readonly maxRetryWaitMs: number;
+
+  /**
+   * One chat completion, retried while the server is unavailable. A run with
+   * several cases in flight must not lose a case because llama-server was
+   * restarting, busy or briefly out of KV cache: the call waits with backoff
+   * (2 s doubling to 30 s) and tries again, up to maxRetryWaitMs in total.
+   */
   async complete(call: LlmCall): Promise<LlmResult> {
+    let waited = 0;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.completeOnce(call);
+      } catch (err) {
+        const delay = Math.min(30_000, 2_000 * 2 ** attempt);
+        if (!isRetryableLlmFailure(err) || waited + delay > this.maxRetryWaitMs) throw err;
+        const why = err instanceof Error ? err.message.slice(0, 160) : String(err);
+        process.stderr.write(`llm: attempt ${attempt + 1} failed (${why}); retrying in ${delay / 1000}s\n`);
+        await this.sleepFn(delay);
+        waited += delay;
+      }
+    }
+  }
+
+  private async completeOnce(call: LlmCall): Promise<LlmResult> {
     const messages: LlmMessage[] = [];
     if (call.system) messages.push({ role: "system", content: call.system });
     if (call.messages.length > 0) messages.push(...call.messages);
@@ -91,16 +130,17 @@ export class OllamaLlmClient implements LlmClient {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      throw new Error(
+      throw new LlmHttpError(
         `OllamaLlmClient: ${this.baseUrl}/api/chat failed with HTTP ${res.status} ` +
           `(${this.model}); is ` +
           `"ollama serve" running and ${this.model} pulled?`,
+        res.status,
       );
     }
     const payload: unknown = await res.json();
     const message = (payload as { message?: { content?: unknown } }).message;
     if (!message || typeof message.content !== "string") {
-      throw new Error(`OllamaLlmClient: /api/chat response missing message.content`);
+      throw new LlmResponseError(`OllamaLlmClient: /api/chat response missing message.content`);
     }
     const usage = payload as {
       prompt_eval_count?: number;
@@ -121,6 +161,33 @@ export interface OpenAiCompatOptions {
   baseUrl?: string;
   model?: string;
   fetchFn?: typeof fetch;
+  /** Waits between retries; injectable so tests do not sleep. */
+  sleepFn?: (ms: number) => Promise<void>;
+  /** Give up after this long spent retrying (ms). Default LLM_RETRY_MAX_WAIT_S, 900 s. */
+  maxRetryWaitMs?: number;
+}
+
+/**
+ * Whether a failed call is worth repeating: the server was unreachable, timed
+ * out, overloaded or restarting (network error, abort, HTTP 429/5xx). A 4xx
+ * such as a prompt larger than the context is deterministic and is not retried.
+ */
+export function isRetryableLlmFailure(err: unknown): boolean {
+  if (err instanceof LlmHttpError) return err.status === 429 || err.status >= 500;
+  // A server that answered with a malformed body is up; asking again will not help.
+  if (err instanceof LlmResponseError) return false;
+  return true;
+}
+
+export class LlmResponseError extends Error {}
+
+export class LlmHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
 }
 
 /**
@@ -141,9 +208,36 @@ export class OpenAiCompatLlmClient implements LlmClient {
     this.model = opts.model ?? envOr(envOr("llama3.1", "OLLAMA_MODEL"), "LLM_MODEL");
     this.baseUrl = opts.baseUrl ?? envOr("http://localhost:8080", "LLM_BASE_URL");
     this.fetchFn = opts.fetchFn ?? fetch;
+    this.sleepFn = opts.sleepFn ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.maxRetryWaitMs = opts.maxRetryWaitMs ?? Number(process.env["LLM_RETRY_MAX_WAIT_S"] ?? "900") * 1000;
   }
 
+  private readonly sleepFn: (ms: number) => Promise<void>;
+  private readonly maxRetryWaitMs: number;
+
+  /**
+   * One chat completion, retried while the server is unavailable. A run with
+   * several cases in flight must not lose a case because llama-server was
+   * restarting, busy or briefly out of KV cache: the call waits with backoff
+   * (2 s doubling to 30 s) and tries again, up to maxRetryWaitMs in total.
+   */
   async complete(call: LlmCall): Promise<LlmResult> {
+    let waited = 0;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.completeOnce(call);
+      } catch (err) {
+        const delay = Math.min(30_000, 2_000 * 2 ** attempt);
+        if (!isRetryableLlmFailure(err) || waited + delay > this.maxRetryWaitMs) throw err;
+        const why = err instanceof Error ? err.message.slice(0, 160) : String(err);
+        process.stderr.write(`llm: attempt ${attempt + 1} failed (${why}); retrying in ${delay / 1000}s\n`);
+        await this.sleepFn(delay);
+        waited += delay;
+      }
+    }
+  }
+
+  private async completeOnce(call: LlmCall): Promise<LlmResult> {
     const messages: LlmMessage[] = [];
     if (call.system) messages.push({ role: "system", content: call.system });
     if (call.messages.length > 0) messages.push(...call.messages);
@@ -154,12 +248,27 @@ export class OpenAiCompatLlmClient implements LlmClient {
       temperature: call.temperature ?? 0.7,
       stream: false,
     };
-    if (call.jsonMode) body["response_format"] = { type: "json_object" };
+    if (call.jsonSchema) {
+      body["response_format"] = {
+        type: "json_schema",
+        json_schema: { name: call.jsonSchema.name, strict: true, schema: call.jsonSchema.schema },
+      };
+    } else if (call.jsonMode) {
+      body["response_format"] = { type: "json_object" };
+    }
 
+    // A request that never completes must fail this call, not freeze the run.
+    // Without a signal, one stalled generation held a 20-case backtest at case
+    // 5 for 27 minutes with the worker idle in epoll_wait; the per-case
+    // deadline in eval/ never rescued it. Generous by default: the largest
+    // prompt seen is ~8k tokens at ~2k tok/s prefill plus a few hundred tokens
+    // at ~43 tok/s, so a healthy call finishes in well under a minute.
+    const timeoutMs = Number(process.env["LLM_REQUEST_TIMEOUT_S"] ?? "300") * 1000;
     const res = await this.fetchFn(`${this.baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
     });
     if (!res.ok) {
       let detail = "";
@@ -169,17 +278,18 @@ export class OpenAiCompatLlmClient implements LlmClient {
       } catch {
         // body not readable; fall through to the generic error
       }
-      throw new Error(
+      throw new LlmHttpError(
         `OpenAiCompatLlmClient: ${this.baseUrl}/v1/chat/completions failed with HTTP ${res.status} ` +
           `(${this.model}); is a llama.cpp/Ollama llama-server (or other OpenAI-compatible ` +
           `endpoint) running at ${this.baseUrl}?${detail ? ` server said: ${detail}` : ""}`,
+        res.status,
       );
     }
     const payload: unknown = await res.json();
     const choices = (payload as { choices?: { message?: { content?: unknown } }[] }).choices;
     const content = choices?.[0]?.message?.content;
     if (!content || typeof content !== "string") {
-      throw new Error(`OpenAiCompatLlmClient: /v1/chat/completions response missing choices[0].message.content`);
+      throw new LlmResponseError(`OpenAiCompatLlmClient: /v1/chat/completions response missing choices[0].message.content`);
     }
     const usage = (payload as { usage?: { prompt_tokens?: number; completion_tokens?: number } }).usage;
     return {

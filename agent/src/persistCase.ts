@@ -26,6 +26,13 @@ import type { RagRuntime } from "@hhgoa/rag";
  * operation — `FakeMcpClient.runInstalledQuery` throws, and runAgent never
  * wires persistCase under the fake backend.
  */
+/** Map our verdict onto the closed-case outcome vocabulary the dataset uses. */
+function outcomeForMemory(verdict: string): string {
+  if (verdict === "fraud") return "confirmed_fraud";
+  if (verdict === "legitimate") return "cleared";
+  return "";
+}
+
 export async function persistCaseToGraph(
   mcp: McpClient,
   rag: RagRuntime,
@@ -42,7 +49,14 @@ export async function persistCaseToGraph(
     p_exposure_usd: request.caseRecord.exposure_usd,
     p_opened_at: request.opened_at,
     p_closed_at: request.closed_at,
-    p_outcome: request.caseRecord.verdict,
+    // `outcome` carries the dataset's CLOSED-case vocabulary that
+    // find_prior_cases reads back (confirmed_fraud | cleared, see
+    // PriorCaseRef) — not our verdict vocabulary, which has its own
+    // `verdict` column above. Writing the verdict here put "fraud" and
+    // "uncertain" into graph memory as prior-case outcomes, values no
+    // consumer matches. An uncertain case is not closed, so it records no
+    // outcome at all rather than inventing one.
+    p_outcome: outcomeForMemory(request.caseRecord.verdict),
     p_summary: request.caseRecord.summary,
     p_source: "live",
     p_report_filed: request.sarFiled,

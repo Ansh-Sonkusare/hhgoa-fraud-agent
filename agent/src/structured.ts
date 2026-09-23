@@ -25,6 +25,8 @@ export interface StructuredCallOptions<S extends ZodObjectOutput> {
   system: string;
   user: string;
   temperature?: number;
+  /** JSON Schema to constrain decoding with (see LlmCall.jsonSchema). */
+  jsonSchema?: { name: string; schema: Record<string, unknown> };
   /** Deterministic value used when the LLM output does not validate. */
   fallback: () => z.infer<S>;
   /**
@@ -74,7 +76,13 @@ export async function structuredCall<S extends ZodObjectOutput>(
       system: opts.system,
       messages: [{ role: "user" as const, content: userContent }],
       jsonMode: true,
-      temperature: opts.temperature,
+      jsonSchema: opts.jsonSchema,
+      // Structured extraction is a judgement to be read off the evidence, not
+      // a creative sample. The OpenAI-compat client otherwise falls back to
+      // 0.7 (llm.ts), which made the assessor non-reproducible: the same case
+      // came back legitimate, then fraud, then uncertain across three runs of
+      // identical input, and sampling noise is also what broke the JSON shape.
+      temperature: opts.temperature ?? 0,
     });
     try {
       const parsed: unknown = extractJsonObject(res.text);

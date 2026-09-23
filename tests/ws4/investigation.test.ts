@@ -143,3 +143,38 @@ describe("runStandardGather", () => {
     expect(facts.primary_card).toBeNull();
   });
 })
+describe("prior cases exclude the case under investigation", () => {
+  it("drops both the bare case id and its GRAPH- write-back form", async () => {
+    // find_prior_cases gates on `opened_at <= as_of` inclusively, so a case
+    // investigated as_of its own opened_at matches its own record. Backtesting
+    // a labelled closed case would otherwise hand the agent the very
+    // outcome/pattern it is being scored against.
+    const facts = createFacts("CC-0001", AS_OF, {
+      kind: "risk_score",
+      txn_id: "9900004",
+      card_id: "C09001-K1",
+      risk_score: 0.78,
+    });
+    const catalog = {
+      ...fakes,
+      find_prior_cases: async () => ({
+        ok: true as const,
+        data: {
+          cases: [
+            { case_id: "CC-0001", outcome: "confirmed_fraud", pattern: "card_testing" },
+            { case_id: "GRAPH-CC-0001", outcome: "confirmed_fraud", pattern: "card_testing" },
+            { case_id: "CC-0999", outcome: "cleared", pattern: "" },
+          ],
+        },
+      }),
+    };
+    const g = createGatherRuntime({ catalog: catalog as unknown as typeof fakes, asOf: AS_OF, facts });
+    g.onEvidence = async () => {};
+    await runStandardGather(g);
+
+    const ids = facts.prior_cases.map((c) => c.case_id);
+    expect(ids).not.toContain("CC-0001");
+    expect(ids).not.toContain("GRAPH-CC-0001");
+    expect(ids).toContain("CC-0999");
+  });
+});

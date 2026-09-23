@@ -62,8 +62,10 @@ describe("OllamaLlmClient", () => {
 
   it("throws a descriptive error on HTTP failure", async () => {
     const fetchFn = vi.fn(async () => new Response("down", { status: 500 }));
-    const client = new OllamaLlmClient({ baseUrl: "http://lb:11434", fetchFn });
+    const client = new OllamaLlmClient({ baseUrl: "http://lb:11434", fetchFn, sleepFn: async () => {}, maxRetryWaitMs: 5_000 });
     await expect(client.complete({ messages: [] })).rejects.toThrow(/ollama serve/);
+    // 500 is retried (2 s + 4 s would exceed the 5 s budget after the first wait).
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it("rejects a response without a message.content string", async () => {
@@ -118,8 +120,32 @@ describe("OpenAiCompatLlmClient", () => {
 
   it("throws a descriptive error on HTTP failure", async () => {
     const fetchFn = vi.fn(async () => new Response("down", { status: 500 }));
-    const client = new OpenAiCompatLlmClient({ baseUrl: "http://localhost:8080", fetchFn });
+    const client = new OpenAiCompatLlmClient({ baseUrl: "http://localhost:8080", fetchFn, sleepFn: async () => {}, maxRetryWaitMs: 5_000 });
     await expect(client.complete({ messages: [] })).rejects.toThrow(/llama-server/);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps retrying while the server is unavailable, then returns the answer", async () => {
+    const ok = JSON.stringify({ choices: [{ message: { content: "{}" } }] });
+    let n = 0;
+    const fetchFn = vi.fn(async () => {
+      n += 1;
+      if (n === 1) throw new TypeError("fetch failed"); // connection refused
+      if (n === 2) return new Response("loading model", { status: 503 });
+      return new Response(ok, { status: 200 });
+    });
+    const waits: number[] = [];
+    const client = new OpenAiCompatLlmClient({ fetchFn, sleepFn: async (ms) => { waits.push(ms); } });
+    const r = await client.complete({ messages: [] });
+    expect(r.text).toBe("{}");
+    expect(waits).toEqual([2_000, 4_000]);
+  });
+
+  it("does not retry a deterministic client error such as a prompt too large for the context", async () => {
+    const fetchFn = vi.fn(async () => new Response("exceeds context", { status: 400 }));
+    const client = new OpenAiCompatLlmClient({ fetchFn, sleepFn: async () => {} });
+    await expect(client.complete({ messages: [] })).rejects.toThrow(/HTTP 400/);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a response without choices[0].message.content", async () => {

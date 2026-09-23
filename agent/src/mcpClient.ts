@@ -31,6 +31,35 @@ import type { EntityRef, ResolveTriggerData, SharedEntityRing, Trigger } from "@
  * `error`).
  */
 
+/**
+ * Bound every round-trip to the MCP server. A tool call that never returns
+ * must fail that call -- the registry records the failure and the case goes
+ * on with what it has -- rather than hold the whole run. This was learned the
+ * expensive way: on 2026-09-22 a 20-case backtest froze at case 5 (CC-0037)
+ * for 27 minutes, the worker idle in epoll_wait with four sockets open to the
+ * server and no query running inside TigerGraph, and even the eval runner's
+ * 900s per-case deadline did not get it moving again. The MCP SDK offers no
+ * per-call deadline of its own on this transport, so it is imposed here.
+ * MCP_CALL_TIMEOUT_S=0 disables it.
+ */
+const MCP_CALL_TIMEOUT_MS = Number(process.env["MCP_CALL_TIMEOUT_S"] ?? "120") * 1000;
+
+async function withTimeout<T>(what: string, work: Promise<T>): Promise<T> {
+  if (!(MCP_CALL_TIMEOUT_MS > 0)) return work;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`RealMcpClient: ${what} did not complete within ${MCP_CALL_TIMEOUT_MS / 1000}s`)),
+      MCP_CALL_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** EntityRef.type (PascalCase, e.g. "Card") <-> WS2 query entity_type (lowercase, e.g. "card"). */
 const ENTITY_TYPE_TO_QUERY_TYPE: Record<string, string> = {
   Transaction: "txn",
@@ -55,6 +84,13 @@ function triggerToEntity(trigger: Trigger): { entity_type: string; entity_id: st
       if (trigger.card_id) return { entity_type: "card", entity_id: trigger.card_id };
       throw new Error("RealMcpClient: risk_score trigger has neither txn_id nor card_id");
     case "customer_report":
+      // A report that names the disputed charge resolves to that charge, the
+      // same way a risk_score trigger does. Resolving to the customer instead
+      // throws the one transaction the customer actually told us about, and
+      // with it the card and the episode around it.
+      if (trigger.txn_ids && trigger.txn_ids.length > 0 && trigger.txn_ids[0]) {
+        return { entity_type: "txn", entity_id: trigger.txn_ids[0] };
+      }
       return { entity_type: "customer", entity_id: trigger.customer_id };
     case "analyst_request":
       return { entity_type: toQueryEntityType(trigger.entity.type), entity_id: trigger.entity.id };
@@ -167,7 +203,7 @@ export class RealMcpClient implements McpClient {
     if (this.client) return this.client;
     this.connecting ??= (async () => {
       const client = new Client({ name: "hhgoa-fraud-agent", version: "0.1.0" });
-      await client.connect(this.buildTransport());
+      await withTimeout("connect", client.connect(this.buildTransport()));
       this.client = client;
     })();
     await this.connecting;
@@ -184,10 +220,13 @@ export class RealMcpClient implements McpClient {
    */
   async runInstalledQuery(queryName: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
     const client = await this.ensureConnected();
-    const result = await client.callTool({
-      name: "tigergraph__run_installed_query",
-      arguments: { query_name: queryName, params, graph_name: this.graphName },
-    });
+    const result = await withTimeout(
+      `query "${queryName}"`,
+      client.callTool({
+        name: "tigergraph__run_installed_query",
+        arguments: { query_name: queryName, params, graph_name: this.graphName },
+      }),
+    );
     const content = (result as { content?: Array<{ type: string; text?: string }> }).content;
     const text = content?.find((block) => block.type === "text")?.text;
     if (!text) {
@@ -304,7 +343,13 @@ export class RealMcpClient implements McpClient {
 
       case "find_shared_entity_rings": {
         const entity = args["entity"] as EntityRef;
-        const raw = await this.runInstalledQuery("shared_rings", { card_id: entity.id, as_of: asOf });
+        // seed_in_window: the card's own side of a ring comes from its transactions in the
+        // same 30-day window as the other cards', not from every device it ever used. All-time,
+        // a card defrauded a month earlier still "shared" the fraudster's device with that
+        // device's later victims -- its past fraud counted again as a present ring. Measured on
+        // 540 held-out closed cases (none of the 50 backtest cases), the broad-ring item fired on
+        // 60.8% of fraud vs 30.7% of cleared all-time, 43.3% vs 16.7% in-window.
+        const raw = await this.runInstalledQuery("shared_rings", { card_id: entity.id, as_of: asOf, seed_in_window: true });
         const rings: SharedEntityRing[] = [];
         const groups: Array<[SharedEntityRing["shared_type"], string]> = [
           ["device", "device_rings"],
@@ -354,6 +399,8 @@ export class RealMcpClient implements McpClient {
           stats: {
             avg_risk_score: raw["avg_risk_score"],
             confirmed_fraud_rate: raw["confirmed_fraud_rate"],
+            n_cases: raw["n_cases"],
+            population_confirmed_fraud_rate: raw["population_confirmed_fraud_rate"],
             velocity: raw["velocity"],
             shared_device_density: raw["shared_device_density"],
           },
