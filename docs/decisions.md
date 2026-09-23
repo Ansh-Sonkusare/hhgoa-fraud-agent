@@ -765,3 +765,26 @@ Separately, API live runs (`RUN_SOURCE=live`) now build the agent through the sa
 the benchmark (`createAgentMachine`), so a live demo run uses the pattern scorer and writes the
 case to TigerGraph; before, the API assembled the agent itself and skipped both. An empty
 `TIGERGRAPH_MCP_URL` in `.env` now falls back to the local MCP server instead of failing.
+
+## Assumed cardholder confirmation: re-measured, not adopted (2026-09-23)
+
+The user asked to chase score by letting `customer_validation` close a cleared alert under R3
+(README `docs/DATASET_README.md` lines 159, 235, 271, 309, 450 allow simulating a reply if the
+assumption is stated). Condition set earlier by the user: derive it deterministically from the
+case's own evidence, label it, and measure it to close no confirmed-fraud case.
+
+Result of the offline re-measurement (stored gathers only, no LLM run; design 300 cleared / 305
+fraud-as-alert, validation 241 / 388):
+- No candidate rule reached zero fraud closes on data it was not chosen on. The best rules
+  closed 15 cleared and 2 fraud (validation) or 57 cleared and 11 fraud (design).
+- 40 random half-splits: only 1 of 40 test halves closed zero fraud; 82 of 13,823 fraud alerts
+  (0.59%) were closed across them.
+- The semantic exculpatory signals point the wrong way in this history: a known device on the
+  flagged charge is 1 cleared vs 112 fraud, a usual region 17 vs 158. Nothing a cardholder
+  would plausibly confirm separates cleared from fraud.
+- Judged from `cases/HHG-*.json`, a rule would change none of the 20 answers, except HHG-017 in
+  the wrong direction.
+
+Decision: keep the honest no-reply path (R4). Only the wording changed: `assumed_response` now
+begins "Assumed: no reply ..." so the assumption is stated as the README asks, and the text says
+"none was invented". No `assumeConfirmation` code was added.

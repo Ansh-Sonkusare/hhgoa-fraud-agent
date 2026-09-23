@@ -16,7 +16,7 @@ Living task list. Check items off in place; don't delete history — move comple
       fallback).
 - [ ] Publish the blog post (`submission/BLOG_POST.md`, local only until published).
 - [ ] Post on social (`submission/SOCIAL_POST.md`) linking the blog or video; tag TigerGraph.
-- [ ] Optional, cosmetic: the neighbourhood graph draws large shared-entity groups off-centre.
+- [x] The neighbourhood graph was blank/off-centre (canvas sized to the window, ring payload shape not read) and the Evidence requests panel read as broken on HHG-006 with no requests. Fixed in `ui/` and verified in a browser; see `docs/logs.md` 2026-09-23.
 - [ ] Parked: Kev local pattern scorer (export 1,419/1,584 states; Jev is in use).
 
 ## Now (WS0 — must land before m0)

@@ -1530,3 +1530,78 @@ probability" (HHG-014: text 0.87, `fraud_probability` 1.00; before: 0.80 vs 0.90
   local model on those triggers and varies between runs (HHG-006 0.95→0.90, HHG-008 0.952→0.95,
   HHG-009 0.99→0.90, HHG-014 0.99→0.95, HHG-018 0.90→0.74, still above 0.70). Fixtures rebuilt from
   the same run. `make test` 9/9, `make lint` clean.
+
+## 2026-09-23 — demo recheck: Neighborhood graph "empty" and Evidence requests "empty" on HHG-006/017
+- **Neighborhood graph.** Reproduced in headless chromium (1440px window): the canvas rendered but
+  the graph sat at the far right edge of the panel. Root cause: `ForceGraph2D` was given
+  `width={undefined}`, so the library sized the canvas to the *window* (1440px) inside a ~790px
+  panel that clips overflow; the graph is centred on the canvas, so on a wide screen it was drawn
+  outside the visible area (the panel looked blank). Second defect: `buildGraph` read the ring
+  query's result from `payload.rings` / `payload.result.rings`, but the live agent wraps it as
+  `payload.result.data.rings`, so no ring edges were ever drawn and every ring member was wired
+  straight to the case through the ring's evidence item (a 276-node red blob for HHG-006).
+- **Fix (`ui/` only).** New pure `ui/lib/neighborhoodGraph.ts` (`buildGraph`): accepts all three
+  payload shapes; draws case → flagged card (from the ring query's own `args.entity`) → shared
+  device/address → member cards; skips the ring evidence's entity list when the ring result itself
+  is present (the evidence tags a billing region as `Device`, so it would have duplicated hubs);
+  caps each group at 8 drawn cards and reports the real number left out ("+N more", HHG-006 hides
+  186 of its ring members, HHG-017 15); nothing is invented. New `ui/components/ForceGraphView.tsx`
+  holds the ref (next/dynamic drops refs): explicit panel width from a ResizeObserver,
+  `cooldownTicks` + `zoomToFit` on engine stop, nodes coloured by type with a red outline only for
+  the case and its flagged card, a legend and a cap note under the graph.
+- **Evidence requests.** HHG-006 correctly has zero requests (fraud 0.95 ≥ 0.70, nothing to ask), so
+  the panel was accurate but read as broken. It now says why, from the latest assessment only
+  (`ui/lib/evidenceRequests.ts`): 0.95 → "None was needed … at or above the 0.70 block threshold";
+  below 0.70 / at or below 0.40 it names the band (R1 / R3) and says nothing was requested; with no
+  assessment yet it keeps the generic text. HHG-017's real request is unchanged.
+- **Verification.** Before/after screenshots of both panels in headless chromium (canvas 1440 →
+  790 wide, graph centred, clusters and labels visible, no console errors); new tests
+  `tests/ws6/neighborhoodGraph.test.ts` (6) and `tests/ws6/evidenceRequestPanel.test.ts` (4); ws6
+  suite 46/46; `pnpm --filter @hhgoa/ui lint` (tsc) clean; `buildGraph` also checked against both
+  fixture recordings. Not run: `make test`, any backtest.
+- **Noted, not changed (outside `ui/`):** the agent's ring evidence labels a billing-region ring's
+  shared entity as type `Device` (e.g. `Device:420.0`, while the ring result says `address`).
+- **Browser tooling.** `nix-shell /tmp/opencode/chrome-libs.nix --run ...` fails here with
+  `executing shell '/scripts/buildShellShim'`; worked around by resolving the lib store paths with
+  `nix-instantiate` and exporting `LD_LIBRARY_PATH` directly (no repo change).
+
+## 2026-09-23 — ring evidence entity types (Address / EmailDomain no longer labelled Device)
+- `agent/src/evidenceBuilder.ts` typed every shared-entity ring hub `Device`, including billing-region
+  (`address`) and email-domain rings. `sharedTypeEntityType` now maps device → `Device`, address →
+  `Address`, email → `EmailDomain`. The summary text was already right; only the structured
+  `entities` field was wrong. `contracts/` untouched (`entities[].type` is a free string).
+- Audit: only `Card`, `Customer` and `ClosedCase` are ever compared, nothing branches on `Device`,
+  and `contextBuilder` sends the assessor only id, category, summary, weight and source, so model
+  input is unchanged. UI node colours cover the new types.
+- Verification: fresh 20-case run (cache off) written to a scratch dir and diffed against `cases/`:
+  status, verdict, pattern, exposure, affected txns and final actions identical on 20/20; fraud
+  probability identical on 17/20 (HHG-006 0.90 to 0.95, HHG-014 0.95 to 0.90, HHG-018 0.737 to 0.725,
+  all above 0.70). HHG-018 also lost its two evidence requests, but two more back-to-back HHG-018
+  runs on the same code gave different first-pass assessments (0.31/0.33 vs 0.45/0.51) and p 0.96,
+  so that is the local model's run-to-run variance, not this change. Old answers had 92 mislabelled
+  ring hubs (69 region, 23 email); the new run has none. `make test` 9/9, `make lint` clean.
+- Adopted (user approved): the 20 regenerated answers replaced `cases/*.json` and both replay
+  fixtures were rebuilt from the same run (`HHG-910` from HHG-006, `HHG-920` from HHG-017: string
+  relabel of the case id, `events` = `investigation_record`, `answer` = the whole answer file, which
+  reproduced the previous fixtures exactly apart from `latency_s`). `make validate-answers` 20/20
+  PASS on the new files, `make test` 9/9, API restarted on live mode. Note: `eval/src/validate.ts`
+  ignores a `--dir` flag and always validates `cases/`, so validate only after copying files in.
+
+## 2026-09-23 — Similar prior cases text overflowed its cards
+- The pattern list in the summary (`out_of_region_use/card_not_present_new_device/...`) is one unbreakable
+  run, so it ran past the right edge of every card (4 of 4 cards on HHG-001, 6 of 6 on HHG-003,
+  measured in headless chromium). `ui/components/SimilarCasesPanel.tsx` now offers a break after each
+  slash and sets `overflow-wrap: anywhere` as the fallback. After the change 0 of 10 overflow. UI
+  typecheck clean.
+
+## 2026-09-23: assumed-confirmation research, wording, demo launcher
+
+- Rule research (offline) recommended fall back; details in `docs/decisions.md`.
+- `assumed_response` wording changed in `policy/src/evidence.ts` (plus explain.ts, recommend.ts,
+  machine.ts text and the Evidence requests panel). Answer files and the ambiguous fixture
+  already carry the new text.
+- Panel: dropped the redundant "No reply:" prefix, since the text now starts "Assumed:".
+- Local demo launcher script: background children now detach stdout/stderr/stdin, so callers no
+  longer hang waiting for the pipe to close.
+- Checks run: `make test` 9/9 packages, `make lint` clean, `make validate-answers` PASS,
+  `pnpm exec vitest run tests/ws4 tests/ws5 tests/ws6` 386/386. API restarted on the final code.
