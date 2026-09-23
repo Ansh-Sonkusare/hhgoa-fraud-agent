@@ -244,18 +244,19 @@ postdates that case's cutoff.
 
 ## Results
 
-Leak-free backtests against closed cases, iteration 22 of the tuning process.
+Leak-free backtests against closed cases, iteration 23 of the tuning process.
 "Fresh 50" is a sample of cases excluded from every tuning and measurement run
 before this one; "original 50" is the sample the agent was iterated on.
 
 | Metric | Fresh 50 | Original 50 |
 |---|---|---|
-| Fraud pattern correct | 36/40 (90%) | 35/42 (83%) |
+| Fraud pattern correct | 37/40 (92.5%) | 35/42 (83%) |
 | Fraud cases missed | 0/40 | 0/42 |
 | Cleared cases called legitimate | 10/10 | 6/8 (2 uncertain) |
 | Cleared cases blocked | 0/10 | 0/8 |
 | Verdict agreement with analysts | 50/50 | 50/50 |
-| Report (`FILE_REPORT`) decision matches analysts | 46/50 (92%) | 46/50 (92%) |
+| Report (`FILE_REPORT`) decision matches analysts | 46/50 (92%) | 44/50 (88%) |
+| Exposure within 25% of the analysts' figure | 32/40 (80%) | 26/42 (62%) |
 
 Each sample has around 40 fraud cases, so a run-to-run difference of about ±2
 cases on the pattern row is within ordinary sampling noise, not a regression.
