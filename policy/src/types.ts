@@ -24,6 +24,12 @@ export const CaseStateForPolicySchema = z.object({
   customer_denied: z.boolean(),
   /** True once a customer has explicitly confirmed the transaction(s). */
   customer_confirmed: z.boolean(),
+  /**
+   * True once the cardholder was asked to verify (R1/R3) and no reply came.
+   * R1's "verify first" has then been done, and R4 calls for declining the
+   * flagged authorization. Optional so existing callers stay valid.
+   */
+  verification_unanswered: z.boolean().optional(),
   /** Count of this customer's *other* cards with confirmed fraud (R10). */
   confirmed_fraud_card_count: z.number().int().nonnegative(),
   /** True once credentials are confirmed compromised (R10 alternate gate). */

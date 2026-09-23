@@ -72,7 +72,12 @@ export function checkPrerequisites(action: PolicyActionName, cs: CaseStateForPol
         typeof cfg.prerequisites?.min_probability_unless_customer_denied === "number"
           ? cfg.prerequisites.min_probability_unless_customer_denied
           : 0.7;
-      if (cs.fraud_probability < minProb && !cs.customer_denied) {
+      // R1 asks for verification *before* a block on a weak signal. Once the
+      // cardholder was asked and did not reply, that step is done and R4 calls
+      // for DECLINE_TRANSACTION on the flagged authorization; a BLOCK_CARD
+      // still needs 0.70 or a denial (R4 does not block).
+      const verifiedFirst = action === "DECLINE_TRANSACTION" && cs.verification_unanswered === true;
+      if (cs.fraud_probability < minProb && !cs.customer_denied && !verifiedFirst) {
         missing.push(
           `R1: fraud_probability ${cs.fraud_probability.toFixed(2)} is below ${minProb} and the customer has not denied the transaction — VERIFY_WITH_CUSTOMER or STEP_UP_AUTH must come first`,
         );
