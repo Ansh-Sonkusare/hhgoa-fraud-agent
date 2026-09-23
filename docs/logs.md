@@ -1374,3 +1374,54 @@ The one candidate separator found (the card's billing region shared with too man
 ring: 16/20 cleared vs 39/96 fraud in the profile) added nothing on design-set CV (AUC 0.852 ->
 0.854, Brier 0.145 -> 0.146, cleared at >= 0.70 29 -> 28), so no change; the held-out set was not
 consulted.
+
+### Iteration 23 batch: episode scope from a per-transaction model (2026-09-23 ~11:05)
+
+- Why: iteration-22 exposure within 25% was 60% (fresh 50) / 52% (original 50); card-present
+  patterns were the weak part (account takeover 6/19, out-of-region 9/18, card testing 0/5 across
+  both sets) and 8 of the 10 non-cleared action mismatches were report decisions.
+- Data: 2,710 held-out confirmed-fraud cases gathered from the graph as the agent sees them at
+  `opened_at` (all account takeover, out-of-region, card-testing, undocumented; 300 of each
+  card-not-present pattern). Verified: none of the fresh-50 or original-50 cases is among them.
+  Every analyst episode transaction was visible in every case, so the ceiling is 100%.
+- Findings (design half): no transaction before the flagged charge is ever in an analyst episode
+  (0/964); out-of-region episodes stay in the flagged charge's foreign region, often at the same
+  amount and identity-check flags; account-takeover rows come from regions new to the card.
+- Chosen on design-half CV: one logistic model, 15 features, cutoff 0.4 (a per-channel pair added
+  ~1 point and was dropped). Check half, scored once: within 25% 65% -> 74%, wrong side of $1,000
+  7.0% -> 5.2% (account takeover 64 -> 73%, out-of-region 60 -> 75%, card-not-present 78 -> 83%,
+  new device 74 -> 71%). Card testing (9 cases) left to the general score.
+- `agent/src/episodeModel.ts` (new), `scopeEpisode` default mode uses it; tiny online probes still
+  join online episodes. TS reproduces the Python selections on 2,696/2,696 cases.
+- `tests/ws4/episodeScope.test.ts` rewritten for the model (out-of-region shape, 2h bound, probes,
+  undocumented). `make test` 9/9, `make lint` clean. Iteration 23 launched 11:07: fresh 50 and
+  original 50, then the 20 benchmark answers and `make validate-answers`.
+
+### Iteration 23 result (2026-09-23 11:25)
+
+Preflight OK before each stage (8.9-9.1 GB free), 0 errors on both 50-case sets,
+`make validate-answers` PASS (20/20).
+
+| Iteration 22 -> 23 | Fresh 50 (unseen) | Original 50 |
+|---|---|---|
+| Exposure within 25% | 26 -> 32 of 40 | 23 -> 26 of 42 |
+| - account takeover | 3 -> 9 of 10 | 3 -> 3 of 9 |
+| - out-of-region use | 5 -> 8 of 10 | 4 -> 5 of 8 |
+| Report decision agrees with analysts | 46 -> 46 | 46 -> 44 |
+| Fraud pattern correct | 36 -> 37 of 40 | 35 -> 35 of 42 |
+| Fraud missed / cleared blocked | 0 / 0 | 0 / 0 |
+
+Report changes: fresh 50 fixed CC-4196 ($2,438 -> $453) and lost CC-2166 ($1,126 -> $936);
+original 50 lost CC-1275 ($996 -> $1,114 against the analysts' $953, now over the $1,000 line)
+and CC-4447 (exposure unchanged at $114; this run gathered one fewer evidence item, so run-to-run
+variation, not the episode change). Kept: exposure clearly better, report agreement 92 -> 90 of
+100 with one of the two losses unrelated.
+
+Benchmark answers: `affected_txn_ids` and `exposure_usd` identical on all 20 (the benchmark
+episodes are one to four transactions and the model keeps the same rows). Verdicts, patterns,
+statuses and actions unchanged. Only local-LLM variation in `fraud_probability`: HHG-006
+0.90 -> 0.95, HHG-018 0.74 -> 0.90, HHG-014 0.90 -> 1.00 (the assessor put 0 on the legitimate
+reading; HHG-014 is an analyst request, so alert calibration does not apply).
+
+Found while checking: the §6 stop reason quotes the leading pattern's probability as "Fraud
+probability" (HHG-014: text 0.87, `fraud_probability` 1.00; before: 0.80 vs 0.90). Not fixed yet.

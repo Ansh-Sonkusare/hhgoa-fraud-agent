@@ -694,3 +694,28 @@ R3 closes on the cardholder's confirmation. So a legitimate verdict asks the car
 (`VERIFY_WITH_CUSTOMER`, §3a `CREATE_CASE`); with no reply R4 leaves it open under `MONITOR_CARD`.
 `CLOSE_NO_FRAUD` and `ALLOW_TRANSACTION` are recommended only after a confirmation, which this
 dataset never provides. Status is `closed_legitimate` only when `CLOSE_NO_FRAUD` was recommended.
+
+## Episode scope from a per-transaction model, not one risk filter (2026-09-23)
+
+**Context.** Exposure was within 25% of the analysts' on only 60% (fresh 50) and 52% (original 50)
+of fraud cases, and it decides the report: analysts filed exactly above $1,000, and 8 of the 10
+non-cleared action mismatches in iteration 22 were report decisions. By pattern, card-not-present
+episodes were fine (31/37 within 25%) and card-present ones were not (account takeover 6/19,
+out-of-region 9/18, card testing 0/5).
+
+**Decision.** `agent/src/episodeModel.ts` scores each transaction from two hours before the flagged
+charge onwards (logistic, 15 features the agent already holds: risk score, same billing region as
+the flagged charge, a region the card had not used earlier in the window, amount within 5% of the
+flagged charge, same identity-check flags, failed-check count, channel, device marker and so on)
+and keeps rows at 0.4 or above; tiny online probes still always join an online episode (README
+card-testing example). Undocumented activity keeps its channel-and-product scope.
+
+**Evidence.** 2,710 held-out confirmed-fraud cases (none of the 100 backtest cases; verified),
+split by case id. Chosen on design-half cross-validation; check half scored once with the model
+fitted on the design half: exposure within 25% 65% -> 74%, wrong side of $1,000 7.0% -> 5.2%,
+account takeover 64% -> 73%, out-of-region 60% -> 75%, card-not-present 78% -> 83%, card-not-present
+new device 74% -> 71%. The TypeScript scope reproduces the Python selections on all 2,696 cases.
+
+**Not done.** Card testing: 9 cases outside the backtest, and the analysts' rows and the rest are
+both online product-C charges on busy cards; nothing to fit. A separate model per flagged channel
+added about 1 point on design CV and was not worth the second weight table.
