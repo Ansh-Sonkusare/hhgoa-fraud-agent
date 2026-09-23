@@ -256,7 +256,7 @@
   "investigation_record": [
     {
       "seq": 0,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.098Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "TRIGGERED",
@@ -271,7 +271,7 @@
     },
     {
       "seq": 1,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.099Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "CASE_OPENED",
@@ -279,7 +279,7 @@
     },
     {
       "seq": 2,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.099Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "CASE_OPENED",
@@ -298,7 +298,7 @@
     },
     {
       "seq": 3,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.099Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "CASE_OPENED",
@@ -322,7 +322,7 @@
     },
     {
       "seq": 4,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.099Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "INVESTIGATING",
@@ -330,7 +330,7 @@
     },
     {
       "seq": 5,
-      "ts": "2026-09-23T12:06:30.788Z",
+      "ts": "2026-09-23T12:47:34.099Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -349,7 +349,7 @@
     },
     {
       "seq": 6,
-      "ts": "2026-09-23T12:06:30.861Z",
+      "ts": "2026-09-23T12:47:34.176Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -387,7 +387,7 @@
     },
     {
       "seq": 7,
-      "ts": "2026-09-23T12:06:30.861Z",
+      "ts": "2026-09-23T12:47:34.176Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -407,7 +407,7 @@
     },
     {
       "seq": 8,
-      "ts": "2026-09-23T12:06:30.870Z",
+      "ts": "2026-09-23T12:47:34.184Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -484,7 +484,7 @@
     },
     {
       "seq": 9,
-      "ts": "2026-09-23T12:06:30.871Z",
+      "ts": "2026-09-23T12:47:34.185Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -504,7 +504,7 @@
     },
     {
       "seq": 10,
-      "ts": "2026-09-23T12:06:30.880Z",
+      "ts": "2026-09-23T12:47:34.194Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -821,7 +821,7 @@
     },
     {
       "seq": 11,
-      "ts": "2026-09-23T12:06:30.881Z",
+      "ts": "2026-09-23T12:47:34.194Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -858,7 +858,7 @@
     },
     {
       "seq": 12,
-      "ts": "2026-09-23T12:06:30.881Z",
+      "ts": "2026-09-23T12:47:34.194Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -890,7 +890,7 @@
     },
     {
       "seq": 13,
-      "ts": "2026-09-23T12:06:30.881Z",
+      "ts": "2026-09-23T12:47:34.194Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -919,7 +919,7 @@
     },
     {
       "seq": 14,
-      "ts": "2026-09-23T12:06:30.881Z",
+      "ts": "2026-09-23T12:47:34.194Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -936,7 +936,7 @@
     },
     {
       "seq": 15,
-      "ts": "2026-09-23T12:06:30.994Z",
+      "ts": "2026-09-23T12:47:34.244Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -963,7 +963,7 @@
     },
     {
       "seq": 16,
-      "ts": "2026-09-23T12:06:30.994Z",
+      "ts": "2026-09-23T12:47:34.244Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -985,7 +985,7 @@
     },
     {
       "seq": 17,
-      "ts": "2026-09-23T12:06:30.994Z",
+      "ts": "2026-09-23T12:47:34.244Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1002,7 +1002,7 @@
     },
     {
       "seq": 18,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1207,7 +1207,7 @@
     },
     {
       "seq": 19,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1388,7 +1388,7 @@
     },
     {
       "seq": 20,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1517,7 +1517,7 @@
     },
     {
       "seq": 21,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1670,7 +1670,7 @@
     },
     {
       "seq": 22,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1863,7 +1863,7 @@
     },
     {
       "seq": 23,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1936,7 +1936,7 @@
     },
     {
       "seq": 24,
-      "ts": "2026-09-23T12:06:31.047Z",
+      "ts": "2026-09-23T12:47:34.259Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1953,7 +1953,7 @@
     },
     {
       "seq": 25,
-      "ts": "2026-09-23T12:06:31.090Z",
+      "ts": "2026-09-23T12:47:34.268Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1995,7 +1995,7 @@
     },
     {
       "seq": 26,
-      "ts": "2026-09-23T12:06:31.090Z",
+      "ts": "2026-09-23T12:47:34.268Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2030,7 +2030,7 @@
     },
     {
       "seq": 27,
-      "ts": "2026-09-23T12:06:31.090Z",
+      "ts": "2026-09-23T12:47:34.268Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2047,7 +2047,7 @@
     },
     {
       "seq": 28,
-      "ts": "2026-09-23T12:06:31.119Z",
+      "ts": "2026-09-23T12:47:34.277Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2081,7 +2081,7 @@
     },
     {
       "seq": 29,
-      "ts": "2026-09-23T12:06:31.119Z",
+      "ts": "2026-09-23T12:47:34.277Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2101,7 +2101,7 @@
     },
     {
       "seq": 30,
-      "ts": "2026-09-23T12:06:31.119Z",
+      "ts": "2026-09-23T12:47:34.277Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2119,7 +2119,7 @@
     },
     {
       "seq": 31,
-      "ts": "2026-09-23T12:06:31.169Z",
+      "ts": "2026-09-23T12:47:34.285Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2144,7 +2144,7 @@
     },
     {
       "seq": 32,
-      "ts": "2026-09-23T12:06:31.169Z",
+      "ts": "2026-09-23T12:47:34.285Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2164,7 +2164,7 @@
     },
     {
       "seq": 33,
-      "ts": "2026-09-23T12:06:31.169Z",
+      "ts": "2026-09-23T12:47:34.285Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2196,7 +2196,7 @@
     },
     {
       "seq": 34,
-      "ts": "2026-09-23T12:06:31.183Z",
+      "ts": "2026-09-23T12:47:34.294Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2256,7 +2256,7 @@
     },
     {
       "seq": 35,
-      "ts": "2026-09-23T12:06:31.184Z",
+      "ts": "2026-09-23T12:47:34.295Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2273,7 +2273,7 @@
     },
     {
       "seq": 36,
-      "ts": "2026-09-23T12:06:31.269Z",
+      "ts": "2026-09-23T12:47:34.342Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2315,7 +2315,7 @@
     },
     {
       "seq": 37,
-      "ts": "2026-09-23T12:06:31.269Z",
+      "ts": "2026-09-23T12:47:34.342Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2329,7 +2329,7 @@
     },
     {
       "seq": 38,
-      "ts": "2026-09-23T12:06:31.269Z",
+      "ts": "2026-09-23T12:47:34.342Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2357,7 +2357,7 @@
     },
     {
       "seq": 39,
-      "ts": "2026-09-23T12:06:31.269Z",
+      "ts": "2026-09-23T12:47:34.342Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2377,7 +2377,7 @@
     },
     {
       "seq": 40,
-      "ts": "2026-09-23T12:06:31.269Z",
+      "ts": "2026-09-23T12:47:34.342Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "ASSESSING",
@@ -2385,7 +2385,7 @@
     },
     {
       "seq": 41,
-      "ts": "2026-09-23T12:06:36.498Z",
+      "ts": "2026-09-23T12:47:39.434Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "ASSESSING",
@@ -2398,7 +2398,7 @@
     },
     {
       "seq": 42,
-      "ts": "2026-09-23T12:06:36.945Z",
+      "ts": "2026-09-23T12:47:39.869Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "ASSESSING",
@@ -2408,11 +2408,11 @@
           "ok": true,
           "data": {
             "choice": "card_not_present_new_device",
-            "confidence": 0.94,
+            "confidence": 0.9,
             "probabilities": {
               "card_testing": 0,
-              "card_not_present_fraud": 0.05,
-              "card_not_present_new_device": 0.95,
+              "card_not_present_fraud": 0.08,
+              "card_not_present_new_device": 0.92,
               "out_of_region_use": 0,
               "account_takeover": 0
             }
@@ -2422,7 +2422,7 @@
     },
     {
       "seq": 43,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "assessment_updated",
       "state": "ASSESSING",
@@ -2465,7 +2465,7 @@
         },
         "pattern_rule": {
           "rule": "new_device_is_pattern_3",
-          "moved": 0.0475,
+          "moved": 0.076,
           "evidence": "ev_003"
         },
         "alert_calibration": {
@@ -2490,7 +2490,7 @@
     },
     {
       "seq": 44,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EVIDENCE_PLANNING",
@@ -2498,7 +2498,7 @@
     },
     {
       "seq": 45,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "EVIDENCE_PLANNING",
@@ -2516,7 +2516,7 @@
     },
     {
       "seq": 46,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "evidence_requested",
       "state": "EVIDENCE_PLANNING",
@@ -2533,7 +2533,7 @@
     },
     {
       "seq": 47,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "AWAITING_EVIDENCE",
@@ -2541,7 +2541,7 @@
     },
     {
       "seq": 48,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "AWAITING_EVIDENCE",
@@ -2570,7 +2570,7 @@
               "weight_hint": 0,
               "supports": [],
               "contradicts": [],
-              "ts": "2026-09-23T12:06:36.946Z"
+              "ts": "2026-09-23T12:47:39.870Z"
             }
           },
           "evidence_refs": [
@@ -2584,7 +2584,7 @@
     },
     {
       "seq": 49,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EVIDENCE_RECEIVED",
@@ -2592,7 +2592,7 @@
     },
     {
       "seq": 50,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "assessment_updated",
       "state": "EVIDENCE_RECEIVED",
@@ -2658,7 +2658,7 @@
     },
     {
       "seq": 51,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "DECIDING",
@@ -2666,7 +2666,7 @@
     },
     {
       "seq": 52,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "APPROVAL_ROUTING",
@@ -2674,7 +2674,7 @@
     },
     {
       "seq": 53,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "approval_requested",
       "state": "APPROVAL_ROUTING",
@@ -2686,7 +2686,7 @@
     },
     {
       "seq": 54,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2697,7 +2697,7 @@
     },
     {
       "seq": 55,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2708,7 +2708,7 @@
     },
     {
       "seq": 56,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EXPLAINING",
@@ -2716,7 +2716,7 @@
     },
     {
       "seq": 57,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "explanation",
       "state": "EXPLAINING",
@@ -2737,7 +2737,7 @@
             "ev_012: 1 transaction(s) totaling $599.94 in the last 1440 minutes",
             "ev_013: External email_domain \"anonymous.com\": category=other_or_unrated, note=Static/mock classification against a small local table — not a live threat-intel API. A …"
           ],
-          "why_more_evidence": "R1: probability 0.37 on a weak/ambiguous signal was below the 0.70 block threshold, so \"customer_validation\" was requested before any enforcement (no reply is available -- the dataset supplies none and none was assumed: No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.).",
+          "why_more_evidence": "R3: the evidence reads legitimate (fraud probability 0.37) and R3 closes a legitimate reading only on the cardholder's confirmation, so \"customer_validation\" was requested (no reply is available -- the dataset supplies none and none was assumed: No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.).",
           "why_actions": {
             "DECLINE_TRANSACTION": "R4: no reply to the verification request; decline the flagged authorization (txn 3464869) until the cardholder answers",
             "CREATE_CASE": "§3a: evidence was requested from the cardholder; open a case",
@@ -2750,7 +2750,7 @@
     },
     {
       "seq": 58,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "MEMORY_UPDATE",
@@ -2758,7 +2758,7 @@
     },
     {
       "seq": 59,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "memory_written",
       "state": "MEMORY_UPDATE",
@@ -2768,7 +2768,7 @@
     },
     {
       "seq": 60,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "DONE",
@@ -2778,7 +2778,7 @@
     },
     {
       "seq": 61,
-      "ts": "2026-09-23T12:06:36.946Z",
+      "ts": "2026-09-23T12:47:39.870Z",
       "case_id": "HHG-015",
       "type": "done",
       "state": "DONE",
@@ -2790,5 +2790,5 @@
   "stop_reason": "Customer verification was requested under R3 (the evidence reads legitimate, and closing needs the cardholder's confirmation) and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) with the case left open under monitoring rather than closed (R4 governs the final recommendation).",
   "tool_calls": 14,
   "tokens": 128,
-  "latency_s": 6.76
+  "latency_s": 6.43
 }

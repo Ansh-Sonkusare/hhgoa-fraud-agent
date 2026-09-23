@@ -3,7 +3,7 @@
   "case": {
     "status": "escalated",
     "verdict": "fraud",
-    "fraud_probability": 0.99,
+    "fraud_probability": 0.9,
     "pattern": "card_not_present_fraud",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -65,25 +65,9 @@
         "entity_ids": []
       },
       {
-        "claim": "Shares device profile 032da9e468a30316 with 11 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-        "source": "graph",
-        "ref": "ev_007",
-        "entity_ids": [
-          "032da9e468a30316",
-          "C08299-K1",
-          "C12690-K2",
-          "C01104-K2",
-          "C04108-K2",
-          "C05876-K2",
-          "C02716-K2",
-          "C04965-K2",
-          "C00750-K2"
-        ]
-      },
-      {
         "claim": "Activity shares device profile 5a4d9db7be811859 with card(s) C12598-K2, C02250-K2, C04108-K2, C03040-K2, C06224-K2, C09165-K2, C05128-K1, C00952-K1",
         "source": "graph",
-        "ref": "ev_008",
+        "ref": "ev_007",
         "entity_ids": [
           "5a4d9db7be811859",
           "C08299-K1",
@@ -100,7 +84,7 @@
       {
         "claim": "Shares device profile b39d1c38520cd5ec with 10 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
-        "ref": "ev_009",
+        "ref": "ev_008",
         "entity_ids": [
           "b39d1c38520cd5ec",
           "C09823-K1",
@@ -113,9 +97,36 @@
         ]
       },
       {
-        "claim": "Activity shares device profile caac71b87a510a68 with card(s) X19614-K1, C06835-K2, C07997-K1, C04117-K2, C07867-K2, C05560-K2, X10458-K1",
+        "claim": "Shares device profile 032da9e468a30316 with 11 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "source": "graph",
+        "ref": "ev_009",
+        "entity_ids": [
+          "032da9e468a30316",
+          "C08299-K1",
+          "C12690-K2",
+          "C01104-K2",
+          "C04108-K2",
+          "C05876-K2",
+          "C02716-K2",
+          "C04965-K2",
+          "C00750-K2"
+        ]
+      },
+      {
+        "claim": "Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
         "source": "graph",
         "ref": "ev_010",
+        "entity_ids": [
+          "5b64ce5e4c424f98",
+          "C11496-K2",
+          "C08299-K1",
+          "C02923-K1"
+        ]
+      },
+      {
+        "claim": "Activity shares device profile caac71b87a510a68 with card(s) X19614-K1, C06835-K2, C07997-K1, C04117-K2, C07867-K2, C05560-K2, X10458-K1",
+        "source": "graph",
+        "ref": "ev_011",
         "entity_ids": [
           "caac71b87a510a68",
           "C08299-K1",
@@ -124,17 +135,6 @@
           "C04117-K2",
           "C07867-K2",
           "C05560-K2"
-        ]
-      },
-      {
-        "claim": "Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
-        "source": "graph",
-        "ref": "ev_011",
-        "entity_ids": [
-          "5b64ce5e4c424f98",
-          "C11496-K2",
-          "C08299-K1",
-          "C02923-K1"
         ]
       },
       {
@@ -170,13 +170,13 @@
           "C09165-K2",
           "C05128-K1",
           "C00952-K1",
+          "C11496-K2",
+          "C02923-K1",
           "C06835-K2",
           "C07997-K1",
           "C04117-K2",
           "C07867-K2",
-          "C05560-K2",
-          "C11496-K2",
-          "C02923-K1"
+          "C05560-K2"
         ]
       },
       {
@@ -245,7 +245,7 @@
       }
     ],
     "similar_prior_cases": [],
-    "summary": "Investigated card C08299-K1 after trigger; pattern card_not_present_fraud, top probability 0.99, 6 evidence categories, exposure $30.02. Verdict: fraud.",
+    "summary": "Investigated card C08299-K1 after trigger; pattern card_not_present_fraud, top probability 0.90, 6 evidence categories, exposure $30.02. Verdict: fraud.",
     "written_to_graph": true,
     "graph_case_id": "GRAPH-HHG-009"
   },
@@ -288,7 +288,7 @@
   "investigation_record": [
     {
       "seq": 0,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "TRIGGERED",
@@ -305,7 +305,7 @@
     },
     {
       "seq": 1,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "CASE_OPENED",
@@ -313,7 +313,7 @@
     },
     {
       "seq": 2,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "CASE_OPENED",
@@ -334,7 +334,7 @@
     },
     {
       "seq": 3,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "CASE_OPENED",
@@ -358,7 +358,7 @@
     },
     {
       "seq": 4,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "INVESTIGATING",
@@ -366,7 +366,7 @@
     },
     {
       "seq": 5,
-      "ts": "2026-09-23T12:09:26.769Z",
+      "ts": "2026-09-23T12:50:41.283Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -387,7 +387,7 @@
     },
     {
       "seq": 6,
-      "ts": "2026-09-23T12:09:26.842Z",
+      "ts": "2026-09-23T12:50:41.356Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -425,7 +425,7 @@
     },
     {
       "seq": 7,
-      "ts": "2026-09-23T12:09:26.842Z",
+      "ts": "2026-09-23T12:50:41.356Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -445,7 +445,7 @@
     },
     {
       "seq": 8,
-      "ts": "2026-09-23T12:09:26.851Z",
+      "ts": "2026-09-23T12:50:41.365Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -498,7 +498,7 @@
     },
     {
       "seq": 9,
-      "ts": "2026-09-23T12:09:26.851Z",
+      "ts": "2026-09-23T12:50:41.365Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -518,7 +518,7 @@
     },
     {
       "seq": 10,
-      "ts": "2026-09-23T12:09:26.859Z",
+      "ts": "2026-09-23T12:50:41.374Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -751,7 +751,7 @@
     },
     {
       "seq": 11,
-      "ts": "2026-09-23T12:09:26.859Z",
+      "ts": "2026-09-23T12:50:41.374Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -780,7 +780,7 @@
     },
     {
       "seq": 12,
-      "ts": "2026-09-23T12:09:26.859Z",
+      "ts": "2026-09-23T12:50:41.374Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -812,7 +812,7 @@
     },
     {
       "seq": 13,
-      "ts": "2026-09-23T12:09:26.859Z",
+      "ts": "2026-09-23T12:50:41.374Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -843,7 +843,7 @@
     },
     {
       "seq": 14,
-      "ts": "2026-09-23T12:09:26.859Z",
+      "ts": "2026-09-23T12:50:41.374Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -863,7 +863,7 @@
     },
     {
       "seq": 15,
-      "ts": "2026-09-23T12:09:26.867Z",
+      "ts": "2026-09-23T12:50:41.385Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1168,7 +1168,7 @@
     },
     {
       "seq": 16,
-      "ts": "2026-09-23T12:09:26.867Z",
+      "ts": "2026-09-23T12:50:41.385Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1199,7 +1199,7 @@
     },
     {
       "seq": 17,
-      "ts": "2026-09-23T12:09:26.867Z",
+      "ts": "2026-09-23T12:50:41.385Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1228,7 +1228,7 @@
     },
     {
       "seq": 18,
-      "ts": "2026-09-23T12:09:26.867Z",
+      "ts": "2026-09-23T12:50:41.385Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1245,7 +1245,7 @@
     },
     {
       "seq": 19,
-      "ts": "2026-09-23T12:09:26.907Z",
+      "ts": "2026-09-23T12:50:41.430Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1272,7 +1272,7 @@
     },
     {
       "seq": 20,
-      "ts": "2026-09-23T12:09:26.907Z",
+      "ts": "2026-09-23T12:50:41.430Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1294,7 +1294,7 @@
     },
     {
       "seq": 21,
-      "ts": "2026-09-23T12:09:26.907Z",
+      "ts": "2026-09-23T12:50:41.430Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1311,7 +1311,7 @@
     },
     {
       "seq": 22,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1324,24 +1324,6 @@
           "via": "mcp",
           "data": {
             "rings": [
-              {
-                "shared_type": "device",
-                "shared_id": "032da9e468a30316",
-                "card_ids": [
-                  "C08299-K1",
-                  "C12690-K2",
-                  "C01104-K2",
-                  "X12076-K1",
-                  "C04108-K2",
-                  "C05876-K2",
-                  "X13866-K2",
-                  "C02716-K2",
-                  "C04965-K2",
-                  "C00750-K2",
-                  "X22653-K2",
-                  "X16328-K1"
-                ]
-              },
               {
                 "shared_type": "device",
                 "shared_id": "5a4d9db7be811859",
@@ -1376,6 +1358,33 @@
               },
               {
                 "shared_type": "device",
+                "shared_id": "032da9e468a30316",
+                "card_ids": [
+                  "C08299-K1",
+                  "C12690-K2",
+                  "C01104-K2",
+                  "X12076-K1",
+                  "C04108-K2",
+                  "C05876-K2",
+                  "X13866-K2",
+                  "C02716-K2",
+                  "C04965-K2",
+                  "C00750-K2",
+                  "X22653-K2",
+                  "X16328-K1"
+                ]
+              },
+              {
+                "shared_type": "device",
+                "shared_id": "5b64ce5e4c424f98",
+                "card_ids": [
+                  "C11496-K2",
+                  "C08299-K1",
+                  "C02923-K1"
+                ]
+              },
+              {
+                "shared_type": "device",
                 "shared_id": "caac71b87a510a68",
                 "card_ids": [
                   "C08299-K1",
@@ -1386,15 +1395,6 @@
                   "C07867-K2",
                   "C05560-K2",
                   "X10458-K1"
-                ]
-              },
-              {
-                "shared_type": "device",
-                "shared_id": "5b64ce5e4c424f98",
-                "card_ids": [
-                  "C11496-K2",
-                  "C08299-K1",
-                  "C02923-K1"
                 ]
               },
               {
@@ -1449,13 +1449,143 @@
     },
     {
       "seq": 23,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
           "id": "ev_007",
+          "category": "device_identity",
+          "summary": "Activity shares device profile 5a4d9db7be811859 with card(s) C12598-K2, C02250-K2, C04108-K2, C03040-K2, C06224-K2, C09165-K2, C05128-K1, C00952-K1",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "5a4d9db7be811859"
+            },
+            {
+              "type": "Card",
+              "id": "C08299-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C12598-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C02250-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C04108-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C03040-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C06224-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C09165-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C05128-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C00952-K1"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-28 17:10:53"
+        }
+      }
+    },
+    {
+      "seq": 24,
+      "ts": "2026-09-23T12:50:41.448Z",
+      "case_id": "HHG-009",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_008",
+          "category": "device_identity",
+          "summary": "Shares device profile b39d1c38520cd5ec with 10 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "b39d1c38520cd5ec"
+            },
+            {
+              "type": "Card",
+              "id": "X12268-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X17048-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09823-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19336-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08299-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C01755-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C00722-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15205-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C00094-K3"
+            },
+            {
+              "type": "Card",
+              "id": "C04258-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C03070-K1"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-28 17:10:53"
+        }
+      }
+    },
+    {
+      "seq": 25,
+      "ts": "2026-09-23T12:50:41.448Z",
+      "case_id": "HHG-009",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_009",
           "category": "device_identity",
           "summary": "Shares device profile 032da9e468a30316 with 11 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
@@ -1521,144 +1651,51 @@
       }
     },
     {
-      "seq": 24,
-      "ts": "2026-09-23T12:09:26.923Z",
-      "case_id": "HHG-009",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_008",
-          "category": "device_identity",
-          "summary": "Activity shares device profile 5a4d9db7be811859 with card(s) C12598-K2, C02250-K2, C04108-K2, C03040-K2, C06224-K2, C09165-K2, C05128-K1, C00952-K1",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "5a4d9db7be811859"
-            },
-            {
-              "type": "Card",
-              "id": "C08299-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C12598-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C02250-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C04108-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C03040-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C06224-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C09165-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C05128-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C00952-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-28 17:10:53"
-        }
-      }
-    },
-    {
-      "seq": 25,
-      "ts": "2026-09-23T12:09:26.923Z",
-      "case_id": "HHG-009",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_009",
-          "category": "device_identity",
-          "summary": "Shares device profile b39d1c38520cd5ec with 10 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "b39d1c38520cd5ec"
-            },
-            {
-              "type": "Card",
-              "id": "X12268-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17048-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09823-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19336-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08299-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C01755-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C00722-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15205-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C00094-K3"
-            },
-            {
-              "type": "Card",
-              "id": "C04258-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C03070-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-28 17:10:53"
-        }
-      }
-    },
-    {
       "seq": 26,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
           "id": "ev_010",
+          "category": "device_identity",
+          "summary": "Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "5b64ce5e4c424f98"
+            },
+            {
+              "type": "Card",
+              "id": "C11496-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C08299-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C02923-K1"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-28 17:10:53"
+        }
+      }
+    },
+    {
+      "seq": 27,
+      "ts": "2026-09-23T12:50:41.448Z",
+      "case_id": "HHG-009",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_011",
           "category": "device_identity",
           "summary": "Activity shares device profile caac71b87a510a68 with card(s) X19614-K1, C06835-K2, C07997-K1, C04117-K2, C07867-K2, C05560-K2, X10458-K1",
           "entities": [
@@ -1708,45 +1745,8 @@
       }
     },
     {
-      "seq": 27,
-      "ts": "2026-09-23T12:09:26.923Z",
-      "case_id": "HHG-009",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_011",
-          "category": "device_identity",
-          "summary": "Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "5b64ce5e4c424f98"
-            },
-            {
-              "type": "Card",
-              "id": "C11496-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C08299-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C02923-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-28 17:10:53"
-        }
-      }
-    },
-    {
       "seq": 28,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1911,7 +1911,7 @@
     },
     {
       "seq": 29,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1955,6 +1955,14 @@
             },
             {
               "type": "Card",
+              "id": "C11496-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C02923-K1"
+            },
+            {
+              "type": "Card",
               "id": "X19614-K1"
             },
             {
@@ -1980,14 +1988,6 @@
             {
               "type": "Card",
               "id": "X10458-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11496-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C02923-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -2002,7 +2002,7 @@
     },
     {
       "seq": 30,
-      "ts": "2026-09-23T12:09:26.923Z",
+      "ts": "2026-09-23T12:50:41.448Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2019,7 +2019,7 @@
     },
     {
       "seq": 31,
-      "ts": "2026-09-23T12:09:26.932Z",
+      "ts": "2026-09-23T12:50:41.459Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2042,7 +2042,7 @@
     },
     {
       "seq": 32,
-      "ts": "2026-09-23T12:09:26.932Z",
+      "ts": "2026-09-23T12:50:41.459Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2062,7 +2062,7 @@
     },
     {
       "seq": 33,
-      "ts": "2026-09-23T12:09:26.932Z",
+      "ts": "2026-09-23T12:50:41.459Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2079,7 +2079,7 @@
     },
     {
       "seq": 34,
-      "ts": "2026-09-23T12:09:26.941Z",
+      "ts": "2026-09-23T12:50:41.469Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2102,7 +2102,7 @@
     },
     {
       "seq": 35,
-      "ts": "2026-09-23T12:09:26.942Z",
+      "ts": "2026-09-23T12:50:41.469Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2122,7 +2122,7 @@
     },
     {
       "seq": 36,
-      "ts": "2026-09-23T12:09:26.942Z",
+      "ts": "2026-09-23T12:50:41.469Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2140,7 +2140,7 @@
     },
     {
       "seq": 37,
-      "ts": "2026-09-23T12:09:26.949Z",
+      "ts": "2026-09-23T12:50:41.477Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2165,7 +2165,7 @@
     },
     {
       "seq": 38,
-      "ts": "2026-09-23T12:09:26.949Z",
+      "ts": "2026-09-23T12:50:41.477Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2185,7 +2185,7 @@
     },
     {
       "seq": 39,
-      "ts": "2026-09-23T12:09:26.949Z",
+      "ts": "2026-09-23T12:50:41.477Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2237,6 +2237,14 @@
               },
               {
                 "type": "Card",
+                "id": "C11496-K2"
+              },
+              {
+                "type": "Card",
+                "id": "C02923-K1"
+              },
+              {
+                "type": "Card",
                 "id": "C06835-K2"
               },
               {
@@ -2254,14 +2262,6 @@
               {
                 "type": "Card",
                 "id": "C05560-K2"
-              },
-              {
-                "type": "Card",
-                "id": "C11496-K2"
-              },
-              {
-                "type": "Card",
-                "id": "C02923-K1"
               }
             ],
             "amount_band": "under_100",
@@ -2277,7 +2277,7 @@
     },
     {
       "seq": 40,
-      "ts": "2026-09-23T12:09:26.958Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2337,7 +2337,7 @@
     },
     {
       "seq": 41,
-      "ts": "2026-09-23T12:09:26.958Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2364,7 +2364,7 @@
     },
     {
       "seq": 42,
-      "ts": "2026-09-23T12:09:26.958Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2391,7 +2391,7 @@
     },
     {
       "seq": 43,
-      "ts": "2026-09-23T12:09:26.959Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2420,7 +2420,7 @@
     },
     {
       "seq": 44,
-      "ts": "2026-09-23T12:09:26.959Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2449,7 +2449,7 @@
     },
     {
       "seq": 45,
-      "ts": "2026-09-23T12:09:26.959Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2478,7 +2478,7 @@
     },
     {
       "seq": 46,
-      "ts": "2026-09-23T12:09:26.959Z",
+      "ts": "2026-09-23T12:50:41.489Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2495,7 +2495,7 @@
     },
     {
       "seq": 47,
-      "ts": "2026-09-23T12:09:27.016Z",
+      "ts": "2026-09-23T12:50:41.542Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2537,7 +2537,7 @@
     },
     {
       "seq": 48,
-      "ts": "2026-09-23T12:09:27.016Z",
+      "ts": "2026-09-23T12:50:41.542Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2554,7 +2554,7 @@
     },
     {
       "seq": 49,
-      "ts": "2026-09-23T12:09:32.424Z",
+      "ts": "2026-09-23T12:50:47.789Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2586,7 +2586,7 @@
     },
     {
       "seq": 50,
-      "ts": "2026-09-23T12:09:32.424Z",
+      "ts": "2026-09-23T12:50:47.790Z",
       "case_id": "HHG-009",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2606,7 +2606,7 @@
     },
     {
       "seq": 51,
-      "ts": "2026-09-23T12:09:32.424Z",
+      "ts": "2026-09-23T12:50:47.790Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "ASSESSING",
@@ -2614,7 +2614,7 @@
     },
     {
       "seq": 52,
-      "ts": "2026-09-23T12:09:39.296Z",
+      "ts": "2026-09-23T12:50:54.787Z",
       "case_id": "HHG-009",
       "type": "tool_call",
       "state": "ASSESSING",
@@ -2627,7 +2627,7 @@
     },
     {
       "seq": 53,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "tool_result",
       "state": "ASSESSING",
@@ -2637,7 +2637,7 @@
           "ok": true,
           "data": {
             "choice": "card_not_present_fraud",
-            "confidence": 0.96,
+            "confidence": 0.97,
             "probabilities": {
               "card_testing": 0,
               "card_not_present_fraud": 0.97,
@@ -2651,7 +2651,7 @@
     },
     {
       "seq": 54,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "assessment_updated",
       "state": "ASSESSING",
@@ -2660,30 +2660,28 @@
           "hypotheses": [
             {
               "fraud_type": "card_not_present_fraud",
-              "probability": 0.97,
+              "probability": 0.873,
               "supporting": [
                 "ev_004",
                 "ev_013"
               ],
               "contradicting": [
-                "ev_006",
-                "ev_015"
+                "ev_006"
               ]
             },
             {
               "fraud_type": "card_not_present_new_device",
-              "probability": 0.02,
+              "probability": 0.018,
               "supporting": [
                 "ev_003"
               ],
               "contradicting": [
-                "ev_006",
-                "ev_015"
+                "ev_006"
               ]
             },
             {
               "fraud_type": "account_takeover",
-              "probability": 0.01,
+              "probability": 0.009,
               "supporting": [],
               "contradicting": [
                 "ev_002"
@@ -2691,12 +2689,20 @@
             },
             {
               "fraud_type": "legitimate",
-              "probability": 0,
+              "probability": 0.1,
               "supporting": [
                 "ev_006",
-                "ev_015"
+                "ev_015",
+                "ev_019",
+                "ev_020",
+                "ev_021"
               ],
-              "contradicting": []
+              "contradicting": [
+                "ev_004",
+                "ev_013",
+                "ev_017",
+                "ev_018"
+              ]
             }
           ],
           "risk_level": "CRITICAL",
@@ -2707,13 +2713,13 @@
             "missing": [],
             "stop_reason": "sufficient_evidence"
           },
-          "legit_hypothesis_probability": 0
+          "legit_hypothesis_probability": 0.1
         }
       }
     },
     {
       "seq": 55,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "DECIDING",
@@ -2721,7 +2727,7 @@
     },
     {
       "seq": 56,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "APPROVAL_ROUTING",
@@ -2729,7 +2735,7 @@
     },
     {
       "seq": 57,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "approval_requested",
       "state": "APPROVAL_ROUTING",
@@ -2741,7 +2747,7 @@
     },
     {
       "seq": 58,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2752,7 +2758,7 @@
     },
     {
       "seq": 59,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "EXPLAINING",
@@ -2760,7 +2766,7 @@
     },
     {
       "seq": 60,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "explanation",
       "state": "EXPLAINING",
@@ -2773,11 +2779,11 @@
             "ev_004: Cardholder C08299 disputed transaction 3581141 when opening this case: \"Customer C08299 message: 'I never made this $30.02 purchase. Please check my card.' Ref…",
             "ev_005: R7 checked and does not apply: 0 earlier charge(s) of the same amount and product code in 120 days, none forming a monthly cadence (same amount and product cod…",
             "ev_006: Transaction is within the cardholder's usual amount range: amount z=-0.5, device z=0.0",
-            "ev_007: Shares device profile 032da9e468a30316 with 11 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_008: Activity shares device profile 5a4d9db7be811859 with card(s) C12598-K2, C02250-K2, C04108-K2, C03040-K2, C06224-K2, C09165-K2, C05128-K1, C00952-K1",
-            "ev_009: Shares device profile b39d1c38520cd5ec with 10 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_010: Activity shares device profile caac71b87a510a68 with card(s) X19614-K1, C06835-K2, C07997-K1, C04117-K2, C07867-K2, C05560-K2, X10458-K1",
-            "ev_011: Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
+            "ev_007: Activity shares device profile 5a4d9db7be811859 with card(s) C12598-K2, C02250-K2, C04108-K2, C03040-K2, C06224-K2, C09165-K2, C05128-K1, C00952-K1",
+            "ev_008: Shares device profile b39d1c38520cd5ec with 10 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_009: Shares device profile 032da9e468a30316 with 11 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_010: Activity shares device profile 5b64ce5e4c424f98 with card(s) C11496-K2, C02923-K1",
+            "ev_011: Activity shares device profile caac71b87a510a68 with card(s) X19614-K1, C06835-K2, C07997-K1, C04117-K2, C07867-K2, C05560-K2, X10458-K1",
             "ev_012: Shares billing region 203 with 34 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
             "ev_013: Card's activity in the last 30 days shares 3 device profiles / billing regions with 17 other card(s) active in the same window -- a web of shared identifiers, …",
             "ev_014: No prior fraud or cleared cases found for this customer or card",
@@ -2795,14 +2801,14 @@
             "BLOCK_CARD": "R2: the cardholder disputed the transaction(s); exposure $30.02",
             "CREATE_CASE": "R2 and §3a: the cardholder disputed a charge; open a case"
           },
-          "remaining_uncertainty": "Top hypothesis \"card_not_present_fraud\" at 0.99 versus legitimate at 0.00; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0074@0.17, CC-0373@0.17, CC-0425@0.17, CC-0536@0.17, CC-0630@0.17).",
+          "remaining_uncertainty": "Top hypothesis \"card_not_present_fraud\" at 0.90 versus legitimate at 0.10; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0074@0.17, CC-0373@0.17, CC-0425@0.17, CC-0536@0.17, CC-0630@0.17).",
           "what_would_change_the_decision": "The cardholder disputed the charge, so R2 applies. A match to their own monthly recurring charge (R7) would have downgraded this to verification without a block; no such recurring charge was established."
         }
       }
     },
     {
       "seq": 61,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "MEMORY_UPDATE",
@@ -2810,7 +2816,7 @@
     },
     {
       "seq": 62,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "memory_written",
       "state": "MEMORY_UPDATE",
@@ -2820,7 +2826,7 @@
     },
     {
       "seq": 63,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "state_entered",
       "state": "DONE",
@@ -2830,7 +2836,7 @@
     },
     {
       "seq": 64,
-      "ts": "2026-09-23T12:09:39.830Z",
+      "ts": "2026-09-23T12:50:55.286Z",
       "case_id": "HHG-009",
       "type": "done",
       "state": "DONE",
@@ -2841,6 +2847,6 @@
   ],
   "stop_reason": "Customer denial settled the verdict; further steps would not change the block decision.",
   "tool_calls": 14,
-  "tokens": 157,
-  "latency_s": 13.72
+  "tokens": 143,
+  "latency_s": 14.64
 }
