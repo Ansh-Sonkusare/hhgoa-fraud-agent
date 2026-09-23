@@ -1,0 +1,113 @@
+// gsql/queries/vector_search.gsql -- graph-native vector retrieval for the RAG
+// layer (docs/REQUESTS.md "2026-09-18 - WS3 asks WS1", item 4: "A
+// vectorSearch() installed query (or MCP tool) that returns cosine top-k over
+// a given vertex+attribute with a pattern_id / visible_from <= as_of filter").
+// rag/src/store/tigergraphIndex.ts calls it for every policy and case-memory
+// retrieval when RAG_VECTOR_BACKEND=tigergraph.
+//
+// Query vector. Pass it as `qvec`. A LIST<DOUBLE> parameter cannot call
+// .size()/.get() in this 4.3.0-rc1 CE build ("identifier ... of type list
+// parameter is invalid to call any function"), but it can be iterated, so the
+// first statement copies it into a ListAccum, which supports both (verified by
+// creating, interpreting and dropping a probe query). An earlier version of
+// this header said a list parameter could not be used at all and took the
+// vector only from a seeded vertex; that path remains: with `qvec` empty the
+// vector is read from the `embedding` of vertex `query_id`.
+//
+// Score = true cosine dot/(||a||.||b||), the same function as
+// rag/src/embeddings.ts cosineSimilarity. A vertex with no embedding, an
+// all-zero one, or one of a different dimension is not scorable and is left
+// out of the results rather than scored 0 -- so a caller can tell "not in the
+// index" from "dissimilar" (the RAG layer fails loudly on the former).
+//
+// vertex_type selects the branch:
+//   "PolicyChunk" -- chunks, optional exact `pattern_id` pre-filter. Policy text
+//     is static reference data: no as_of filter.
+//   "FraudCase"   -- case memory. FraudCase has no `visible_from` attribute;
+//     for closed-case memory visibility equals closed_at, and open cases are
+//     stored with the DATETIME default = epoch. apply_as_of=true keeps only
+//     closed_at strictly after epoch and <= as_of. apply_as_of=false scans all
+//     cases; the RAG layer uses that and applies its own visible_from filter,
+//     because agent-written memory records and their graph vertices do not
+//     share ids or closed_at semantics (see tigergraphIndex.ts). `outcome`
+//     optionally narrows to confirmed_fraud/cleared.
+//
+// scores_only=true leaves text/summary empty so a full-population scan (every
+// case, k large) returns ids and scores without shipping every summary.
+//
+// Top-k is a HeapAccum: O(N log k), not a full sort. Scalar locals cannot be
+// `+=`-updated inside ACCUM, so per-vertex SumAccums carry the running dot
+// product and norm.
+CREATE QUERY vector_search(
+  STRING vertex_type,
+  STRING query_id,
+  UINT k,
+  STRING pattern_id,
+  STRING as_of,
+  BOOL apply_as_of,
+  STRING outcome,
+  LIST<DOUBLE> qvec,
+  BOOL scores_only
+) FOR GRAPH hhgoa_fraud {
+  TYPEDEF TUPLE <id STRING, text STRING, source_doc STRING, pattern_id STRING, score DOUBLE> ChunkHit;
+  TYPEDEF TUPLE <id STRING, outcome STRING, pattern STRING, opened_at DATETIME, closed_at DATETIME, summary STRING, score DOUBLE> CaseHit;
+  HeapAccum<ChunkHit>(k, score DESC) @@chunkTop;
+  HeapAccum<CaseHit>(k, score DESC) @@caseTop;
+  ListAccum<DOUBLE> @@qvec;
+  SumAccum<DOUBLE> @@qnorm2;
+  SumAccum<INT> @@qsrc;
+  SumAccum<DOUBLE> @dot;
+  SumAccum<DOUBLE> @norm2;
+  DOUBLE qn = 0;
+
+  FOREACH e IN qvec DO
+    @@qvec += e;
+  END;
+
+  IF vertex_type == "PolicyChunk" THEN
+    IF @@qvec.size() == 0 THEN
+      Seed = SELECT c FROM PolicyChunk:c
+             WHERE c.id == query_id
+             ACCUM FOREACH e IN c.embedding DO @@qvec += e END, @@qsrc += 1;
+    END;
+    FOREACH e IN @@qvec DO @@qnorm2 += e * e; END;
+    qn = sqrt(@@qnorm2);
+    Chunks = {PolicyChunk.*};
+    Hits = SELECT c FROM Chunks:c
+           WHERE pattern_id == "" OR c.pattern_id == pattern_id
+           ACCUM IF @@qvec.size() > 0 AND c.embedding.size() == @@qvec.size() THEN
+                   FOREACH pos IN RANGE[0, c.embedding.size() - 1] DO
+                     c.@dot += c.embedding.get(pos) * @@qvec.get(pos),
+                     c.@norm2 += c.embedding.get(pos) * c.embedding.get(pos)
+                   END
+                 END
+           POST-ACCUM
+             IF c.@norm2 > 0 AND qn > 0 THEN
+               @@chunkTop += ChunkHit(c.id, (CASE WHEN scores_only THEN "" ELSE c.text END), c.source_doc, c.pattern_id, c.@dot / (sqrt(c.@norm2) * qn))
+             END;
+  ELSE IF vertex_type == "FraudCase" THEN
+    IF @@qvec.size() == 0 THEN
+      Seed = SELECT c FROM FraudCase:c
+             WHERE c.id == query_id
+             ACCUM FOREACH e IN c.embedding DO @@qvec += e END, @@qsrc += 1;
+    END;
+    FOREACH e IN @@qvec DO @@qnorm2 += e * e; END;
+    qn = sqrt(@@qnorm2);
+    Cases = {FraudCase.*};
+    CaseHits = SELECT c FROM Cases:c
+               WHERE (NOT apply_as_of OR (c.closed_at > to_datetime("1970-01-01 00:00:00") AND c.closed_at <= to_datetime(as_of)))
+                 AND (outcome == "" OR c.outcome == outcome)
+               ACCUM IF @@qvec.size() > 0 AND c.embedding.size() == @@qvec.size() THEN
+                       FOREACH pos IN RANGE[0, c.embedding.size() - 1] DO
+                         c.@dot += c.embedding.get(pos) * @@qvec.get(pos),
+                         c.@norm2 += c.embedding.get(pos) * c.embedding.get(pos)
+                       END
+                     END
+               POST-ACCUM
+                 IF c.@norm2 > 0 AND qn > 0 THEN
+                   @@caseTop += CaseHit(c.id, c.outcome, c.pattern, c.opened_at, c.closed_at, (CASE WHEN scores_only THEN "" ELSE c.summary END), c.@dot / (sqrt(c.@norm2) * qn))
+                 END;
+  END;
+
+  PRINT @@chunkTop AS chunks, @@caseTop AS cases, @@qvec.size() AS query_dim, @@qsrc AS query_src;
+}

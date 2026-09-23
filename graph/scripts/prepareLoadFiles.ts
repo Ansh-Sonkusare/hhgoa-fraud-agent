@@ -4,9 +4,14 @@
  * graph/build/ from data/*.csv, for the GSQL LOADING JOBs.
  *
  * Cardinal derivation (documented honestly, see graph/README.md):
- *   - Card id = `C<card1>-K<rank>`, rank assigned WITHIN a card1 group by
- *     ascending transaction count (fewest txns = K1). Measured ~61% exact
- *     match against closed-case card ids; the rest are honest approximations.
+ *   - Card id is NOT derivable from card1: one card1 value covers many cards,
+ *     and the dataset's own ids are opaque. Deriving `C<card1>-K<rank>` scored
+ *     0/5565 exact matches against closed-case card ids while accidentally
+ *     colliding with 448 real ids, so the real labels are read from the
+ *     dataset (closed_cases_history.txn_ids, case_pack.flagged_txn_id) and
+ *     unlabelled tuples get a disjoint `X<card1>-K<rank>` id instead.
+ *     The card *grouping* itself is sound: measured ~1.02 tuples per true card
+ *     and ~1.00 true cards per tuple, i.e. all but a handful are 1:1.
  *   - Cards referenced only by closed_cases_history/case_pack are emitted as
  *     stub Card vertices (is_stub=true).
  *   - Identity id = hash(card1, addr1, est-first-txn-day); Device id =
@@ -83,7 +88,17 @@ interface DeviceRow {
   browser: string;
   screen: string;
 }
-const identityByTxn = new Map<string, { deviceId: string }>();
+/**
+ * The id_* attributes come from identity.csv keyed on TransactionID, NOT from
+ * positional indices into transactions.csv. Reading them off the transaction
+ * row put P_emaildomain into id_15 and ProductCD into id_03, which silently
+ * destroyed the only signal card_not_present_new_device is defined by
+ * (id_15 = New) and the match_status in id_34. Identity covers a subset of
+ * transactions; the rest legitimately get empty strings.
+ */
+const IDENTITY_COLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 23, 34] as const;
+const EMPTY_IDENTITY: string[] = IDENTITY_COLS.map(() => "");
+const identityByTxn = new Map<string, { deviceId: string; ids: string[] }>();
 const devices = new Map<string, DeviceRow>();
 const devW = new CsvWriter(path.join(outDir, "devices.csv"));
 devW.write(["id", "device_type", "device_info", "os", "browser", "screen"]);
@@ -101,7 +116,7 @@ async function loadIdentity(): Promise<void> {
     const browser = r[31] ?? "";
     const screen = r[33] ?? "";
     const deviceId = md5(`${devInfo}|${os}|${browser}|${screen}`);
-    identityByTxn.set(tid, { deviceId });
+    identityByTxn.set(tid, { deviceId, ids: IDENTITY_COLS.map((c) => r[c] ?? "") });
     if (!devices.has(deviceId)) {
       devices.set(deviceId, {
         id: deviceId,
@@ -145,6 +160,30 @@ function good(s: string | undefined): s is string {
   return !!s && s.trim() !== "";
 }
 
+// Official card ids are assigned by the dataset, not derivable from card1 (a
+// card1 value is shared by many cards). closed_cases_history.txn_ids and
+// case_pack.flagged_txn_id are the only places the dataset states which
+// transactions belong to which card, so the real labels are recovered from
+// them; anything we cannot label is NOT a dataset card and gets a disjoint
+// "X" prefix so it can never collide with, or be mistaken for, a real id.
+const txnOfficialCard = new Map<string, string>();
+{
+  let n = 0;
+  await eachRow(path.join(dataDir, "closed_cases_history.csv"), (r) => {
+    if (n++ === 0) return; // header
+    const card = r[2] ?? "";
+    if (!card) return;
+    for (const t of (r[8] ?? "").split("|")) if (t) txnOfficialCard.set(t, card);
+  });
+  let m = 0;
+  await eachRow(path.join(dataDir, "case_pack.csv"), (r) => {
+    if (m++ === 0) return; // header
+    const txn = r[4] ?? "", card = r[5] ?? "";
+    if (txn && card) txnOfficialCard.set(txn, card);
+  });
+}
+const officialVotes = new Map<string, Map<string, number>>(); // card tuple key -> official id -> votes
+
 await eachRow(path.join(dataDir, "transactions.csv"), (r) => {
   if (txnCountA === 0) {
     txnCountA += 1; // header
@@ -153,6 +192,12 @@ await eachRow(path.join(dataDir, "transactions.csv"), (r) => {
   if (txnCountA - 1 >= maxTxns) return;
   txnCountA += 1;
   const k = cardKey(r);
+  const official = txnOfficialCard.get(r[COL.TransactionID] ?? "");
+  if (official) {
+    let v = officialVotes.get(k);
+    if (!v) officialVotes.set(k, (v = new Map()));
+    v.set(official, (v.get(official) ?? 0) + 1);
+  }
   const ts = r[COL.ts] ?? "";
   const epoch = tsEpoch(ts);
   const prior = cardMeta.get(k);
@@ -202,22 +247,42 @@ const a1 = r[COL.addr1];
   });
 console.log(`[prepareLoadFiles] pass A: ${txnCountA - 1} txns, ${cardMeta.size} card tuples`);
 
-// Card ids: rank per card1 by ascending count (then first ts, then key).
+// Card ids. A tuple the dataset has named in a case keeps that official id;
+// every other tuple gets a synthetic "X<card1>-K<rank>" id. The two namespaces
+// are kept disjoint on purpose: a synthetic id in the dataset's own C-format
+// would validate as a real card while naming a different one.
+const cardIdOf = new Map<string, string>(); // card tuple key -> official or synthetic id
+// A dataset card can span up to 3 of our card tuples, so several tuples may
+// map to the same official id; they then merge into one card vertex, which is
+// the dataset's own notion of a card rather than our tuple approximation.
+const claimedBy = new Set<string>();
+for (const [key, votes] of officialVotes) {
+  let best = "", bestN = 0;
+  for (const [id, n] of votes) if (n > bestN || (n === bestN && id < best)) { best = id; bestN = n; }
+  if (!best) continue;
+  claimedBy.add(best);
+  cardIdOf.set(key, best);
+}
+
 const byCard1 = new Map<string, CardMeta[]>();
 for (const m of cardMeta.values()) {
+  if (cardIdOf.has(m.key)) continue;
   const list = byCard1.get(m.card1) ?? [];
   list.push(m);
   byCard1.set(m.card1, list);
 }
-const cardIdOf = new Map<string, string>(); // card tuple key -> C<card1>-K<rank>
 for (const [c1, list] of byCard1) {
   list.sort((a, b) => a.count - b.count || a.firstEpoch - b.firstEpoch || (a.key < b.key ? -1 : 1));
   let rank = 0;
   for (const m of list) {
     rank += 1;
-    cardIdOf.set(m.key, `C${c1}-K${rank}`);
+    cardIdOf.set(m.key, `X${c1}-K${rank}`);
   }
 }
+console.log(
+  `[prepareLoadFiles] card ids: ${claimedBy.size} official (dataset-named) ` +
+    `from ${officialVotes.size} tuples, ${cardMeta.size - officialVotes.size} synthetic`,
+);
 
 // Identity vertex rows + ids.
 interface IdentityRow {
@@ -313,8 +378,7 @@ await eachRow(path.join(dataDir, "transactions.csv"), (r) => {
     ...(Array.from({ length: 14 }, (_, i) => r[COL.C + i] ?? "")),
     ...(Array.from({ length: 15 }, (_, i) => r[COL.D + i] ?? "")),
     ...(Array.from({ length: 9 }, (_, i) => r[COL.M + i] ?? "")),
-    ...(Array.from({ length: 11 }, (_, i) => r[1 + i] ?? "")), // id_01..id_11
-    r[15] ?? "", r[23] ?? "", r[34] ?? "", // id_15, id_23, id_34
+    ...(identityByTxn.get(txnId)?.ids ?? EMPTY_IDENTITY), // id_01..id_11, id_15, id_23, id_34
   ]);
 
   if (!AC.made.has(txnId)) AC.made.set(txnId, [cardId, ts]);
@@ -408,13 +472,39 @@ cardW.write([
   "first_seen_ts", "last_seen_ts", "txn_count", "total_amount_usd", "is_stub",
 ]);
 const cardIdsDerived = new Set<string>();
+// Several tuples can share one official id (see the card-id block above), so
+// roll them up here rather than leaving the loader to upsert row over row:
+// otherwise the card's txn_count/first_seen would be whichever tuple loaded
+// last instead of the card's own totals.
+interface CardRow {
+  m: CardMeta;
+  count: number;
+  total: number;
+  firstTs: string;
+  lastTs: string;
+}
+const cardRows = new Map<string, CardRow>();
 for (const m of cardMeta.values()) {
   const id = cardIdOf.get(m.key)!;
   cardIdsDerived.add(id);
+  const prev = cardRows.get(id);
+  if (!prev) {
+    cardRows.set(id, { m, count: m.count, total: m.total, firstTs: m.firstTs, lastTs: m.lastTs });
+    continue;
+  }
+  prev.count += m.count;
+  prev.total += m.total;
+  if (m.firstTs && (!prev.firstTs || m.firstTs < prev.firstTs)) prev.firstTs = m.firstTs;
+  if (m.lastTs && (!prev.lastTs || m.lastTs > prev.lastTs)) prev.lastTs = m.lastTs;
+  // Keep the busiest tuple's card1/card2/card3/card5 as the card's attributes.
+  if (m.count > prev.m.count) prev.m = m;
+}
+for (const [id, r] of cardRows) {
+  const m = r.m;
   cardW.write([
     id, AC.owns.get(id) ?? "", m.network, m.type, m.card1,
     m.key.split("|")[1] ?? "", m.key.split("|")[2] ?? "", m.key.split("|")[3] ?? "",
-    m.firstTs, m.lastTs, String(m.count), String(Math.round(m.total * 100) / 100), "false",
+    r.firstTs, r.lastTs, String(r.count), String(Math.round(r.total * 100) / 100), "false",
   ]);
 }
 await cardW.done();

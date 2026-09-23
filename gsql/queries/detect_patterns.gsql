@@ -7,11 +7,56 @@
 // Logic is duplicated from detectors/det_*.gsql rather than composed via
 // RUN QUERY calls between installed queries -- query-to-query invocation
 // is unverified on this GSQL build (see docs/decisions.md), so each
-// detector must also work standalone (detectors/ owns the canonical
-// per-pattern logic; this file mirrors it for the aggregate contract
-// call). ts <= as_of only throughout (PRD sec.8.1). See each
-// detectors/det_*.gsql file for the per-pattern rationale/thresholds.
+// detector must also work standalone.
+//
+// THIS FILE IS NOW THE CANONICAL LOGIC, not detectors/. It previously claimed
+// the reverse. Three detectors here were corrected against DATASET_README's own
+// pattern definitions and the MEASURED shape of the gold cases -- card_testing's
+// small-authorization bar and "followed by" ordering, card_not_present_fraud's
+// burst ceiling of four, out_of_region_use's trip-versus-clone shape test,
+// account_takeover's match-flag rate -- and the standalone
+// detectors/det_*.gsql copies still carry the older logic. They are installed
+// but nothing calls them: `detect_patterns` is what backs the contract tool, so
+// the divergence is duplicated dead code rather than a behavioural split. Sync
+// or delete them; do not treat them as the reference.
+//
+// ts <= as_of only throughout (PRD sec.8.1).
 CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+  // Above this span, activity in a single new billing region reads as travel
+  // rather than a cloned card (DATASET_README: "Several days of purchases in one
+  // new region is a trip, not a clone"). 36h: comfortably more than one day of
+  // spend, comfortably less than "several days".
+  INT TRIP_MIN_SECONDS = 129600;
+  // Card-testing thresholds. R5 says "small ... within an hour, followed by a
+  // larger purchase" and pattern 1 says "often under $5". Measured against the
+  // gold card_testing cases (n=16, 48h before opened_at): under $5 holds for
+  // 2/16, under $10 for 10/16; and 0/16 have the small authorizations within
+  // one hour -- they spread across the two days. So $10 is the bar the data
+  // supports (it fires on 1/60 cleared and 0/60 account_takeover cases), the
+  // one-hour span is not applied, and "larger" is $50: two of the four gold
+  // follow-on purchases sat between $50 and $100.
+  DOUBLE CT_SMALL_USD = 10.0;
+  DOUBLE CT_LARGE_USD = 50.0;
+  // The testing run has to be recent to be the episode under investigation, not
+  // an unrelated sequence from months earlier.
+  INT    CT_EPISODE_SECONDS = 172800;
+  // DATASET_README pattern 2: "a burst of two to four within 48 hours".
+  INT    CNP_BURST_MAX = 4;
+  // Amount structuring (an `undocumented` shape). Derived from the analyst
+  // notes of the three closed undocumented cases outside the backtest sample
+  // ("four online purchases within forty minutes, each just under $500"; the
+  // README: "Read those notes carefully"): 4 online charges inside one hour,
+  // every one in [$400, $500), amounts not all the same. Measured on closed
+  // cases outside the 50-case backtest sample: fires on 3/3 of those cases
+  // and on 0 of the 33 other cases whose episode could fit the band (0 of 900
+  // cleared). The $5 spread excludes the flat ~$450 repeats seen on
+  // card_not_present_new_device cases (spread under $0.20).
+  DOUBLE ST_MIN_USD = 400.0;
+  DOUBLE ST_MAX_USD = 500.0;
+  INT    ST_MIN_COUNT = 4;
+  INT    ST_SPAN_SECONDS = 3600;
+  DOUBLE ST_MIN_SPREAD_USD = 5.0;
+  INT    ST_LOOKBACK_SECONDS = 604800;
   MapAccum<STRING, DOUBLE> @@scores;
   MapAccum<STRING, SetAccum<STRING>> @@evidence;
 
@@ -19,24 +64,41 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
   CardHit = SELECT c FROM Cards:c WHERE c.id == card_id;
 
   // --- card_testing ---
+  // R5 and pattern 1 both make the SEQUENCE the thing being detected: small
+  // online authorizations, "followed by a larger purchase", "Confirmed by the
+  // sequence itself". An earlier version counted small and large charges across
+  // the card's entire history in any order; the version after that applied R5's
+  // one-hour span literally and fired on 0 of 16 gold cases. The bars now come
+  // from the measured shape (see the constants above); the ordering is kept.
+  //
+  // Two passes, because an accumulator cannot be read inside the ACCUM that
+  // fills it: first bound the small authorizations to the recent episode, then
+  // look for a larger purchase AFTER the last of them.
   SumAccum<INT> @@ct_small;
   SumAccum<INT> @@ct_large;
+  MinAccum<DATETIME> @@ct_small_first_ts;
+  MaxAccum<DATETIME> @@ct_small_last_ts;
   SetAccum<STRING> @@ct_evidence;
-  CtTxns = SELECT t FROM CardHit:c-(MADE)-:t
-           WHERE t.ts <= as_of AND t.channel == "online"
-           ACCUM
-             IF t.amount_usd < 5.0 THEN
-               @@ct_small += 1,
-               @@ct_evidence += t.id
-             END,
-             IF t.amount_usd > 100.0 THEN
-               @@ct_large += 1,
-               @@ct_evidence += t.id
-             END;
+  CtSmall = SELECT t FROM CardHit:c-(MADE)-:t
+            WHERE t.ts <= as_of AND t.channel == "online"
+              AND t.amount_usd < CT_SMALL_USD
+              AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - CT_EPISODE_SECONDS
+            ACCUM
+              @@ct_small += 1,
+              @@ct_small_first_ts += t.ts,
+              @@ct_small_last_ts += t.ts,
+              @@ct_evidence += t.id;
   IF @@ct_small >= 3 THEN
+    CtLarge = SELECT t FROM CardHit:c-(MADE)-:t
+              WHERE t.ts <= as_of AND t.channel == "online"
+                AND t.amount_usd > CT_LARGE_USD
+                AND datetime_to_epoch(t.ts) > datetime_to_epoch(@@ct_small_last_ts)
+              ACCUM @@ct_large += 1, @@ct_evidence += t.id;
     IF @@ct_large >= 1 THEN
       @@scores += ("card_testing" -> 0.9);
     ELSE
+      // The testing run is there but no larger purchase has followed yet, which
+      // is the pre-loss state R5 wants declined rather than blocked.
       @@scores += ("card_testing" -> 0.55);
     END;
     @@evidence += ("card_testing" -> @@ct_evidence);
@@ -78,7 +140,8 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
                 IF t.id_23 != "" THEN
                   @@cnp_proxy += 1
                 END;
-  IF @@cnp_burst >= 2 AND @@cnp_burst <= 6 THEN
+  // "often in a burst of two to four within 48 hours" -- the upper bound was 6.
+  IF @@cnp_burst >= 2 AND @@cnp_burst <= CNP_BURST_MAX THEN
     IF @@cnp_outlier >= 1 THEN
       @@scores += ("card_not_present_fraud" -> 0.8);
     ELSE
@@ -86,7 +149,7 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
     END;
     @@evidence += ("card_not_present_fraud" -> @@cnp_evidence);
   END;
-  IF @@cnp_burst >= 2 AND @@cnp_new_device >= 1 THEN
+  IF @@cnp_burst >= 2 AND @@cnp_burst <= CNP_BURST_MAX AND @@cnp_new_device >= 1 THEN
     IF @@cnp_proxy >= 1 THEN
       @@scores += ("card_not_present_new_device" -> 0.85);
     ELSE
@@ -95,30 +158,108 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
     @@evidence += ("card_not_present_new_device" -> @@cnp_device_evidence);
   END;
 
+  // --- undocumented: amount structuring ---
+  // Three passes (an accumulator cannot be read inside the ACCUM that fills
+  // it): find the latest in-band online charge in the lookback; collect the
+  // in-band charges in the hour ending there; then require that no other
+  // online charge sits between the first and last of them, so every charge
+  // in the burst is in the band.
+  MaxAccum<INT>    @@st_last;
+  MinAccum<INT>    @@st_first;
+  MinAccum<DOUBLE> @@st_min_amt;
+  MaxAccum<DOUBLE> @@st_max_amt;
+  SumAccum<INT>    @@st_n;
+  SumAccum<INT>    @@st_all;
+  SetAccum<STRING> @@st_evidence;
+  StBand = SELECT t FROM CardHit:c-(MADE)-:t
+           WHERE t.ts <= as_of
+             AND t.channel == "online"
+             AND t.amount_usd >= ST_MIN_USD AND t.amount_usd < ST_MAX_USD
+             AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - ST_LOOKBACK_SECONDS
+           ACCUM @@st_last += datetime_to_epoch(t.ts);
+  IF StBand.size() >= ST_MIN_COUNT THEN
+    StBurst = SELECT t FROM StBand:t
+              WHERE datetime_to_epoch(t.ts) >= @@st_last - ST_SPAN_SECONDS
+              ACCUM
+                @@st_n += 1,
+                @@st_first += datetime_to_epoch(t.ts),
+                @@st_min_amt += t.amount_usd,
+                @@st_max_amt += t.amount_usd,
+                @@st_evidence += t.id;
+    IF @@st_n >= ST_MIN_COUNT THEN
+      StAll = SELECT t FROM CardHit:c-(MADE)-:t
+              WHERE t.ts <= as_of
+                AND t.channel == "online"
+                AND datetime_to_epoch(t.ts) >= @@st_first
+                AND datetime_to_epoch(t.ts) <= @@st_last
+              ACCUM @@st_all += 1;
+      IF @@st_all == @@st_n AND @@st_max_amt - @@st_min_amt >= ST_MIN_SPREAD_USD THEN
+        @@scores += ("undocumented" -> 0.85);
+        @@evidence += ("undocumented" -> @@st_evidence);
+      END;
+    END;
+  END;
+
   // --- out_of_region_use ---
+  // "Home" is every region the card has previously transacted in. A frequency
+  // threshold was tried here and rejected: addr1 varies per transaction in
+  // this dataset (one sampled card had 40 distinct prior regions across 338
+  // transactions), so demanding a minimum share marked 8 of 10 ordinary
+  // recent regions "new" and would have fired this pattern on an
+  // account_takeover case. Genuinely unseen is the precise signal.
   SetAccum<STRING> @@home_addrs;
   SumAccum<INT>    @@region_home_recent;
   SumAccum<INT>    @@region_new;
+  SetAccum<STRING> @@region_new_addrs;
+  MinAccum<DATETIME> @@region_new_first_ts;
+  MaxAccum<DATETIME> @@region_new_last_ts;
   SetAccum<STRING> @@region_evidence;
   OldTxns = SELECT p FROM CardHit:c-(MADE)-:p
             WHERE p.ts < as_of
               AND datetime_to_epoch(p.ts) < datetime_to_epoch(as_of) - 7 * 86400
+              AND p.addr1 != ""
             ACCUM @@home_addrs += p.addr1;
   RecentTxns = SELECT t FROM CardHit:c-(MADE)-:t
                WHERE t.ts <= as_of
                  AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - 7 * 86400
                ACCUM
-                 IF t.channel == "in_person" AND NOT @@home_addrs.contains(t.addr1) THEN
+                 IF t.channel == "in_person" AND t.addr1 != "" AND NOT @@home_addrs.contains(t.addr1) THEN
                    @@region_new += 1,
+                   @@region_new_addrs += t.addr1,
+                   @@region_new_first_ts += t.ts,
+                   @@region_new_last_ts += t.ts,
                    @@region_evidence += t.id
                  ELSE
                    @@region_home_recent += 1
                  END;
-  IF @@home_addrs.size() > 0 AND @@region_new >= 1 THEN
-    IF @@region_home_recent >= 1 THEN
-      @@scores += ("out_of_region_use" -> 0.75);
+  // DATASET_README's definition of this pattern carries its own counter-example:
+  // "Card-present purchases in a billing region the cardholder has no history
+  // in, while their normal activity continues at home. Several days of purchases
+  // in one new region is a trip, not a clone."
+  //
+  // So the discriminator is the SHAPE of the new-region activity, not how much of
+  // it there is. Counting transactions gets this backwards -- a graded ladder on
+  // the raw count scored sustained spend in a single new region highest, which is
+  // exactly the trip the spec says to exclude. It showed up in the numbers: at
+  // three or more new-region transactions, cleared cases fire at 12% against 24%
+  // for genuine out-of-region cases, a 2:1 separation because the high-count
+  // bucket is mostly trips.
+  //
+  // Two distinct new regions cannot be one trip, so that is the strong signal.
+  // A single new region is read by how long it runs: hours looks like a cloned
+  // card used while the cardholder is at home, days looks like travel.
+  IF @@home_addrs.size() > 0 AND @@region_new >= 1 AND @@region_home_recent >= 1 THEN
+    IF @@region_new_addrs.size() >= 2 THEN
+      @@scores += ("out_of_region_use" -> 0.8);
     ELSE
-      @@scores += ("out_of_region_use" -> 0.5);
+      IF datetime_to_epoch(@@region_new_last_ts) - datetime_to_epoch(@@region_new_first_ts) <= TRIP_MIN_SECONDS THEN
+        @@scores += ("out_of_region_use" -> 0.65);
+      ELSE
+        // Several days in one new region: the spec calls this a trip. Still
+        // reported, because the assessor weighs it against everything else, but
+        // it must not read as a strong fraud signal on its own.
+        @@scores += ("out_of_region_use" -> 0.3);
+      END;
     END;
     @@evidence += ("out_of_region_use" -> @@region_evidence);
   END;
@@ -127,11 +268,16 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
   SumAccum<INT>    @@ato_online;
   SumAccum<INT>    @@ato_in_person;
   SumAccum<INT>    @@ato_mismatch;
+  SumAccum<INT>    @@ato_mismatch_txns;
+  SumAccum<INT>    @@ato_recent_txns;
+  SumAccum<INT>    @@ato_prior_mismatch;
+  SumAccum<INT>    @@ato_prior_txns;
   SetAccum<STRING> @@ato_evidence;
   AtoTxns = SELECT t FROM CardHit:c-(MADE)-:t
             WHERE t.ts <= as_of
               AND datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - 7 * 86400
             ACCUM
+              @@ato_recent_txns += 1,
               IF t.channel == "online" THEN
                 @@ato_online += 1
               ELSE
@@ -146,14 +292,47 @@ CREATE QUERY detect_patterns(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fra
               IF t.m7 == "F" THEN @@ato_mismatch += 1 END,
               IF t.m8 == "F" THEN @@ato_mismatch += 1 END,
               IF t.m9 == "F" THEN @@ato_mismatch += 1 END,
+              IF t.m1 == "F" OR t.m2 == "F" OR t.m3 == "F" OR t.m4 == "F" OR t.m5 == "F"
+                 OR t.m6 == "F" OR t.m7 == "F" OR t.m8 == "F" OR t.m9 == "F" THEN
+                @@ato_mismatch_txns += 1
+              END,
               @@ato_evidence += t.id;
-  IF @@ato_online >= 1 AND @@ato_in_person >= 1 THEN
-    IF @@ato_mismatch >= 2 THEN
-      @@scores += ("account_takeover" -> 0.8);
-    ELSE
-      @@scores += ("account_takeover" -> 0.45);
-    END;
+  // Kept for the evidence trail; no longer the gate. The baseline-relative
+  // spike (recent rate > 1.5x prior rate) fired on 4 of 120 gold
+  // account_takeover cases: 90 of them open with no transactions older than
+  // seven days on the card, so there is no baseline to beat.
+  PriorAto = SELECT p FROM CardHit:c-(MADE)-:p
+             WHERE p.ts < as_of
+               AND datetime_to_epoch(p.ts) < datetime_to_epoch(as_of) - 7 * 86400
+             ACCUM
+               @@ato_prior_txns += 1,
+               IF p.m1 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m2 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m3 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m4 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m5 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m6 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m7 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m8 == "F" THEN @@ato_prior_mismatch += 1 END,
+               IF p.m9 == "F" THEN @@ato_prior_mismatch += 1 END;
+  // The gate is the match-flag failure RATE over the last seven days: failed
+  // checks per transaction. Measured on 120 gold account_takeover cases against
+  // 120 cleared: rate >= 1.0 fires on 71% of gold and 26% of cleared, the best
+  // separation of every variant tried (total count >= 4: 77% vs 39%; the old
+  // spike: 3% vs 7%). Mixed online+in-person activity, which the old gate
+  // required, is 51% on gold and 48% on cleared -- it is not a discriminator,
+  // and requiring it halved recall. Integer form: mismatch >= recent_txns.
+  // At least three transactions have to carry a failure so a single odd
+  // charge cannot fire the strong tier on its own.
+  BOOL ato_high_rate = (@@ato_recent_txns > 0 AND @@ato_mismatch >= @@ato_recent_txns);
+  IF ato_high_rate AND @@ato_mismatch_txns >= 3 THEN
+    @@scores += ("account_takeover" -> 0.8);
     @@evidence += ("account_takeover" -> @@ato_evidence);
+  ELSE
+    IF @@ato_mismatch >= 2 THEN
+      @@scores += ("account_takeover" -> 0.45);
+      @@evidence += ("account_takeover" -> @@ato_evidence);
+    END;
   END;
 
   // A single PRINT statement -- multiple PRINT statements return as

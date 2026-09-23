@@ -88,6 +88,20 @@ describe("shared_rings", () => {
       expect(cardIds).toContain(KNOWN.txnCardId);
     }
   });
+
+  it("seed_in_window keeps only rings on the seed card's own activity in the window -- a subset of all-time", async () => {
+    type Rings = { device_rings: Record<string, string[]>; address_rings: Record<string, string[]> };
+    const params = { card_id: KNOWN.txnCardId, as_of: KNOWN.lateAsOf };
+    const all = await runQuery<Rings>("shared_rings", params);
+    const win = await runQuery<Rings>("shared_rings", { ...params, seed_in_window: true });
+    for (const key of ["device_rings", "address_rings"] as const) {
+      for (const [id, cards] of Object.entries(win[key])) {
+        expect(cards).toContain(KNOWN.txnCardId);
+        expect(all[key][id]).toBeDefined();
+        for (const c of cards) expect(all[key][id]).toContain(c);
+      }
+    }
+  });
 });
 
 describe("baseline_deviation", () => {

@@ -1,0 +1,36 @@
+// gsql/queries/get_pattern_profile.gsql -- WS3<->WS1 agreement item 4b:
+// "a GSQL/MCP way to read required_evidence / permitted_actions from Pattern
+// endpoints at query time" (docs/REQUESTS.md "2026-09-18 - WS3 asks WS1").
+//
+// Returns the Pattern's own fields plus the evidence types reached by
+// `-REQUIRES_EVIDENCE-> EvidenceType` (the edge WS1 declared per the request;
+// see graph/schema.gsql). `permitted_actions` is NOT graph-backed: no Pattern
+// attribute stores it, and ALTER GRAPH/ALTER VERTEX are unsupported on this
+// CE build, so it cannot be added without a full DROP ALL + reload. WS3 keeps
+// the PatternRecord.permitted_actions mapping in rag/src/patterns.ts and
+// expands it locally (retrieve.ts expandPatternsFromChunks). This query is
+// the graph half of that read: pattern identity + REQUIRES_EVIDENCE, with the
+// permitted-actions half documented, not silently dropped.
+CREATE QUERY get_pattern_profile(STRING pattern_id) FOR GRAPH hhgoa_fraud {
+  SumAccum<INT>    @@found;
+  ListAccum<STRING> @@name;
+  ListAccum<STRING> @@kind;
+  ListAccum<STRING> @@description;
+  ListAccum<STRING> @@required_evidence;
+  ListAccum<STRING> @@required_evidence_names;
+
+  P = {Pattern.*};
+  M = SELECT p FROM P:p
+      WHERE p.id == pattern_id
+      ACCUM @@found += 1, @@name += p.name, @@kind += p.kind, @@description += p.description;
+  E = SELECT x FROM P:p-(REQUIRES_EVIDENCE)->:x
+      WHERE p.id == pattern_id
+      ACCUM @@required_evidence += x.id, @@required_evidence_names += x.name;
+
+  PRINT @@found AS found,
+        @@name AS name,
+        @@kind AS kind,
+        @@description AS description,
+        @@required_evidence AS required_evidence,
+        @@required_evidence_names AS required_evidence_names;
+}

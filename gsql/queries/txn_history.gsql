@@ -3,11 +3,22 @@
 // entity_type is "card" or "customer"; window_hours 0 means "all history up
 // to as_of". Rows are ts <= as_of only (PRD sec.8.1).
 CREATE QUERY txn_history(STRING entity_type, STRING entity_id, DATETIME as_of, INT window_hours) FOR GRAPH hhgoa_fraud {
-  TYPEDEF TUPLE<STRING txn_id, DATETIME ts, DOUBLE amount_usd, STRING product_cd, STRING channel, DOUBLE risk_score> TxnRowT;
+  // addr1/id_15/id_23/m-flags are carried because they are the facts that
+  // separate the documented patterns from one another: addr1 is the billing
+  // region out_of_region_use turns on, id_15 is the New/Found device marker
+  // card_not_present_new_device is defined by, and the match flags plus the
+  // channel mix are what account_takeover rests on. Without them the caller
+  // can only ever describe generic card-not-present activity, whatever the
+  // underlying pattern actually is.
+  TYPEDEF TUPLE<STRING txn_id, DATETIME ts, DOUBLE amount_usd, STRING product_cd, STRING channel, DOUBLE risk_score, STRING addr1, STRING id_15, STRING id_23, STRING m_flags> TxnRowT;
 
   SumAccum<INT>    @@count;
   SumAccum<DOUBLE> @@total_amount_usd;
-  HeapAccum<TxnRowT>(500, ts ASC) @@rows;
+  // ts DESC, not ASC: the heap keeps only 500 rows, and an investigation needs
+  // the transactions NEAREST as_of. Ascending kept the OLDEST 500, so any card
+  // with a long history returned activity from months before the case and
+  // nothing from the window actually under investigation.
+  HeapAccum<TxnRowT>(500, ts DESC) @@rows;
 
   Cards = {Card.*};
 
@@ -18,7 +29,9 @@ CREATE QUERY txn_history(STRING entity_type, STRING entity_id, DATETIME as_of, I
              AND (window_hours == 0 OR datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - window_hours * 3600)
            ACCUM @@count += 1,
                  @@total_amount_usd += t.amount_usd,
-                 @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score);
+                 @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score,
+                                   t.addr1, t.id_15, t.id_23,
+                                   t.m1 + t.m2 + t.m3 + t.m4 + t.m5 + t.m6 + t.m7 + t.m8 + t.m9);
   END;
 
   IF entity_type == "customer" THEN
@@ -30,7 +43,9 @@ CREATE QUERY txn_history(STRING entity_type, STRING entity_id, DATETIME as_of, I
               AND (window_hours == 0 OR datetime_to_epoch(t.ts) >= datetime_to_epoch(as_of) - window_hours * 3600)
             ACCUM @@count += 1,
                   @@total_amount_usd += t.amount_usd,
-                  @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score);
+                  @@rows += TxnRowT(t.id, t.ts, t.amount_usd, t.product_cd, t.channel, t.risk_score,
+                                   t.addr1, t.id_15, t.id_23,
+                                   t.m1 + t.m2 + t.m3 + t.m4 + t.m5 + t.m6 + t.m7 + t.m8 + t.m9);
   END;
 
   // A single PRINT statement, not several -- multiple PRINT statements in

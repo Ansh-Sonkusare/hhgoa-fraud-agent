@@ -60,6 +60,8 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
   SumAccum<INT>    @@n_txns;
   SumAccum<INT>    @@n_cases;
   SumAccum<INT>    @@n_confirmed;
+  SumAccum<INT>      @@pop_cases;
+  SumAccum<INT>      @@pop_confirmed;
   SumAccum<INT>    @@size;
   MinAccum<DATETIME> @@min_ts;
   MaxAccum<DATETIME> @@max_ts;
@@ -158,12 +160,35 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
          WHERE t.ts <= as_of
          ACCUM @@sum_risk += t.risk_score, @@n_txns += 1,
                @@min_ts += t.ts, @@max_ts += t.ts;
+  // A case's outcome exists only once an analyst closes it. The ABOUT edge's
+  // ts is the case's opened_at, so gating on it alone counted cases still
+  // open at as_of -- including, in a backtest, the very case under
+  // investigation, whose own label then fed its community's fraud rate. Same
+  // rule as find_prior_cases.gsql and vector_search.gsql (visible_from =
+  // closed_at); the epoch guard drops unresolved cases, which carry the
+  // DATETIME default of 1970-01-01.
   Cases = SELECT f FROM Members:c-(reverse_ABOUT:e)-:f
           WHERE e.ts <= as_of
+            AND f.closed_at > to_datetime("1970-01-01 00:00:00")
+            AND f.closed_at <= as_of
           ACCUM @@n_cases += 1,
                 IF f.outcome == "confirmed_fraud" THEN
                   @@n_confirmed += 1
                 END;
+  // The same count over every case closed by as_of, so the caller can tell a
+  // community whose cases resolve as fraud more often than cases generally do
+  // from one that merely looks high. Most closed cases are cardholder
+  // disputes, so a community's raw rate reads high almost everywhere: a
+  // 1,186-entity community at 48% was filed as fraud support although that is
+  // below the history as a whole (cleared alert CC-0955).
+  AllCases = {FraudCase.*};
+  PopCases = SELECT f FROM AllCases:f
+             WHERE f.closed_at > to_datetime("1970-01-01 00:00:00")
+               AND f.closed_at <= as_of
+             ACCUM @@pop_cases += 1,
+                   IF f.outcome == "confirmed_fraud" THEN
+                     @@pop_confirmed += 1
+                   END;
   // Shared-device density: how much of this community's device footprint
   // is actually reused across members, vs. each member touching mostly
   // distinct devices. Reuses the same entity-side hub guard (d.@degree,
@@ -184,6 +209,12 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
     confirmed_fraud_rate = @@n_confirmed * 1.0 / @@n_cases;
   ELSE
     confirmed_fraud_rate = 0.0;
+  END;
+  DOUBLE population_confirmed_fraud_rate;
+  IF @@pop_cases > 0 THEN
+    population_confirmed_fraud_rate = @@pop_confirmed * 1.0 / @@pop_cases;
+  ELSE
+    population_confirmed_fraud_rate = 0.0;
   END;
   // Velocity: transactions per day of activity spanned by this community's
   // members (PRD sec.12's "community-level stats... velocity"). A
@@ -215,6 +246,8 @@ CREATE QUERY community_lookup(STRING card_id, DATETIME as_of, INT max_hub_degree
         @@size AS size,
         avg_risk_score AS avg_risk_score,
         confirmed_fraud_rate AS confirmed_fraud_rate,
+        @@n_cases AS n_cases,
+        population_confirmed_fraud_rate AS population_confirmed_fraud_rate,
         velocity AS velocity,
         shared_device_density AS shared_device_density;
 }

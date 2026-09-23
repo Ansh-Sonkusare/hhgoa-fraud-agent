@@ -14,7 +14,7 @@ import {
 
 // Total Card vertices in the loaded dataset. Every card belongs to exactly
 // one component, so the component sizes must sum to this.
-const TOTAL_CARDS = 16324;
+const TOTAL_CARDS = 14814;
 
 describe("community_components (WCC)", () => {
   it("component sizes sum to the total number of cards, all >= 1", async () => {

@@ -8,34 +8,116 @@
 // tuple fields) -- the caller assembles the contract's flat
 // `{shared_type, shared_id, card_ids[]}[]` shape from these three maps.
 //
+// Two filters keep the result a set of *rings* rather than the card's whole
+// contact history (DATASET_README "Things to know": "A device profile or a
+// billing region shared across many cards IN A SHORT WINDOW is worth a
+// look", and R6 "several cards show fraud from the same device profile ...
+// in one window"):
+//
+//   min_ring_size  A group is only a ring if at least this many cards share
+//                  the entity. card_ids includes the seed, so the default 2
+//                  means "the seed plus at least one other card". Without
+//                  it the query returns every device the card has ever
+//                  touched, including ones no other card uses: HHG-011 came
+//                  back with 1248 groups, 420 of them a single card.
+//   window_days    Only links first seen within this many days of as_of.
+//                  first_ts is when that card first used the entity, so
+//                  this selects cards *converging* on a shared entity
+//                  rather than long-standing household/shared-address ties.
+//                  0 disables the window (all history up to as_of), the
+//                  same convention txn_history.gsql uses for window_hours.
+//                  Default 30 days follows the README's own worked example,
+//                  where a device profile "appears on a closed case from
+//                  August and on another card this month".
+//
+//   seed_in_window When TRUE, the seed card's own side of a ring is also
+//                  limited to the window: only devices / billing regions /
+//                  recipient emails on the seed card's OWN transactions in
+//                  (as_of - window_days, as_of]. Without it the seed side is
+//                  every entity the card ever used, so a card defrauded a
+//                  month earlier still "shares" the fraudster's device with
+//                  the other victims that device reached since -- the card's
+//                  past fraud counted a second time as a present ring.
+//                  Transaction timestamps (MADE.ts) are used, not
+//                  CARD_DEVICE.last_ts, which would read use after as_of.
+//
 // The synthetic "community_id" the contract type allows ("dev_<id>" /
 // "addr_<id>" / "email_<id>") is just the shared_id itself, scoped to this
 // single shared entity -- NOT the full WCC component id from
 // algorithms/community_components.gsql (that would require a transitive
 // closure this per-card, single-hop query does not compute). Callers
 // wanting the full component should follow up with community_lookup.gsql.
-CREATE QUERY shared_rings(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
+CREATE QUERY shared_rings(STRING card_id, DATETIME as_of, INT window_days = 30, INT min_ring_size = 2, BOOL seed_in_window = FALSE) FOR GRAPH hhgoa_fraud {
+  MapAccum<STRING, SetAccum<STRING>> @@device_raw;
+  MapAccum<STRING, SetAccum<STRING>> @@address_raw;
+  MapAccum<STRING, SetAccum<STRING>> @@email_raw;
   MapAccum<STRING, SetAccum<STRING>> @@device_rings;
   MapAccum<STRING, SetAccum<STRING>> @@address_rings;
   MapAccum<STRING, SetAccum<STRING>> @@email_rings;
 
+  INT since = datetime_to_epoch(as_of) - window_days * 86400;
+  // The seed side's own window; 0 = the same window as the other cards.
+
   Cards = {Card.*};
   Seed = SELECT c FROM Cards:c WHERE c.id == card_id;
 
-  Devs = SELECT d FROM Seed:c-(CARD_DEVICE:e)-:d WHERE e.first_ts <= as_of;
+  // Each group is seeded with the seed card itself, bounded by as_of only.
+  // The window then governs which OTHER cards join it: a ring is interesting
+  // because those cards converged recently, not because the seed did. Without
+  // the explicit seed, a card that had used a device for longer than
+  // window_days was filtered out of its own ring by the reverse traversal.
+  // The seed card's own transactions in the window (used only when
+  // seed_in_window is set).
+  SeedTx = SELECT t FROM Seed:c-(MADE:e)-:t
+           WHERE seed_in_window AND e.ts <= as_of AND datetime_to_epoch(e.ts) >= since;
+
+  Devs = SELECT d FROM Seed:c-(CARD_DEVICE:e)-:d WHERE NOT seed_in_window AND e.first_ts <= as_of
+         ACCUM @@device_raw += (d.id -> card_id);
+  WinDevs = SELECT d FROM SeedTx:t-(USED_DEVICE)-:d
+            ACCUM @@device_raw += (d.id -> card_id);
+  Devs = Devs UNION WinDevs;
   DevRing = SELECT oc FROM Devs:d-(reverse_CARD_DEVICE:e)-:oc
             WHERE e.first_ts <= as_of
-            ACCUM @@device_rings += (d.id -> oc.id);
+              AND (window_days == 0 OR datetime_to_epoch(e.first_ts) >= since)
+            ACCUM @@device_raw += (d.id -> oc.id);
 
-  Addrs = SELECT a FROM Seed:c-(CARD_ADDRESS:e)-:a WHERE e.first_ts <= as_of;
+  Addrs = SELECT a FROM Seed:c-(CARD_ADDRESS:e)-:a WHERE NOT seed_in_window AND e.first_ts <= as_of
+          ACCUM @@address_raw += (a.id -> card_id);
+  WinAddrs = SELECT a FROM SeedTx:t-(BILLED_TO)-:a
+             ACCUM @@address_raw += (a.id -> card_id);
+  Addrs = Addrs UNION WinAddrs;
   AddrRing = SELECT oc FROM Addrs:a-(reverse_CARD_ADDRESS:e)-:oc
              WHERE e.first_ts <= as_of
-             ACCUM @@address_rings += (a.id -> oc.id);
+               AND (window_days == 0 OR datetime_to_epoch(e.first_ts) >= since)
+             ACCUM @@address_raw += (a.id -> oc.id);
 
-  Ems = SELECT x FROM Seed:c-(CARD_RECIPIENT_EMAIL:e)-:x WHERE e.first_ts <= as_of;
+  Ems = SELECT x FROM Seed:c-(CARD_RECIPIENT_EMAIL:e)-:x WHERE NOT seed_in_window AND e.first_ts <= as_of
+        ACCUM @@email_raw += (x.id -> card_id);
+  WinEms = SELECT x FROM SeedTx:t-(RECIPIENT_EMAIL)-:x
+           ACCUM @@email_raw += (x.id -> card_id);
+  Ems = Ems UNION WinEms;
   EmRing = SELECT oc FROM Ems:x-(reverse_CARD_RECIPIENT_EMAIL:e)-:oc
            WHERE e.first_ts <= as_of
-           ACCUM @@email_rings += (x.id -> oc.id);
+             AND (window_days == 0 OR datetime_to_epoch(e.first_ts) >= since)
+           ACCUM @@email_raw += (x.id -> oc.id);
+
+  // Drop groups below min_ring_size. MapAccum values are rebuilt element by
+  // element: `+= (k -> set)` is not a supported assignment on this build.
+  FOREACH (k, v) IN @@device_raw DO
+    IF v.size() >= min_ring_size THEN
+      FOREACH c IN v DO @@device_rings += (k -> c); END;
+    END;
+  END;
+  FOREACH (k, v) IN @@address_raw DO
+    IF v.size() >= min_ring_size THEN
+      FOREACH c IN v DO @@address_rings += (k -> c); END;
+    END;
+  END;
+  FOREACH (k, v) IN @@email_raw DO
+    IF v.size() >= min_ring_size THEN
+      FOREACH c IN v DO @@email_rings += (k -> c); END;
+    END;
+  END;
 
   // A single PRINT statement, not three -- multiple PRINT statements each
   // become a SEPARATE object in the REST response's `results` array

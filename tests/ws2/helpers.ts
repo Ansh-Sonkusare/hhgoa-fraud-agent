@@ -84,10 +84,13 @@ export const LOOSE_MAX_HUB_DEGREE = 25;
 // query output during WS2 development -- not fixture/benchmark-answer data).
 export const KNOWN = {
   // txn 3514030: ts 2016-12-04 19:55:28, $77.07, in_person, risk 0.61,
-  // MADE on card C21139-K1 (customer C12382) -- the case-pack HHG-001
-  // references card C12382-K1, a different (stub) id for the same customer.
+  // MADE on card C12382-K1 (customer C12382) -- the same id the case pack
+  // gives for HHG-001. These used to disagree: card ids were derived as
+  // C<card1>-K<rank>, which matched the dataset's own ids in 0 of 5565 closed
+  // cases, and the difference was mistaken for a card/stub split rather than
+  // the labelling bug it was. Card ids now come from the dataset itself.
   txnId: "3514030",
-  txnCardId: "C21139-K1",
+  txnCardId: "C12382-K1",
   txnCustomerId: "C12382",
   txnTs: "2016-12-04 19:55:28",
   asOfAfterTxn: "2016-12-05 01:55:28",
@@ -97,12 +100,15 @@ export const KNOWN = {
   // which is before the *known* txn but after the card's history begins.
   asOfBeforeAnyHistory: "2015-01-01 00:00:00",
 
-  // Closed case CC-0001: references stub card C00259-K1, but its
-  // first-fraud txn 3000120 is on real card C15620-K1 (customer C00259).
-  stubCardId: "C00259-K1",
-  realCardForStub: "C15620-K1",
-  customerForStub: "C00259",
-  caseIdForStub: "CC-0001",
+  // Closed case CC-0001 and its first-fraud txn 3000120 are both on card
+  // C00259-K1 -- one id, now that cards carry their dataset labels.
+  caseCardId: "C00259-K1",
+  caseIdForCard: "CC-0001",
+
+  // A card the dataset names in a case but that has no transactions of its
+  // own, so it loads as a stub (12 remain, down from ~1900 when every case
+  // card failed to match a derived card).
+  stubCardId: "C00255-K1",
 
   lateAsOf: "2016-12-31 23:59:59",
 };

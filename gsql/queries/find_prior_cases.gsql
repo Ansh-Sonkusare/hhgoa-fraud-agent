@@ -1,6 +1,28 @@
 // gsql/queries/find_prior_cases.gsql -- WS2, backs contract tool
 // `find_prior_cases` (contracts/src/tools.ts FindPriorCases). Prior
-// (opened_at <= as_of, PRD sec.8.1) FraudCases connected to `card_id`.
+// FraudCases connected to `card_id`, restricted to those whose OUTCOME was
+// already known at `as_of` (PRD sec.8.1).
+//
+// Temporal correctness -- why the gate is closed_at, not opened_at:
+// this query returns `outcome` and `pattern`, which are exactly the fields a
+// case is graded on. Those two facts do not exist until an analyst closes the
+// case, so `opened_at <= as_of` leaked future knowledge: cases take a median
+// 2.88 days to resolve (91% take over a day), and 99.9% of closed cases have
+// at least one sibling case that was open-but-unresolved at their own as_of.
+// Gating on opened_at therefore handed the agent a verdict nobody had reached
+// yet. rag/ingestCases.ts already draws this line correctly for the vector
+// path (it sets visible_from = closed_at so open cases drop out); this query
+// was the inconsistent one. A case that is open at as_of is genuinely not
+// available as memory, and PriorCaseRef.outcome (frozen contract) admits only
+// "confirmed_fraud" | "cleared" -- there is no "unresolved" to report -- so
+// such cases are excluded rather than reported with a guessed outcome.
+//
+// The epoch guard is not redundant: an unresolved FraudCase carries the
+// DATETIME default of 1970-01-01, so a bare `closed_at <= as_of` would admit
+// every open case instead of excluding it -- inverting the intent. Cases the
+// agent itself writes via case_open land in exactly that state (192 such rows
+// were present in the live graph), and vector_search.gsql guards it the same
+// way.
 //
 // Card-id mismatch reality (docs/decisions.md): a closed case's `card_id`
 // column can be a *stub* distinct from the real card the fraud txn was
@@ -13,9 +35,13 @@
 //   2. FraudCase -ABOUT-> this exact card_id
 //   3. FraudCase -ABOUT-> the customer who owns this card_id
 CREATE QUERY find_prior_cases(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fraud {
-  TYPEDEF TUPLE<STRING case_id, STRING outcome, STRING pattern> CaseRowT;
+  TYPEDEF TUPLE<STRING case_id, STRING outcome, STRING pattern, BOOL own> CaseRowT;
 
   SetAccum<STRING> @@case_ids;
+  // `own`: the case is ABOUT this card or its customer. The rest were reached
+  // only through ring membership (CONNECTED_TO) -- another card's case, which
+  // is what R2/R6 mean by "another card's fraud".
+  SetAccum<STRING> @@own_ids;
   HeapAccum<CaseRowT>(200, case_id ASC) @@rows;
   MinAccum<STRING> @@customer_id;
 
@@ -25,23 +51,29 @@ CREATE QUERY find_prior_cases(STRING card_id, DATETIME as_of) FOR GRAPH hhgoa_fr
 
   ByConn = SELECT c FROM CardHit:card-(reverse_CONNECTED_TO)-:c
            WHERE c.opened_at <= as_of
+             AND c.closed_at > to_datetime("1970-01-01 00:00:00")
+             AND c.closed_at <= as_of
            ACCUM @@case_ids += c.id;
 
   ByAboutCard = SELECT f FROM CardHit:card-(reverse_ABOUT:e)-:f
                 WHERE e.ts <= as_of AND f.opened_at <= as_of
-                ACCUM @@case_ids += f.id;
+                  AND f.closed_at > to_datetime("1970-01-01 00:00:00")
+                  AND f.closed_at <= as_of
+                ACCUM @@case_ids += f.id, @@own_ids += f.id;
 
   IF @@customer_id != "" THEN
     CustV = {Customer.*};
     CustV2 = SELECT u FROM CustV:u WHERE u.id == @@customer_id;
     ByAboutCust = SELECT f FROM CustV2:u-(reverse_ABOUT:e)-:f
                   WHERE e.ts <= as_of AND f.opened_at <= as_of
-                  ACCUM @@case_ids += f.id;
+                  AND f.closed_at > to_datetime("1970-01-01 00:00:00")
+                  AND f.closed_at <= as_of
+                  ACCUM @@case_ids += f.id, @@own_ids += f.id;
   END;
 
   AllCases = {FraudCase.*};
   Matched = SELECT f FROM AllCases:f WHERE f.id IN @@case_ids
-            ACCUM @@rows += CaseRowT(f.id, f.outcome, f.pattern);
+            ACCUM @@rows += CaseRowT(f.id, f.outcome, f.pattern, @@own_ids.contains(f.id));
 
   PRINT @@rows AS cases;
 }

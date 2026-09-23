@@ -5,15 +5,15 @@ describe("find_prior_cases", () => {
   it("matches a case referencing a stub card via the resolved real customer (docs/decisions.md)", async () => {
     const r = await runQuery<{ cases: { case_id: string; outcome: string; pattern: string }[] }>(
       "find_prior_cases",
-      { card_id: KNOWN.realCardForStub, as_of: KNOWN.lateAsOf },
+      { card_id: KNOWN.caseCardId, as_of: KNOWN.lateAsOf },
     );
     const ids = r.cases.map((c) => c.case_id);
-    expect(ids).toContain(KNOWN.caseIdForStub);
+    expect(ids).toContain(KNOWN.caseIdForCard);
   });
 
   it("returns no cases opened after the given as_of", async () => {
     const r = await runQuery<{ cases: unknown[] }>("find_prior_cases", {
-      card_id: KNOWN.realCardForStub,
+      card_id: KNOWN.caseCardId,
       as_of: "2015-01-01 00:00:00",
     });
     expect(r.cases.length).toBe(0);

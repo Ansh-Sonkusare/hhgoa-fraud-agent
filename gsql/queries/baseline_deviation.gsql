@@ -115,5 +115,8 @@ CREATE QUERY baseline_deviation(STRING txn_id, DATETIME as_of) FOR GRAPH hhgoa_f
     time_z = 1.0;
   END;
 
-  PRINT amount_z AS amount_z, geo_z AS geo_z, device_z AS device_z, time_z AS time_z;
+  // n_prior: how many prior transactions the baseline rests on. A z-score over
+  // two near-identical priors is not a deviation (CC-0589: $49.96 and $50.05,
+  // std $0.045, a $99.98 charge read as z=1110).
+  PRINT amount_z AS amount_z, geo_z AS geo_z, device_z AS device_z, time_z AS time_z, @@n AS n_prior;
 }

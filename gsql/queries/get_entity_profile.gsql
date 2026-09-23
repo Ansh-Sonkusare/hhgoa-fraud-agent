@@ -38,12 +38,38 @@ CREATE QUERY get_entity_profile(STRING entity_type, STRING entity_id, DATETIME a
   MinAccum<STRING>   @@cust_found;
 
   MinAccum<STRING>   @@txn_found;
+  // The charge's own time: the agent anchors a dispute's R7 lookback and an
+  // older flagged charge's window on it (investigation.ts). ts <= as_of here.
+  MinAccum<DATETIME> @@txn_ts;
   MinAccum<DOUBLE>   @@txn_amount_usd;
   MinAccum<STRING>   @@txn_product_cd;
   MinAccum<STRING>   @@txn_channel;
   MinAccum<DOUBLE>   @@txn_risk_score;
   MinAccum<STRING>   @@txn_card_id;
   MinAccum<STRING>   @@txn_customer_id;
+  // Purchaser email domain: the only external handle the dataset exposes for a
+  // charge, and what external enrichment (lookup_external, CHALLENGE_BRIEF
+  // "External data sources") keys on. It is not in txn_history's rows either --
+  // TransactionHistoryRow is a frozen 6-field contract type -- so without it
+  // here the enrichment step had nothing to look up and silently never ran.
+  MinAccum<STRING>   @@txn_p_email_domain;
+  MinAccum<STRING>   @@txn_r_email_domain;
+  // The flagged charge's device and how it was used in the 30 days up to as_of.
+  // This is the undocumented shared-device pattern (CHALLENGE_BRIEF: "Not
+  // every fraud pattern present in the data is documented"; DATASET_README
+  // R9): one device, reached through an anonymous proxy, presenting as a new
+  // device to many unrelated cards. Measured on every closed case, a flagged
+  // charge whose device has >=5 cards, >=80% anonymous-proxy uses and >=80%
+  // "New" uses in that window fires on 4 of 9 undocumented cases and on none
+  // of the other 5,556 (0 of 900 cleared). Ordinary device profiles are hubs --
+  // ~89% of every class shares the flagged device with 2+ other cards -- so
+  // raw sharing says nothing; it is the proxy + always-new shape that does.
+  // Counts only, and only uses with ts <= as_of (PRD sec.8.1).
+  MinAccum<STRING>   @@txn_device_id;
+  SetAccum<STRING>   @@txn_ring_cards;
+  SumAccum<INT>      @@txn_ring_uses;
+  SumAccum<INT>      @@txn_ring_anon;
+  SumAccum<INT>      @@txn_ring_new;
 
   IF entity_type == "card" THEN
     CardV = {Card.*};
@@ -93,20 +119,41 @@ CREATE QUERY get_entity_profile(STRING entity_type, STRING entity_id, DATETIME a
     TxnV = {Txn.*};
     TxnHit = SELECT t FROM TxnV:t WHERE t.id == entity_id AND t.ts <= as_of
              ACCUM @@txn_found += t.id,
+                   @@txn_ts += t.ts,
                    @@txn_amount_usd += t.amount_usd,
                    @@txn_product_cd += t.product_cd,
                    @@txn_channel += t.channel,
-                   @@txn_risk_score += t.risk_score;
+                   @@txn_risk_score += t.risk_score,
+                   @@txn_p_email_domain += t.p_email_domain,
+                   @@txn_r_email_domain += t.r_email_domain;
     TxnCard = SELECT c FROM TxnHit:t-(reverse_MADE)-:c
               ACCUM @@txn_card_id += c.id, @@txn_customer_id += c.customer_id;
+    TxnRingDev = SELECT d FROM TxnHit:t-(USED_DEVICE)-:d
+                 ACCUM @@txn_device_id += d.id;
+    TxnRingUses = SELECT u FROM TxnRingDev:d-(reverse_USED_DEVICE)-:u
+                  WHERE u.ts <= as_of
+                    AND datetime_to_epoch(u.ts) >= datetime_to_epoch(as_of) - 2592000
+                  ACCUM @@txn_ring_uses += 1,
+                        IF u.id_23 == "IP_PROXY:ANONYMOUS" THEN @@txn_ring_anon += 1 END,
+                        IF u.id_15 == "New" THEN @@txn_ring_new += 1 END;
+    TxnRingCards = SELECT c FROM TxnRingUses:u-(reverse_MADE)-:c
+                   ACCUM @@txn_ring_cards += c.id;
     PRINT @@txn_found AS entity_id,
           "txn" AS entity_type,
+          @@txn_ts AS ts,
           @@txn_amount_usd AS amount_usd,
           @@txn_product_cd AS product_cd,
           @@txn_channel AS channel,
           @@txn_risk_score AS risk_score,
           @@txn_card_id AS card_id,
-          @@txn_customer_id AS customer_id;
+          @@txn_customer_id AS customer_id,
+          @@txn_p_email_domain AS p_email_domain,
+          @@txn_r_email_domain AS r_email_domain,
+          @@txn_device_id AS device_id,
+          @@txn_ring_cards.size() AS device_cards_30d,
+          @@txn_ring_uses AS device_uses_30d,
+          @@txn_ring_anon AS device_anon_proxy_uses_30d,
+          @@txn_ring_new AS device_new_uses_30d;
   END;
 
   IF entity_type == "identity" THEN
