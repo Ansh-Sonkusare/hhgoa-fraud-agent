@@ -3,7 +3,7 @@
   "case": {
     "status": "escalated",
     "verdict": "fraud",
-    "fraud_probability": 0.9,
+    "fraud_probability": 0.8115,
     "pattern": "out_of_region_use",
     "pattern_description": "",
     "affected_txn_ids": [
@@ -205,9 +205,19 @@
         "entity_ids": []
       },
       {
-        "claim": "Activity shares device profile 032da9e468a30316 with card(s) C00750-K2, X16328-K1, C08299-K1, X22653-K2, X12076-K1, C01104-K2, C04965-K2",
+        "claim": "Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
         "source": "graph",
         "ref": "ev_006",
+        "entity_ids": [
+          "b4798e84803d1b7d",
+          "C05876-K2",
+          "C09165-K2"
+        ]
+      },
+      {
+        "claim": "Activity shares device profile 032da9e468a30316 with card(s) C00750-K2, X16328-K1, C08299-K1, X22653-K2, X12076-K1, C01104-K2, C04965-K2",
+        "source": "graph",
+        "ref": "ev_007",
         "entity_ids": [
           "032da9e468a30316",
           "C05876-K2",
@@ -218,19 +228,36 @@
         ]
       },
       {
-        "claim": "Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
+        "claim": "Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
-        "ref": "ev_007",
+        "ref": "ev_008",
         "entity_ids": [
-          "b4798e84803d1b7d",
+          "84c0d1b1367b7e49",
           "C05876-K2",
-          "C09165-K2"
+          "C13019-K1",
+          "C00854-K2",
+          "C03218-K2",
+          "C07703-K2",
+          "C12897-K1",
+          "C08256-K2",
+          "C04108-K2",
+          "C09007-K1",
+          "C11413-K1",
+          "C08595-K1",
+          "C01155-K2",
+          "C07212-K2",
+          "C09800-K2",
+          "C03273-K1",
+          "C12658-K1",
+          "C03278-K2",
+          "C09251-K1",
+          "C08044-K1"
         ]
       },
       {
         "claim": "Shares device profile b6fe0ea969012756 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
-        "ref": "ev_008",
+        "ref": "ev_009",
         "entity_ids": [
           "b6fe0ea969012756",
           "C04125-K2",
@@ -256,96 +283,79 @@
         ]
       },
       {
-        "claim": "Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-        "source": "graph",
-        "ref": "ev_009",
-        "entity_ids": [
-          "84c0d1b1367b7e49",
-          "C05876-K2",
-          "C13019-K1",
-          "C00854-K2",
-          "C03218-K2",
-          "C07703-K2",
-          "C12897-K1",
-          "C08256-K2",
-          "C04108-K2",
-          "C09007-K1",
-          "C11413-K1",
-          "C08595-K1",
-          "C01155-K2",
-          "C07212-K2",
-          "C09800-K2",
-          "C03273-K1",
-          "C12658-K1",
-          "C03278-K2",
-          "C09251-K1",
-          "C08044-K1"
-        ]
-      },
-      {
-        "claim": "Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_010",
         "entity_ids": [
-          "494.0",
+          "205.0",
           "C05876-K2",
-          "C06948-K1",
-          "C08334-K1",
+          "C12063-K1",
+          "C11889-K2",
+          "C06840-K1",
           "C06929-K1",
-          "C02171-K1",
-          "C07336-K1",
-          "C12742-K1",
-          "C08190-K2",
-          "C07614-K2",
-          "C05712-K1",
-          "C09468-K2",
-          "C03550-K1",
-          "C03738-K2",
-          "C06605-K1",
-          "C01119-K1"
+          "C08918-K2",
+          "C06835-K2",
+          "C09420-K2",
+          "C05292-K1",
+          "C09365-K2",
+          "C01115-K1",
+          "C05689-K2",
+          "C12311-K2"
         ]
       },
       {
-        "claim": "Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_011",
         "entity_ids": [
-          "226.0",
-          "C07878-K1",
+          "251.0",
           "C05876-K2",
-          "C07987-K2",
-          "C11464-K2",
-          "C09530-K1",
-          "C06706-K1",
-          "C12470-K1",
-          "C07717-K1",
-          "C02902-K2",
-          "C08477-K1",
-          "C00842-K2",
-          "C01855-K2"
+          "C02968-K1",
+          "C07871-K1",
+          "C03043-K1",
+          "C11247-K1",
+          "C10350-K1",
+          "C06269-K1",
+          "C09586-K2",
+          "C10757-K2",
+          "C00983-K1",
+          "C06067-K2",
+          "C08845-K3",
+          "C00557-K1",
+          "C11041-K1",
+          "C07297-K1"
         ]
       },
       {
-        "claim": "Shares billing region 231 with 47 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_012",
         "entity_ids": [
-          "231.0",
-          "C05957-K2",
-          "C05530-K2",
-          "C11625-K2",
-          "C02716-K1",
-          "C07338-K1",
-          "C09249-K1",
-          "C02094-K1",
-          "C01494-K1",
-          "C04146-K1",
-          "C02897-K1",
-          "C00796-K1",
-          "C03412-K1",
+          "420.0",
+          "C04984-K2",
+          "C01119-K1",
+          "C10568-K1",
+          "C07437-K1",
+          "C00866-K1",
+          "C06343-K1",
+          "C04352-K1",
+          "C04285-K1",
+          "C09863-K1",
+          "C06190-K1",
+          "C06800-K1",
+          "C00681-K1",
+          "C04828-K2",
+          "C05487-K1",
+          "C07612-K1",
           "C05876-K2",
-          "C10520-K1",
-          "C12382-K1"
+          "C03539-K1",
+          "C11945-K2",
+          "C04196-K2",
+          "C07180-K1",
+          "C05263-K2",
+          "C11625-K2",
+          "C08727-K1",
+          "C09365-K2"
         ]
       },
       {
@@ -392,9 +402,32 @@
         ]
       },
       {
-        "claim": "Shares billing region 122 with 12 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 231 with 47 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_015",
+        "entity_ids": [
+          "231.0",
+          "C05957-K2",
+          "C05530-K2",
+          "C11625-K2",
+          "C02716-K1",
+          "C07338-K1",
+          "C09249-K1",
+          "C02094-K1",
+          "C01494-K1",
+          "C04146-K1",
+          "C02897-K1",
+          "C00796-K1",
+          "C03412-K1",
+          "C05876-K2",
+          "C10520-K1",
+          "C12382-K1"
+        ]
+      },
+      {
+        "claim": "Shares billing region 122 with 12 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "source": "graph",
+        "ref": "ev_016",
         "entity_ids": [
           "122.0",
           "C03412-K1",
@@ -407,79 +440,46 @@
         ]
       },
       {
-        "claim": "Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-        "source": "graph",
-        "ref": "ev_016",
-        "entity_ids": [
-          "205.0",
-          "C05876-K2",
-          "C12063-K1",
-          "C11889-K2",
-          "C06840-K1",
-          "C06929-K1",
-          "C08918-K2",
-          "C06835-K2",
-          "C09420-K2",
-          "C05292-K1",
-          "C09365-K2",
-          "C01115-K1",
-          "C05689-K2",
-          "C12311-K2"
-        ]
-      },
-      {
-        "claim": "Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_017",
         "entity_ids": [
-          "251.0",
+          "226.0",
+          "C07878-K1",
           "C05876-K2",
-          "C02968-K1",
-          "C07871-K1",
-          "C03043-K1",
-          "C11247-K1",
-          "C10350-K1",
-          "C06269-K1",
-          "C09586-K2",
-          "C10757-K2",
-          "C00983-K1",
-          "C06067-K2",
-          "C08845-K3",
-          "C00557-K1",
-          "C11041-K1",
-          "C07297-K1"
+          "C07987-K2",
+          "C11464-K2",
+          "C09530-K1",
+          "C06706-K1",
+          "C12470-K1",
+          "C07717-K1",
+          "C02902-K2",
+          "C08477-K1",
+          "C00842-K2",
+          "C01855-K2"
         ]
       },
       {
-        "claim": "Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+        "claim": "Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
         "source": "graph",
         "ref": "ev_018",
         "entity_ids": [
-          "420.0",
-          "C04984-K2",
-          "C01119-K1",
-          "C10568-K1",
-          "C07437-K1",
-          "C00866-K1",
-          "C06343-K1",
-          "C04352-K1",
-          "C04285-K1",
-          "C09863-K1",
-          "C06190-K1",
-          "C06800-K1",
-          "C00681-K1",
-          "C04828-K2",
-          "C05487-K1",
-          "C07612-K1",
+          "494.0",
           "C05876-K2",
-          "C03539-K1",
-          "C11945-K2",
-          "C04196-K2",
-          "C07180-K1",
-          "C05263-K2",
-          "C11625-K2",
-          "C08727-K1",
-          "C09365-K2"
+          "C06948-K1",
+          "C08334-K1",
+          "C06929-K1",
+          "C02171-K1",
+          "C07336-K1",
+          "C12742-K1",
+          "C08190-K2",
+          "C07614-K2",
+          "C05712-K1",
+          "C09468-K2",
+          "C03550-K1",
+          "C03738-K2",
+          "C06605-K1",
+          "C01119-K1"
         ]
       },
       {
@@ -487,11 +487,11 @@
         "source": "graph",
         "ref": "ev_019",
         "entity_ids": [
+          "C09165-K2",
           "C00750-K2",
           "C08299-K1",
           "C01104-K2",
-          "C04965-K2",
-          "C09165-K2"
+          "C04965-K2"
         ]
       },
       {
@@ -546,7 +546,7 @@
         "entity_ids": []
       },
       {
-        "claim": "Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 67% across 3 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal",
+        "claim": "Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 50% across 2 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal",
         "source": "graph",
         "ref": "ev_027",
         "entity_ids": []
@@ -556,17 +556,23 @@
       "CC-0003",
       "CC-2370"
     ],
-    "summary": "Investigated card C05876-K2 after trigger; pattern out_of_region_use, top probability 0.90, 6 evidence categories, exposure $30.91. Verdict: fraud.",
+    "summary": "Investigated card C05876-K2 after trigger; pattern out_of_region_use, top probability 0.81, 6 evidence categories, exposure $30.91. Verdict: fraud.",
     "written_to_graph": true,
     "graph_case_id": "GRAPH-HHG-012"
   },
-  "evidence_requests": [],
+  "evidence_requests": [
+    {
+      "type": "customer_validation",
+      "asked_after_step": 62,
+      "assumed_response": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed."
+    }
+  ],
   "next_best_actions": {
     "initial": [
       {
         "action": "BLOCK_CARD",
         "route": "L1",
-        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $30.91"
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.81 exceeds the 0.70 block threshold; exposure $30.91"
       },
       {
         "action": "CREATE_CASE",
@@ -578,7 +584,7 @@
       {
         "action": "BLOCK_CARD",
         "route": "L1",
-        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $30.91"
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.81 exceeds the 0.70 block threshold; exposure $30.91"
       },
       {
         "action": "CREATE_CASE",
@@ -586,7 +592,7 @@
         "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
       }
     ],
-    "what_changed": "nothing"
+    "what_changed": "Requested customer validation; no reply was received and none was assumed, so the recommendation is unchanged and verification remains outstanding."
   },
   "sar": {
     "file": false,
@@ -599,7 +605,7 @@
   "investigation_record": [
     {
       "seq": 0,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "TRIGGERED",
@@ -614,7 +620,7 @@
     },
     {
       "seq": 1,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "CASE_OPENED",
@@ -622,7 +628,7 @@
     },
     {
       "seq": 2,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "CASE_OPENED",
@@ -641,7 +647,7 @@
     },
     {
       "seq": 3,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "CASE_OPENED",
@@ -665,7 +671,7 @@
     },
     {
       "seq": 4,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "INVESTIGATING",
@@ -673,7 +679,7 @@
     },
     {
       "seq": 5,
-      "ts": "2026-09-23T08:41:41.177Z",
+      "ts": "2026-09-23T10:12:36.306Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -692,7 +698,7 @@
     },
     {
       "seq": 6,
-      "ts": "2026-09-23T08:41:41.240Z",
+      "ts": "2026-09-23T10:12:36.368Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -730,7 +736,7 @@
     },
     {
       "seq": 7,
-      "ts": "2026-09-23T08:41:41.240Z",
+      "ts": "2026-09-23T10:12:36.368Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -750,7 +756,7 @@
     },
     {
       "seq": 8,
-      "ts": "2026-09-23T08:41:41.251Z",
+      "ts": "2026-09-23T10:12:36.378Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1487,7 +1493,7 @@
     },
     {
       "seq": 9,
-      "ts": "2026-09-23T08:41:41.251Z",
+      "ts": "2026-09-23T10:12:36.378Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1507,7 +1513,7 @@
     },
     {
       "seq": 10,
-      "ts": "2026-09-23T08:41:41.274Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -7332,7 +7338,7 @@
     },
     {
       "seq": 11,
-      "ts": "2026-09-23T08:41:41.274Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -7589,7 +7595,7 @@
     },
     {
       "seq": 12,
-      "ts": "2026-09-23T08:41:41.275Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -7621,7 +7627,7 @@
     },
     {
       "seq": 13,
-      "ts": "2026-09-23T08:41:41.275Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -7868,7 +7874,7 @@
     },
     {
       "seq": 14,
-      "ts": "2026-09-23T08:41:41.275Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -8051,7 +8057,7 @@
     },
     {
       "seq": 15,
-      "ts": "2026-09-23T08:41:41.275Z",
+      "ts": "2026-09-23T10:12:36.400Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -8068,7 +8074,7 @@
     },
     {
       "seq": 16,
-      "ts": "2026-09-23T08:41:41.323Z",
+      "ts": "2026-09-23T10:12:36.445Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -8095,7 +8101,7 @@
     },
     {
       "seq": 17,
-      "ts": "2026-09-23T08:41:41.324Z",
+      "ts": "2026-09-23T10:12:36.445Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -8117,7 +8123,7 @@
     },
     {
       "seq": 18,
-      "ts": "2026-09-23T08:41:41.324Z",
+      "ts": "2026-09-23T10:12:36.445Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -8134,7 +8140,7 @@
     },
     {
       "seq": 19,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -8149,20 +8155,6 @@
             "rings": [
               {
                 "shared_type": "device",
-                "shared_id": "032da9e468a30316",
-                "card_ids": [
-                  "C05876-K2",
-                  "C00750-K2",
-                  "X16328-K1",
-                  "C08299-K1",
-                  "X22653-K2",
-                  "X12076-K1",
-                  "C01104-K2",
-                  "C04965-K2"
-                ]
-              },
-              {
-                "shared_type": "device",
                 "shared_id": "b4798e84803d1b7d",
                 "card_ids": [
                   "C05876-K2",
@@ -8174,35 +8166,16 @@
               },
               {
                 "shared_type": "device",
-                "shared_id": "b6fe0ea969012756",
+                "shared_id": "032da9e468a30316",
                 "card_ids": [
-                  "C04125-K2",
-                  "C05704-K2",
-                  "C00952-K1",
                   "C05876-K2",
-                  "C01983-K1",
-                  "C03066-K1",
-                  "C07212-K2",
-                  "C01155-K2",
-                  "C03738-K2",
-                  "C07867-K2",
-                  "X18254-K1",
-                  "C11464-K2",
-                  "X15477-K1",
-                  "C05245-K2",
-                  "X14509-K1",
-                  "C01104-K2",
-                  "X13758-K1",
-                  "C03598-K2",
-                  "X22057-K1",
-                  "C00969-K2",
                   "C00750-K2",
-                  "C00197-K1",
-                  "X11012-K1",
-                  "C04108-K2",
-                  "C12887-K1",
-                  "C12634-K1",
-                  "X14996-K1"
+                  "X16328-K1",
+                  "C08299-K1",
+                  "X22653-K2",
+                  "X12076-K1",
+                  "C01104-K2",
+                  "C04965-K2"
                 ]
               },
               {
@@ -8236,243 +8209,36 @@
                 ]
               },
               {
-                "shared_type": "address",
-                "shared_id": "494.0",
+                "shared_type": "device",
+                "shared_id": "b6fe0ea969012756",
                 "card_ids": [
-                  "C05876-K2",
-                  "C06948-K1",
-                  "C08334-K1",
-                  "X17414-K1",
-                  "C06929-K1",
-                  "X18543-K1",
-                  "C02171-K1",
-                  "C07336-K1",
-                  "X13765-K1",
-                  "C12742-K1",
-                  "X18186-K2",
-                  "C08190-K2",
-                  "X13192-K1",
-                  "X15385-K1",
-                  "C07614-K2",
-                  "X13945-K1",
-                  "C05712-K1",
-                  "X17613-K1",
-                  "C09468-K2",
-                  "C03550-K1",
-                  "X22996-K1",
-                  "X11266-K1",
-                  "C03738-K2",
-                  "X17246-K2",
-                  "X14809-K1",
-                  "C06605-K1",
-                  "C01119-K1"
-                ]
-              },
-              {
-                "shared_type": "address",
-                "shared_id": "226.0",
-                "card_ids": [
-                  "X10116-K1",
-                  "X19164-K1",
-                  "C07878-K1",
-                  "X11659-K2",
-                  "C05876-K2",
-                  "X20048-K1",
-                  "C07987-K2",
-                  "X23038-K1",
-                  "X13839-K1",
-                  "C11464-K2",
-                  "C09530-K1",
-                  "C06706-K1",
-                  "X19128-K1",
-                  "X14763-K1",
-                  "C12470-K1",
-                  "C07717-K1",
-                  "X13417-K1",
-                  "X20399-K1",
-                  "X14202-K2",
-                  "C02902-K2",
-                  "X15374-K1",
-                  "X13991-K2",
-                  "X19852-K1",
-                  "C08477-K1",
-                  "X11766-K1",
-                  "X19378-K1",
-                  "X13712-K2",
-                  "X23027-K1",
-                  "C00842-K2",
-                  "X10125-K1",
-                  "X10817-K1",
-                  "X10340-K1",
-                  "C01855-K2",
-                  "X16214-K1",
-                  "X19564-K1",
-                  "X20387-K1",
-                  "X14371-K1",
-                  "X22043-K1",
-                  "X18195-K2",
-                  "X13820-K1",
-                  "X15355-K1"
-                ]
-              },
-              {
-                "shared_type": "address",
-                "shared_id": "231.0",
-                "card_ids": [
-                  "C05957-K2",
-                  "X16163-K1",
-                  "X16000-K1",
-                  "X19557-K1",
-                  "X17994-K1",
-                  "X12856-K1",
-                  "X20069-K2",
-                  "X20663-K2",
-                  "C05530-K2",
-                  "X10224-K1",
-                  "X17306-K1",
-                  "C11625-K2",
-                  "X17488-K1",
-                  "X11312-K1",
-                  "X13102-K1",
-                  "X16960-K1",
-                  "X15225-K1",
-                  "C02716-K1",
-                  "X20452-K2",
-                  "X17784-K1",
-                  "X20195-K1",
-                  "X15916-K1",
-                  "C07338-K1",
-                  "X22411-K1",
-                  "X20875-K1",
-                  "C09249-K1",
-                  "C02094-K1",
-                  "X10293-K3",
-                  "C01494-K1",
-                  "X17474-K1",
-                  "X11789-K1",
-                  "X20487-K1",
-                  "C04146-K1",
-                  "C02897-K1",
-                  "X21535-K1",
-                  "X15422-K1",
-                  "X17196-K1",
-                  "X22330-K1",
-                  "C00796-K1",
-                  "C03412-K1",
-                  "C05876-K2",
-                  "C10520-K1",
-                  "X14684-K1",
-                  "C12382-K1",
-                  "X20069-K1",
-                  "X23083-K1",
-                  "X13823-K1",
-                  "X11239-K3"
-                ]
-              },
-              {
-                "shared_type": "address",
-                "shared_id": "512.0",
-                "card_ids": [
-                  "C05876-K2",
-                  "C01828-K2",
-                  "C09612-K1",
-                  "X19232-K2",
-                  "X20613-K1",
-                  "X21264-K2",
-                  "C03992-K2",
-                  "C10045-K1",
-                  "X17482-K1",
-                  "X15477-K1",
-                  "X21181-K1",
-                  "X14105-K1",
-                  "C08336-K1",
-                  "C08807-K1",
-                  "C09800-K1",
-                  "X15175-K1",
-                  "X14294-K1",
-                  "C04306-K1",
-                  "X14940-K1",
-                  "X19754-K1",
-                  "C06630-K2",
-                  "C00728-K2",
-                  "X14285-K1",
-                  "C06929-K1",
-                  "X18053-K1",
-                  "C13290-K1",
-                  "X22926-K1",
-                  "X22589-K1",
-                  "X22013-K1",
-                  "C12690-K2",
-                  "X18770-K1",
-                  "C11792-K1",
-                  "X14721-K1",
-                  "X14865-K1",
-                  "C09823-K1",
-                  "X11856-K1",
-                  "X14450-K1",
-                  "X19701-K1",
-                  "X19215-K1",
-                  "C08965-K1",
-                  "C10010-K1",
-                  "X10877-K1",
-                  "X22653-K2"
-                ]
-              },
-              {
-                "shared_type": "address",
-                "shared_id": "436.0",
-                "card_ids": [
-                  "X11670-K1",
-                  "X13614-K1",
-                  "X14349-K2",
-                  "C00129-K2",
-                  "X22002-K1",
-                  "C13034-K1",
-                  "X15294-K1",
-                  "C09365-K2",
-                  "X15238-K1",
-                  "C05876-K2",
-                  "X22108-K1",
-                  "X16300-K1",
-                  "X10915-K1",
-                  "X12489-K1",
-                  "X22511-K1",
-                  "X21297-K1",
-                  "X23521-K1",
-                  "C05011-K1",
-                  "X20684-K1",
-                  "X10350-K2",
-                  "C08587-K1",
-                  "X22694-K1",
-                  "X12896-K2",
-                  "X14586-K2",
-                  "X15204-K1",
-                  "C11965-K1",
-                  "C04348-K1",
-                  "X16790-K2",
-                  "X11214-K1",
-                  "X14232-K1",
-                  "X13446-K1",
-                  "C09344-K1"
-                ]
-              },
-              {
-                "shared_type": "address",
-                "shared_id": "122.0",
-                "card_ids": [
-                  "X22851-K2",
-                  "C03412-K1",
-                  "X18239-K1",
-                  "X17370-K1",
-                  "X21510-K1",
-                  "C05876-K2",
-                  "C06331-K2",
+                  "C04125-K2",
                   "C05704-K2",
-                  "C10045-K1",
-                  "X14168-K1",
-                  "C09468-K2",
-                  "X12728-K2",
-                  "C03405-K2"
+                  "C00952-K1",
+                  "C05876-K2",
+                  "C01983-K1",
+                  "C03066-K1",
+                  "C07212-K2",
+                  "C01155-K2",
+                  "C03738-K2",
+                  "C07867-K2",
+                  "X18254-K1",
+                  "C11464-K2",
+                  "X15477-K1",
+                  "C05245-K2",
+                  "X14509-K1",
+                  "C01104-K2",
+                  "X13758-K1",
+                  "C03598-K2",
+                  "X22057-K1",
+                  "C00969-K2",
+                  "C00750-K2",
+                  "C00197-K1",
+                  "X11012-K1",
+                  "C04108-K2",
+                  "C12887-K1",
+                  "C12634-K1",
+                  "X14996-K1"
                 ]
               },
               {
@@ -8610,6 +8376,246 @@
                   "X15821-K1",
                   "C09365-K2"
                 ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "512.0",
+                "card_ids": [
+                  "C05876-K2",
+                  "C01828-K2",
+                  "C09612-K1",
+                  "X19232-K2",
+                  "X20613-K1",
+                  "X21264-K2",
+                  "C03992-K2",
+                  "C10045-K1",
+                  "X17482-K1",
+                  "X15477-K1",
+                  "X21181-K1",
+                  "X14105-K1",
+                  "C08336-K1",
+                  "C08807-K1",
+                  "C09800-K1",
+                  "X15175-K1",
+                  "X14294-K1",
+                  "C04306-K1",
+                  "X14940-K1",
+                  "X19754-K1",
+                  "C06630-K2",
+                  "C00728-K2",
+                  "X14285-K1",
+                  "C06929-K1",
+                  "X18053-K1",
+                  "C13290-K1",
+                  "X22926-K1",
+                  "X22589-K1",
+                  "X22013-K1",
+                  "C12690-K2",
+                  "X18770-K1",
+                  "C11792-K1",
+                  "X14721-K1",
+                  "X14865-K1",
+                  "C09823-K1",
+                  "X11856-K1",
+                  "X14450-K1",
+                  "X19701-K1",
+                  "X19215-K1",
+                  "C08965-K1",
+                  "C10010-K1",
+                  "X10877-K1",
+                  "X22653-K2"
+                ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "436.0",
+                "card_ids": [
+                  "X11670-K1",
+                  "X13614-K1",
+                  "X14349-K2",
+                  "C00129-K2",
+                  "X22002-K1",
+                  "C13034-K1",
+                  "X15294-K1",
+                  "C09365-K2",
+                  "X15238-K1",
+                  "C05876-K2",
+                  "X22108-K1",
+                  "X16300-K1",
+                  "X10915-K1",
+                  "X12489-K1",
+                  "X22511-K1",
+                  "X21297-K1",
+                  "X23521-K1",
+                  "C05011-K1",
+                  "X20684-K1",
+                  "X10350-K2",
+                  "C08587-K1",
+                  "X22694-K1",
+                  "X12896-K2",
+                  "X14586-K2",
+                  "X15204-K1",
+                  "C11965-K1",
+                  "C04348-K1",
+                  "X16790-K2",
+                  "X11214-K1",
+                  "X14232-K1",
+                  "X13446-K1",
+                  "C09344-K1"
+                ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "231.0",
+                "card_ids": [
+                  "C05957-K2",
+                  "X16163-K1",
+                  "X16000-K1",
+                  "X19557-K1",
+                  "X17994-K1",
+                  "X12856-K1",
+                  "X20069-K2",
+                  "X20663-K2",
+                  "C05530-K2",
+                  "X10224-K1",
+                  "X17306-K1",
+                  "C11625-K2",
+                  "X17488-K1",
+                  "X11312-K1",
+                  "X13102-K1",
+                  "X16960-K1",
+                  "X15225-K1",
+                  "C02716-K1",
+                  "X20452-K2",
+                  "X17784-K1",
+                  "X20195-K1",
+                  "X15916-K1",
+                  "C07338-K1",
+                  "X22411-K1",
+                  "X20875-K1",
+                  "C09249-K1",
+                  "C02094-K1",
+                  "X10293-K3",
+                  "C01494-K1",
+                  "X17474-K1",
+                  "X11789-K1",
+                  "X20487-K1",
+                  "C04146-K1",
+                  "C02897-K1",
+                  "X21535-K1",
+                  "X15422-K1",
+                  "X17196-K1",
+                  "X22330-K1",
+                  "C00796-K1",
+                  "C03412-K1",
+                  "C05876-K2",
+                  "C10520-K1",
+                  "X14684-K1",
+                  "C12382-K1",
+                  "X20069-K1",
+                  "X23083-K1",
+                  "X13823-K1",
+                  "X11239-K3"
+                ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "122.0",
+                "card_ids": [
+                  "X22851-K2",
+                  "C03412-K1",
+                  "X18239-K1",
+                  "X17370-K1",
+                  "X21510-K1",
+                  "C05876-K2",
+                  "C06331-K2",
+                  "C05704-K2",
+                  "C10045-K1",
+                  "X14168-K1",
+                  "C09468-K2",
+                  "X12728-K2",
+                  "C03405-K2"
+                ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "226.0",
+                "card_ids": [
+                  "X10116-K1",
+                  "X19164-K1",
+                  "C07878-K1",
+                  "X11659-K2",
+                  "C05876-K2",
+                  "X20048-K1",
+                  "C07987-K2",
+                  "X23038-K1",
+                  "X13839-K1",
+                  "C11464-K2",
+                  "C09530-K1",
+                  "C06706-K1",
+                  "X19128-K1",
+                  "X14763-K1",
+                  "C12470-K1",
+                  "C07717-K1",
+                  "X13417-K1",
+                  "X20399-K1",
+                  "X14202-K2",
+                  "C02902-K2",
+                  "X15374-K1",
+                  "X13991-K2",
+                  "X19852-K1",
+                  "C08477-K1",
+                  "X11766-K1",
+                  "X19378-K1",
+                  "X13712-K2",
+                  "X23027-K1",
+                  "C00842-K2",
+                  "X10125-K1",
+                  "X10817-K1",
+                  "X10340-K1",
+                  "C01855-K2",
+                  "X16214-K1",
+                  "X19564-K1",
+                  "X20387-K1",
+                  "X14371-K1",
+                  "X22043-K1",
+                  "X18195-K2",
+                  "X13820-K1",
+                  "X15355-K1"
+                ]
+              },
+              {
+                "shared_type": "address",
+                "shared_id": "494.0",
+                "card_ids": [
+                  "C05876-K2",
+                  "C06948-K1",
+                  "C08334-K1",
+                  "X17414-K1",
+                  "C06929-K1",
+                  "X18543-K1",
+                  "C02171-K1",
+                  "C07336-K1",
+                  "X13765-K1",
+                  "C12742-K1",
+                  "X18186-K2",
+                  "C08190-K2",
+                  "X13192-K1",
+                  "X15385-K1",
+                  "C07614-K2",
+                  "X13945-K1",
+                  "C05712-K1",
+                  "X17613-K1",
+                  "C09468-K2",
+                  "C03550-K1",
+                  "X22996-K1",
+                  "X11266-K1",
+                  "C03738-K2",
+                  "X17246-K2",
+                  "X14809-K1",
+                  "C06605-K1",
+                  "C01119-K1"
+                ]
               }
             ]
           },
@@ -8622,13 +8628,58 @@
     },
     {
       "seq": 20,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
           "id": "ev_006",
+          "category": "device_identity",
+          "summary": "Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "b4798e84803d1b7d"
+            },
+            {
+              "type": "Card",
+              "id": "C05876-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X18982-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16222-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09165-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X10761-K1"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-18 05:00:31"
+        }
+      }
+    },
+    {
+      "seq": 21,
+      "ts": "2026-09-23T10:12:36.466Z",
+      "case_id": "HHG-012",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_007",
           "category": "device_identity",
           "summary": "Activity shares device profile 032da9e468a30316 with card(s) C00750-K2, X16328-K1, C08299-K1, X22653-K2, X12076-K1, C01104-K2, C04965-K2",
           "entities": [
@@ -8678,20 +8729,20 @@
       }
     },
     {
-      "seq": 21,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "seq": 22,
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
-          "id": "ev_007",
+          "id": "ev_008",
           "category": "device_identity",
-          "summary": "Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
+          "summary": "Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
             {
               "type": "Device",
-              "id": "b4798e84803d1b7d"
+              "id": "84c0d1b1367b7e49"
             },
             {
               "type": "Card",
@@ -8699,19 +8750,95 @@
             },
             {
               "type": "Card",
-              "id": "X18982-K1"
+              "id": "C13019-K1"
             },
             {
               "type": "Card",
-              "id": "X16222-K1"
+              "id": "C00854-K2"
             },
             {
               "type": "Card",
-              "id": "C09165-K2"
+              "id": "C03218-K2"
             },
             {
               "type": "Card",
-              "id": "X10761-K1"
+              "id": "C07703-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C12897-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16523-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16528-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08256-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C04108-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C09007-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14536-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16440-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X17649-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11413-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08595-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C01155-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C07212-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C09800-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C03273-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C12658-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C03278-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C09251-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08044-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -8723,14 +8850,14 @@
       }
     },
     {
-      "seq": 22,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "seq": 23,
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
-          "id": "ev_008",
+          "id": "ev_009",
           "category": "device_identity",
           "summary": "Shares device profile b6fe0ea969012756 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
@@ -8856,129 +8983,8 @@
       }
     },
     {
-      "seq": 23,
-      "ts": "2026-09-23T08:41:41.343Z",
-      "case_id": "HHG-012",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_009",
-          "category": "device_identity",
-          "summary": "Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "84c0d1b1367b7e49"
-            },
-            {
-              "type": "Card",
-              "id": "C05876-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C13019-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C00854-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C03218-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C07703-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C12897-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16523-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16528-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08256-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C04108-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C09007-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14536-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16440-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17649-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11413-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08595-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C01155-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C07212-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C09800-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C03273-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C12658-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C03278-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C09251-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08044-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-18 05:00:31"
-        }
-      }
-    },
-    {
       "seq": 24,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -8986,11 +8992,11 @@
         "evidence": {
           "id": "ev_010",
           "category": "device_identity",
-          "summary": "Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "summary": "Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
             {
               "type": "Device",
-              "id": "494.0"
+              "id": "205.0"
             },
             {
               "type": "Card",
@@ -8998,15 +9004,27 @@
             },
             {
               "type": "Card",
-              "id": "C06948-K1"
+              "id": "C12063-K1"
             },
             {
               "type": "Card",
-              "id": "C08334-K1"
+              "id": "X17161-K1"
             },
             {
               "type": "Card",
-              "id": "X17414-K1"
+              "id": "X20845-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11889-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X15765-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06840-K1"
             },
             {
               "type": "Card",
@@ -9014,91 +9032,103 @@
             },
             {
               "type": "Card",
-              "id": "X18543-K1"
+              "id": "X19619-K2"
             },
             {
               "type": "Card",
-              "id": "C02171-K1"
+              "id": "X21141-K1"
             },
             {
               "type": "Card",
-              "id": "C07336-K1"
+              "id": "X13417-K1"
             },
             {
               "type": "Card",
-              "id": "X13765-K1"
+              "id": "X19206-K1"
             },
             {
               "type": "Card",
-              "id": "C12742-K1"
+              "id": "X13572-K1"
             },
             {
               "type": "Card",
-              "id": "X18186-K2"
+              "id": "X21297-K1"
             },
             {
               "type": "Card",
-              "id": "C08190-K2"
+              "id": "X14718-K1"
             },
             {
               "type": "Card",
-              "id": "X13192-K1"
+              "id": "X17946-K1"
             },
             {
               "type": "Card",
-              "id": "X15385-K1"
+              "id": "X18039-K2"
             },
             {
               "type": "Card",
-              "id": "C07614-K2"
+              "id": "X20232-K1"
             },
             {
               "type": "Card",
-              "id": "X13945-K1"
+              "id": "X19927-K1"
             },
             {
               "type": "Card",
-              "id": "C05712-K1"
+              "id": "C08918-K2"
             },
             {
               "type": "Card",
-              "id": "X17613-K1"
+              "id": "C06835-K2"
             },
             {
               "type": "Card",
-              "id": "C09468-K2"
+              "id": "X23014-K1"
             },
             {
               "type": "Card",
-              "id": "C03550-K1"
+              "id": "X23277-K1"
             },
             {
               "type": "Card",
-              "id": "X22996-K1"
+              "id": "X22306-K1"
             },
             {
               "type": "Card",
-              "id": "X11266-K1"
+              "id": "C09420-K2"
             },
             {
               "type": "Card",
-              "id": "C03738-K2"
+              "id": "C05292-K1"
             },
             {
               "type": "Card",
-              "id": "X17246-K2"
+              "id": "X10905-K1"
             },
             {
               "type": "Card",
-              "id": "X14809-K1"
+              "id": "C09365-K2"
             },
             {
               "type": "Card",
-              "id": "C06605-K1"
+              "id": "C01115-K1"
             },
             {
               "type": "Card",
-              "id": "C01119-K1"
+              "id": "C05689-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X14468-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C12311-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X11174-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -9111,7 +9141,7 @@
     },
     {
       "seq": 25,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -9119,27 +9149,11 @@
         "evidence": {
           "id": "ev_011",
           "category": "device_identity",
-          "summary": "Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "summary": "Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
             {
               "type": "Device",
-              "id": "226.0"
-            },
-            {
-              "type": "Card",
-              "id": "X10116-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19164-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C07878-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X11659-K2"
+              "id": "251.0"
             },
             {
               "type": "Card",
@@ -9147,147 +9161,179 @@
             },
             {
               "type": "Card",
-              "id": "X20048-K1"
+              "id": "C02968-K1"
             },
             {
               "type": "Card",
-              "id": "C07987-K2"
+              "id": "X17126-K1"
             },
             {
               "type": "Card",
-              "id": "X23038-K1"
+              "id": "X12590-K1"
             },
             {
               "type": "Card",
-              "id": "X13839-K1"
+              "id": "C07871-K1"
             },
             {
               "type": "Card",
-              "id": "C11464-K2"
+              "id": "C03043-K1"
             },
             {
               "type": "Card",
-              "id": "C09530-K1"
+              "id": "X11757-K1"
             },
             {
               "type": "Card",
-              "id": "C06706-K1"
+              "id": "C11247-K1"
             },
             {
               "type": "Card",
-              "id": "X19128-K1"
+              "id": "X21740-K1"
             },
             {
               "type": "Card",
-              "id": "X14763-K1"
+              "id": "X23481-K1"
             },
             {
               "type": "Card",
-              "id": "C12470-K1"
+              "id": "X17658-K1"
             },
             {
               "type": "Card",
-              "id": "C07717-K1"
+              "id": "C10350-K1"
             },
             {
               "type": "Card",
-              "id": "X13417-K1"
+              "id": "X23548-K1"
             },
             {
               "type": "Card",
-              "id": "X20399-K1"
+              "id": "X16682-K1"
             },
             {
               "type": "Card",
-              "id": "X14202-K2"
+              "id": "X20397-K1"
             },
             {
               "type": "Card",
-              "id": "C02902-K2"
+              "id": "C06269-K1"
             },
             {
               "type": "Card",
-              "id": "X15374-K1"
+              "id": "C09586-K2"
             },
             {
               "type": "Card",
-              "id": "X13991-K2"
+              "id": "X17558-K1"
             },
             {
               "type": "Card",
-              "id": "X19852-K1"
+              "id": "X13769-K1"
             },
             {
               "type": "Card",
-              "id": "C08477-K1"
+              "id": "X22645-K1"
             },
             {
               "type": "Card",
-              "id": "X11766-K1"
+              "id": "X17693-K1"
             },
             {
               "type": "Card",
-              "id": "X19378-K1"
+              "id": "X11108-K1"
             },
             {
               "type": "Card",
-              "id": "X13712-K2"
+              "id": "X12114-K1"
             },
             {
               "type": "Card",
-              "id": "X23027-K1"
+              "id": "X10610-K1"
             },
             {
               "type": "Card",
-              "id": "C00842-K2"
+              "id": "X15191-K1"
             },
             {
               "type": "Card",
-              "id": "X10125-K1"
+              "id": "X20882-K1"
             },
             {
               "type": "Card",
-              "id": "X10817-K1"
+              "id": "C10757-K2"
             },
             {
               "type": "Card",
-              "id": "X10340-K1"
+              "id": "X21216-K1"
             },
             {
               "type": "Card",
-              "id": "C01855-K2"
+              "id": "C00983-K1"
             },
             {
               "type": "Card",
-              "id": "X16214-K1"
+              "id": "X17980-K1"
             },
             {
               "type": "Card",
-              "id": "X19564-K1"
+              "id": "X23099-K1"
             },
             {
               "type": "Card",
-              "id": "X20387-K1"
+              "id": "X11234-K1"
             },
             {
               "type": "Card",
-              "id": "X14371-K1"
+              "id": "C06067-K2"
             },
             {
               "type": "Card",
-              "id": "X22043-K1"
+              "id": "C08845-K3"
             },
             {
               "type": "Card",
-              "id": "X18195-K2"
+              "id": "X22968-K2"
             },
             {
               "type": "Card",
-              "id": "X13820-K1"
+              "id": "C00557-K1"
             },
             {
               "type": "Card",
-              "id": "X15355-K1"
+              "id": "X20152-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X11383-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X11553-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19569-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X11774-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11041-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22076-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14856-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C07297-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -9300,13 +9346,548 @@
     },
     {
       "seq": 26,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
           "id": "ev_012",
+          "category": "device_identity",
+          "summary": "Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "420.0"
+            },
+            {
+              "type": "Card",
+              "id": "X12890-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04984-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X19203-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C01119-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X17291-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C10568-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X13702-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C07437-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X12728-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X12525-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C00866-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X20018-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06343-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04352-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04285-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09863-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06190-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14802-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06800-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C00681-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X10886-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15940-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15515-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X15805-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04828-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C05487-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16121-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X21188-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C07612-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C05876-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X14725-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C03539-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11945-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C04196-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C07180-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C05263-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C11625-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C08727-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15821-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09365-K2"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-18 05:00:31"
+        }
+      }
+    },
+    {
+      "seq": 27,
+      "ts": "2026-09-23T10:12:36.466Z",
+      "case_id": "HHG-012",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_013",
+          "category": "device_identity",
+          "summary": "Shares billing region 512 with 42 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "512.0"
+            },
+            {
+              "type": "Card",
+              "id": "C05876-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C01828-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C09612-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19232-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X20613-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X21264-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C03992-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C10045-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X17482-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15477-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X21181-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14105-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08336-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08807-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09800-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15175-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14294-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04306-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14940-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19754-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06630-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C00728-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X14285-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06929-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X18053-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C13290-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22926-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22589-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22013-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C12690-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X18770-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11792-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14721-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14865-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09823-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X11856-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14450-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19701-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19215-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C08965-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C10010-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X10877-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22653-K2"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-18 05:00:31"
+        }
+      }
+    },
+    {
+      "seq": 28,
+      "ts": "2026-09-23T10:12:36.466Z",
+      "case_id": "HHG-012",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_014",
+          "category": "device_identity",
+          "summary": "Shares billing region 436 with 31 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "entities": [
+            {
+              "type": "Device",
+              "id": "436.0"
+            },
+            {
+              "type": "Card",
+              "id": "X11670-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X13614-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14349-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C00129-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X22002-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C13034-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15294-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09365-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X15238-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C05876-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X22108-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16300-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X10915-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X12489-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22511-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X21297-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X23521-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C05011-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X20684-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X10350-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C08587-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22694-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X12896-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X14586-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X15204-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C11965-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C04348-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16790-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X11214-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X14232-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X13446-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09344-K1"
+            }
+          ],
+          "source_tool": "find_shared_entity_rings",
+          "weight_hint": 0.15,
+          "supports": [],
+          "contradicts": [],
+          "ts": "2016-12-18 05:00:31"
+        }
+      }
+    },
+    {
+      "seq": 29,
+      "ts": "2026-09-23T10:12:36.466Z",
+      "case_id": "HHG-012",
+      "type": "evidence_added",
+      "state": "INVESTIGATING",
+      "payload": {
+        "evidence": {
+          "id": "ev_015",
           "category": "device_identity",
           "summary": "Shares billing region 231 with 47 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
@@ -9516,364 +10097,14 @@
       }
     },
     {
-      "seq": 27,
-      "ts": "2026-09-23T08:41:41.343Z",
+      "seq": 30,
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
       "payload": {
         "evidence": {
-          "id": "ev_013",
-          "category": "device_identity",
-          "summary": "Shares billing region 512 with 42 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "512.0"
-            },
-            {
-              "type": "Card",
-              "id": "C05876-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C01828-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C09612-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19232-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X20613-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X21264-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C03992-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C10045-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17482-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15477-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X21181-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14105-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08336-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08807-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09800-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15175-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14294-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04306-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14940-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19754-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06630-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C00728-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X14285-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06929-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X18053-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C13290-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22926-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22589-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22013-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C12690-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X18770-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11792-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14721-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14865-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09823-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X11856-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14450-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19701-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19215-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08965-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C10010-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X10877-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22653-K2"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-18 05:00:31"
-        }
-      }
-    },
-    {
-      "seq": 28,
-      "ts": "2026-09-23T08:41:41.343Z",
-      "case_id": "HHG-012",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_014",
-          "category": "device_identity",
-          "summary": "Shares billing region 436 with 31 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "436.0"
-            },
-            {
-              "type": "Card",
-              "id": "X11670-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X13614-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14349-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C00129-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X22002-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C13034-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15294-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09365-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X15238-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C05876-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X22108-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16300-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X10915-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X12489-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22511-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X21297-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X23521-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C05011-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X20684-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X10350-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C08587-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22694-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X12896-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X14586-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X15204-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11965-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04348-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16790-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X11214-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14232-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X13446-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09344-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-18 05:00:31"
-        }
-      }
-    },
-    {
-      "seq": 29,
-      "ts": "2026-09-23T08:41:41.343Z",
-      "case_id": "HHG-012",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_015",
+          "id": "ev_016",
           "category": "device_identity",
           "summary": "Shares billing region 122 with 12 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
@@ -9943,165 +10174,8 @@
       }
     },
     {
-      "seq": 30,
-      "ts": "2026-09-23T08:41:41.344Z",
-      "case_id": "HHG-012",
-      "type": "evidence_added",
-      "state": "INVESTIGATING",
-      "payload": {
-        "evidence": {
-          "id": "ev_016",
-          "category": "device_identity",
-          "summary": "Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-          "entities": [
-            {
-              "type": "Device",
-              "id": "205.0"
-            },
-            {
-              "type": "Card",
-              "id": "C05876-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C12063-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17161-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X20845-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11889-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X15765-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06840-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06929-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19619-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X21141-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X13417-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19206-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X13572-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X21297-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14718-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17946-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X18039-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X20232-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19927-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C08918-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C06835-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X23014-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X23277-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22306-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09420-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C05292-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X10905-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09365-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C01115-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C05689-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X14468-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C12311-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X11174-K1"
-            }
-          ],
-          "source_tool": "find_shared_entity_rings",
-          "weight_hint": 0.15,
-          "supports": [],
-          "contradicts": [],
-          "ts": "2016-12-18 05:00:31"
-        }
-      }
-    },
-    {
       "seq": 31,
-      "ts": "2026-09-23T08:41:41.344Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10109,11 +10183,27 @@
         "evidence": {
           "id": "ev_017",
           "category": "device_identity",
-          "summary": "Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "summary": "Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
             {
               "type": "Device",
-              "id": "251.0"
+              "id": "226.0"
+            },
+            {
+              "type": "Card",
+              "id": "X10116-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X19164-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C07878-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X11659-K2"
             },
             {
               "type": "Card",
@@ -10121,179 +10211,147 @@
             },
             {
               "type": "Card",
-              "id": "C02968-K1"
+              "id": "X20048-K1"
             },
             {
               "type": "Card",
-              "id": "X17126-K1"
+              "id": "C07987-K2"
             },
             {
               "type": "Card",
-              "id": "X12590-K1"
+              "id": "X23038-K1"
             },
             {
               "type": "Card",
-              "id": "C07871-K1"
+              "id": "X13839-K1"
             },
             {
               "type": "Card",
-              "id": "C03043-K1"
+              "id": "C11464-K2"
             },
             {
               "type": "Card",
-              "id": "X11757-K1"
+              "id": "C09530-K1"
             },
             {
               "type": "Card",
-              "id": "C11247-K1"
+              "id": "C06706-K1"
             },
             {
               "type": "Card",
-              "id": "X21740-K1"
+              "id": "X19128-K1"
             },
             {
               "type": "Card",
-              "id": "X23481-K1"
+              "id": "X14763-K1"
             },
             {
               "type": "Card",
-              "id": "X17658-K1"
+              "id": "C12470-K1"
             },
             {
               "type": "Card",
-              "id": "C10350-K1"
+              "id": "C07717-K1"
             },
             {
               "type": "Card",
-              "id": "X23548-K1"
+              "id": "X13417-K1"
             },
             {
               "type": "Card",
-              "id": "X16682-K1"
+              "id": "X20399-K1"
             },
             {
               "type": "Card",
-              "id": "X20397-K1"
+              "id": "X14202-K2"
             },
             {
               "type": "Card",
-              "id": "C06269-K1"
+              "id": "C02902-K2"
             },
             {
               "type": "Card",
-              "id": "C09586-K2"
+              "id": "X15374-K1"
             },
             {
               "type": "Card",
-              "id": "X17558-K1"
+              "id": "X13991-K2"
             },
             {
               "type": "Card",
-              "id": "X13769-K1"
+              "id": "X19852-K1"
             },
             {
               "type": "Card",
-              "id": "X22645-K1"
+              "id": "C08477-K1"
             },
             {
               "type": "Card",
-              "id": "X17693-K1"
+              "id": "X11766-K1"
             },
             {
               "type": "Card",
-              "id": "X11108-K1"
+              "id": "X19378-K1"
             },
             {
               "type": "Card",
-              "id": "X12114-K1"
+              "id": "X13712-K2"
             },
             {
               "type": "Card",
-              "id": "X10610-K1"
+              "id": "X23027-K1"
             },
             {
               "type": "Card",
-              "id": "X15191-K1"
+              "id": "C00842-K2"
             },
             {
               "type": "Card",
-              "id": "X20882-K1"
+              "id": "X10125-K1"
             },
             {
               "type": "Card",
-              "id": "C10757-K2"
+              "id": "X10817-K1"
             },
             {
               "type": "Card",
-              "id": "X21216-K1"
+              "id": "X10340-K1"
             },
             {
               "type": "Card",
-              "id": "C00983-K1"
+              "id": "C01855-K2"
             },
             {
               "type": "Card",
-              "id": "X17980-K1"
+              "id": "X16214-K1"
             },
             {
               "type": "Card",
-              "id": "X23099-K1"
+              "id": "X19564-K1"
             },
             {
               "type": "Card",
-              "id": "X11234-K1"
+              "id": "X20387-K1"
             },
             {
               "type": "Card",
-              "id": "C06067-K2"
+              "id": "X14371-K1"
             },
             {
               "type": "Card",
-              "id": "C08845-K3"
+              "id": "X22043-K1"
             },
             {
               "type": "Card",
-              "id": "X22968-K2"
+              "id": "X18195-K2"
             },
             {
               "type": "Card",
-              "id": "C00557-K1"
+              "id": "X13820-K1"
             },
             {
               "type": "Card",
-              "id": "X20152-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X11383-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X11553-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X19569-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X11774-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C11041-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X22076-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14856-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C07297-K1"
+              "id": "X15355-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -10306,7 +10364,7 @@
     },
     {
       "seq": 32,
-      "ts": "2026-09-23T08:41:41.344Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10314,127 +10372,11 @@
         "evidence": {
           "id": "ev_018",
           "category": "device_identity",
-          "summary": "Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+          "summary": "Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
           "entities": [
             {
               "type": "Device",
-              "id": "420.0"
-            },
-            {
-              "type": "Card",
-              "id": "X12890-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04984-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X19203-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C01119-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X17291-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C10568-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X13702-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C07437-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X12728-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X12525-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C00866-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X20018-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06343-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04352-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04285-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09863-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06190-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X14802-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C06800-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C00681-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X10886-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15940-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X15515-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X15805-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C04828-K2"
-            },
-            {
-              "type": "Card",
-              "id": "C05487-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16121-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X21188-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C07612-K1"
+              "id": "494.0"
             },
             {
               "type": "Card",
@@ -10442,43 +10384,107 @@
             },
             {
               "type": "Card",
-              "id": "X14725-K1"
+              "id": "C06948-K1"
             },
             {
               "type": "Card",
-              "id": "C03539-K1"
+              "id": "C08334-K1"
             },
             {
               "type": "Card",
-              "id": "C11945-K2"
+              "id": "X17414-K1"
             },
             {
               "type": "Card",
-              "id": "C04196-K2"
+              "id": "C06929-K1"
             },
             {
               "type": "Card",
-              "id": "C07180-K1"
+              "id": "X18543-K1"
             },
             {
               "type": "Card",
-              "id": "C05263-K2"
+              "id": "C02171-K1"
             },
             {
               "type": "Card",
-              "id": "C11625-K2"
+              "id": "C07336-K1"
             },
             {
               "type": "Card",
-              "id": "C08727-K1"
+              "id": "X13765-K1"
             },
             {
               "type": "Card",
-              "id": "X15821-K1"
+              "id": "C12742-K1"
             },
             {
               "type": "Card",
-              "id": "C09365-K2"
+              "id": "X18186-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C08190-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X13192-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X15385-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C07614-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X13945-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C05712-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X17613-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09468-K2"
+            },
+            {
+              "type": "Card",
+              "id": "C03550-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X22996-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X11266-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C03738-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X17246-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X14809-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C06605-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C01119-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -10491,7 +10497,7 @@
     },
     {
       "seq": 33,
-      "ts": "2026-09-23T08:41:41.344Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10501,6 +10507,22 @@
           "category": "device_identity",
           "summary": "Card shares only 2 device profile(s) / billing region(s) with 11 other card(s) -- the kind of overlap a household or a common device produces",
           "entities": [
+            {
+              "type": "Card",
+              "id": "X18982-K1"
+            },
+            {
+              "type": "Card",
+              "id": "X16222-K1"
+            },
+            {
+              "type": "Card",
+              "id": "C09165-K2"
+            },
+            {
+              "type": "Card",
+              "id": "X10761-K1"
+            },
             {
               "type": "Card",
               "id": "C00750-K2"
@@ -10528,22 +10550,6 @@
             {
               "type": "Card",
               "id": "C04965-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X18982-K1"
-            },
-            {
-              "type": "Card",
-              "id": "X16222-K1"
-            },
-            {
-              "type": "Card",
-              "id": "C09165-K2"
-            },
-            {
-              "type": "Card",
-              "id": "X10761-K1"
             }
           ],
           "source_tool": "find_shared_entity_rings",
@@ -10556,7 +10562,7 @@
     },
     {
       "seq": 34,
-      "ts": "2026-09-23T08:41:41.344Z",
+      "ts": "2026-09-23T10:12:36.466Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -10573,7 +10579,7 @@
     },
     {
       "seq": 35,
-      "ts": "2026-09-23T08:41:41.353Z",
+      "ts": "2026-09-23T10:12:36.476Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -10597,12 +10603,6 @@
                 "outcome": "confirmed_fraud",
                 "pattern": "card_not_present_fraud",
                 "own": true
-              },
-              {
-                "case_id": "GRAPH-HHG-012",
-                "outcome": "confirmed_fraud",
-                "pattern": "out_of_region_use",
-                "own": true
               }
             ]
           },
@@ -10615,7 +10615,7 @@
     },
     {
       "seq": 36,
-      "ts": "2026-09-23T08:41:41.353Z",
+      "ts": "2026-09-23T10:12:36.476Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10646,7 +10646,7 @@
     },
     {
       "seq": 37,
-      "ts": "2026-09-23T08:41:41.353Z",
+      "ts": "2026-09-23T10:12:36.476Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -10663,7 +10663,7 @@
     },
     {
       "seq": 38,
-      "ts": "2026-09-23T08:41:41.368Z",
+      "ts": "2026-09-23T10:12:36.492Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -10752,7 +10752,7 @@
     },
     {
       "seq": 39,
-      "ts": "2026-09-23T08:41:41.368Z",
+      "ts": "2026-09-23T10:12:36.492Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10774,7 +10774,7 @@
     },
     {
       "seq": 40,
-      "ts": "2026-09-23T08:41:41.368Z",
+      "ts": "2026-09-23T10:12:36.492Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -10792,7 +10792,7 @@
     },
     {
       "seq": 41,
-      "ts": "2026-09-23T08:41:41.376Z",
+      "ts": "2026-09-23T10:12:36.501Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -10817,7 +10817,7 @@
     },
     {
       "seq": 42,
-      "ts": "2026-09-23T08:41:41.376Z",
+      "ts": "2026-09-23T10:12:36.501Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10837,7 +10837,7 @@
     },
     {
       "seq": 43,
-      "ts": "2026-09-23T08:41:41.376Z",
+      "ts": "2026-09-23T10:12:36.501Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -10857,6 +10857,10 @@
               },
               {
                 "type": "Card",
+                "id": "C09165-K2"
+              },
+              {
+                "type": "Card",
                 "id": "C00750-K2"
               },
               {
@@ -10870,10 +10874,6 @@
               {
                 "type": "Card",
                 "id": "C04965-K2"
-              },
-              {
-                "type": "Card",
-                "id": "C09165-K2"
               }
             ],
             "amount_band": "under_100",
@@ -10889,7 +10889,7 @@
     },
     {
       "seq": 44,
-      "ts": "2026-09-23T08:41:41.383Z",
+      "ts": "2026-09-23T10:12:36.509Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -10949,7 +10949,7 @@
     },
     {
       "seq": 45,
-      "ts": "2026-09-23T08:41:41.383Z",
+      "ts": "2026-09-23T10:12:36.509Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -10976,7 +10976,7 @@
     },
     {
       "seq": 46,
-      "ts": "2026-09-23T08:41:41.383Z",
+      "ts": "2026-09-23T10:12:36.509Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -11005,7 +11005,7 @@
     },
     {
       "seq": 47,
-      "ts": "2026-09-23T08:41:41.383Z",
+      "ts": "2026-09-23T10:12:36.509Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -11034,7 +11034,7 @@
     },
     {
       "seq": 48,
-      "ts": "2026-09-23T08:41:41.383Z",
+      "ts": "2026-09-23T10:12:36.509Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -11051,7 +11051,7 @@
     },
     {
       "seq": 49,
-      "ts": "2026-09-23T08:41:41.431Z",
+      "ts": "2026-09-23T10:12:36.556Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -11093,7 +11093,7 @@
     },
     {
       "seq": 50,
-      "ts": "2026-09-23T08:41:41.432Z",
+      "ts": "2026-09-23T10:12:36.556Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -11107,7 +11107,7 @@
     },
     {
       "seq": 51,
-      "ts": "2026-09-23T08:41:41.432Z",
+      "ts": "2026-09-23T10:12:36.556Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -11135,7 +11135,7 @@
     },
     {
       "seq": 52,
-      "ts": "2026-09-23T08:41:41.432Z",
+      "ts": "2026-09-23T10:12:36.556Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -11155,7 +11155,7 @@
     },
     {
       "seq": 53,
-      "ts": "2026-09-23T08:41:41.432Z",
+      "ts": "2026-09-23T10:12:36.556Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -11172,7 +11172,7 @@
     },
     {
       "seq": 54,
-      "ts": "2026-09-23T08:41:46.326Z",
+      "ts": "2026-09-23T10:12:41.663Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -11188,9 +11188,9 @@
             "size": 1,
             "stats": {
               "avg_risk_score": 0.1595718990120751,
-              "confirmed_fraud_rate": 0.6666666666666666,
-              "n_cases": 3,
-              "population_confirmed_fraud_rate": 0.8325269817640492,
+              "confirmed_fraud_rate": 0.5,
+              "n_cases": 2,
+              "population_confirmed_fraud_rate": 0.8324958123953099,
               "velocity": 5.403265832325933,
               "shared_device_density": 1
             }
@@ -11204,7 +11204,7 @@
     },
     {
       "seq": 55,
-      "ts": "2026-09-23T08:41:46.326Z",
+      "ts": "2026-09-23T10:12:41.664Z",
       "case_id": "HHG-012",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -11212,7 +11212,7 @@
         "evidence": {
           "id": "ev_027",
           "category": "graph_structure",
-          "summary": "Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 67% across 3 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal",
+          "summary": "Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 50% across 2 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal",
           "entities": [],
           "source_tool": "get_community",
           "weight_hint": 0.2,
@@ -11224,7 +11224,7 @@
     },
     {
       "seq": 56,
-      "ts": "2026-09-23T08:41:46.326Z",
+      "ts": "2026-09-23T10:12:41.664Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "ASSESSING",
@@ -11232,20 +11232,20 @@
     },
     {
       "seq": 57,
-      "ts": "2026-09-23T08:41:51.695Z",
+      "ts": "2026-09-23T10:12:48.173Z",
       "case_id": "HHG-012",
       "type": "tool_call",
       "state": "ASSESSING",
       "payload": {
         "tool": "jev_pattern_score",
         "args": {
-          "state": "- (weight 0.36; supports account_takeover) Pattern \"account_takeover\" detected with score 0.80 on 59 txn(s)\n- (weight 0.30) 59 transactions in 168h\n- (weight 0.50; supports out_of_region_use, account_takeover; contradicts card_not_present_fraud, card_not_present_new_device, card_testing) Pattern shape: the flagged transaction was card-present (in person), so the card itself was used - if this is fraud it is a card-present pattern, not a card-not-present one\n- (weight 0.75; supports out_of_region_use) Card-present activity in this window is away from the card's usual region 325 (67 of 470 card-present transactions in the 83 days before this window): 17 regions (56 transaction(s)), alongside 1 at home\n- (weight 0.70; supports out_of_region_use) Mixed-channel activity (2 online, 57 card-present) with 40 transaction(s) failing two or more identity match checks\n- (weight 0.30; contradicts fraud) Transaction is within the cardholder's usual amount range: amount z=-0.4, device z=1.0\n- (weight 0.20) 5 transaction(s) totaling $309.65 in the last 1440 minutes\n- (weight 0.50; supports card_not_present_fraud) Prior confirmed fraud case(s) on this card or customer CC-2370 (patterns: card_not_present_fraud); cleared 1 case(s)\n- Similar closed cases: 3 (confirmed_fraud 1, cleared 2); best score 0.17; overlaps: shared card 3, similar exposure band 3\n- Shared-entity rings: 2 specific shared device profile(s); 11 shared profile(s) too common to be a ring\n- (weight 0.20) Card shares only 2 device profile(s) / billing region(s) with 11 other card(s) -- the kind of overlap a household or a common device produces\n- (weight 0.20) Card sits in community a community (1 entities) with confirmed-fraud incidence 67% across 3 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal"
+          "state": "- (weight 0.36; supports account_takeover) Pattern \"account_takeover\" detected with score 0.80 on 59 txn(s)\n- (weight 0.30) 59 transactions in 168h\n- (weight 0.50; supports out_of_region_use, account_takeover; contradicts card_not_present_fraud, card_not_present_new_device, card_testing) Pattern shape: the flagged transaction was card-present (in person), so the card itself was used - if this is fraud it is a card-present pattern, not a card-not-present one\n- (weight 0.75; supports out_of_region_use) Card-present activity in this window is away from the card's usual region 325 (67 of 470 card-present transactions in the 83 days before this window): 17 regions (56 transaction(s)), alongside 1 at home\n- (weight 0.70; supports out_of_region_use) Mixed-channel activity (2 online, 57 card-present) with 40 transaction(s) failing two or more identity match checks\n- (weight 0.30; contradicts fraud) Transaction is within the cardholder's usual amount range: amount z=-0.4, device z=1.0\n- (weight 0.20) 5 transaction(s) totaling $309.65 in the last 1440 minutes\n- (weight 0.50; supports card_not_present_fraud) Prior confirmed fraud case(s) on this card or customer CC-2370 (patterns: card_not_present_fraud); cleared 1 case(s)\n- Similar closed cases: 3 (confirmed_fraud 1, cleared 2); best score 0.17; overlaps: shared card 3, similar exposure band 3\n- Shared-entity rings: 2 specific shared device profile(s); 11 shared profile(s) too common to be a ring\n- (weight 0.20) Card shares only 2 device profile(s) / billing region(s) with 11 other card(s) -- the kind of overlap a household or a common device produces\n- (weight 0.20) Card sits in community a community (1 entities) with confirmed-fraud incidence 50% across 2 closed case(s), but the community is this card alone, so these are the card's own cases (see prior cases), not a community signal"
         }
       }
     },
     {
       "seq": 58,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "ts": "2026-09-23T10:12:48.728Z",
       "case_id": "HHG-012",
       "type": "tool_result",
       "state": "ASSESSING",
@@ -11255,13 +11255,13 @@
           "ok": true,
           "data": {
             "choice": "out_of_region_use",
-            "confidence": 0.73,
+            "confidence": 0.83,
             "probabilities": {
               "card_testing": 0,
               "card_not_present_fraud": 0,
               "card_not_present_new_device": 0,
-              "out_of_region_use": 0.78,
-              "account_takeover": 0.22
+              "out_of_region_use": 0.87,
+              "account_takeover": 0.13
             }
           }
         }
@@ -11269,7 +11269,7 @@
     },
     {
       "seq": 59,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "assessment_updated",
       "state": "ASSESSING",
@@ -11278,7 +11278,7 @@
           "hypotheses": [
             {
               "fraud_type": "out_of_region_use",
-              "probability": 0.7020000000000001,
+              "probability": 0.706005,
               "supporting": [
                 "ev_003",
                 "ev_004"
@@ -11289,25 +11289,33 @@
             },
             {
               "fraud_type": "account_takeover",
-              "probability": 0.198,
+              "probability": 0.105495,
               "supporting": [
-                "ev_021"
+                "ev_021",
+                "ev_027"
               ],
               "contradicting": [
-                "ev_027"
+                "ev_024",
+                "ev_025"
               ]
             },
             {
               "fraud_type": "legitimate",
-              "probability": 0.1,
+              "probability": 0.1885,
               "supporting": [
                 "ev_005",
-                "ev_027"
+                "ev_024",
+                "ev_025"
               ],
-              "contradicting": []
+              "contradicting": [
+                "ev_003",
+                "ev_004",
+                "ev_021",
+                "ev_027"
+              ]
             }
           ],
-          "risk_level": "CRITICAL",
+          "risk_level": "HIGH",
           "risk_score": 0.55,
           "confidence": 0.65,
           "sufficiency": {
@@ -11315,41 +11323,231 @@
             "missing": [],
             "stop_reason": "sufficient_evidence"
           },
-          "legit_hypothesis_probability": 0.1
+          "legit_hypothesis_probability": 0.1885
+        },
+        "alert_calibration": {
+          "fraud_probability_from": 0.9,
+          "fraud_probability_to": 0.8115,
+          "terms": [
+            {
+              "feature": "own_cleared_precedent",
+              "weight": -0.179,
+              "reads": "a cleared case on the same card",
+              "evidence_id": "ev_024"
+            }
+          ]
         }
       }
     },
     {
       "seq": 60,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "state_entered",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {}
+    },
+    {
+      "seq": 61,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "tool_call",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "tool": "request_evidence",
+        "args": {
+          "type": "customer_validation",
+          "target": {
+            "type": "Customer",
+            "id": "C05876"
+          },
+          "reason": "Separates \"out_of_region_use\" (p=0.71) from legitimate (p=0.19) — the decision policy R1 rests on."
+        }
+      }
+    },
+    {
+      "seq": 62,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "evidence_requested",
+      "state": "EVIDENCE_PLANNING",
+      "payload": {
+        "type": "customer_validation",
+        "target": {
+          "type": "Customer",
+          "id": "C05876"
+        },
+        "reason": "Separates \"out_of_region_use\" (p=0.71) from legitimate (p=0.19) — the decision policy R1 rests on.",
+        "discrimination_score": 0.482495,
+        "friction_cost": 2
+      }
+    },
+    {
+      "seq": 63,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "state_entered",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {}
+    },
+    {
+      "seq": 64,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "tool_result",
+      "state": "AWAITING_EVIDENCE",
+      "payload": {
+        "tool": "request_evidence",
+        "result": {
+          "ok": true,
+          "tool": "request_evidence",
+          "as_of": "n/a",
+          "via": "policy",
+          "data": {
+            "request_type": "customer_validation",
+            "responded": false,
+            "response_text": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
+            "evidence": {
+              "id": "ev_resp_0011",
+              "category": "customer_response",
+              "summary": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
+              "entities": [
+                {
+                  "type": "Customer",
+                  "id": "C05876"
+                }
+              ],
+              "source_tool": "request_evidence",
+              "weight_hint": 0,
+              "supports": [],
+              "contradicts": [],
+              "ts": "2026-09-23T10:12:48.729Z"
+            }
+          },
+          "evidence_refs": [
+            "ev_resp_0011"
+          ],
+          "truncated": false,
+          "latency_ms": 0,
+          "error": null
+        }
+      }
+    },
+    {
+      "seq": 65,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "state_entered",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {}
+    },
+    {
+      "seq": 66,
+      "ts": "2026-09-23T10:12:48.729Z",
+      "case_id": "HHG-012",
+      "type": "assessment_updated",
+      "state": "EVIDENCE_RECEIVED",
+      "payload": {
+        "assessment": {
+          "hypotheses": [
+            {
+              "fraud_type": "out_of_region_use",
+              "probability": 0.706005,
+              "supporting": [
+                "ev_003",
+                "ev_004"
+              ],
+              "contradicting": [
+                "ev_005"
+              ]
+            },
+            {
+              "fraud_type": "account_takeover",
+              "probability": 0.105495,
+              "supporting": [
+                "ev_021",
+                "ev_027"
+              ],
+              "contradicting": [
+                "ev_024",
+                "ev_025"
+              ]
+            },
+            {
+              "fraud_type": "legitimate",
+              "probability": 0.1885,
+              "supporting": [
+                "ev_005",
+                "ev_024",
+                "ev_025"
+              ],
+              "contradicting": [
+                "ev_003",
+                "ev_004",
+                "ev_021",
+                "ev_027"
+              ]
+            }
+          ],
+          "risk_level": "HIGH",
+          "risk_score": 0.55,
+          "confidence": 0.65,
+          "sufficiency": {
+            "sufficient": true,
+            "missing": [],
+            "stop_reason": "sufficient_evidence"
+          },
+          "legit_hypothesis_probability": 0.1885
+        },
+        "recommendation_after_request": {
+          "rule": "R4",
+          "reason": "no reply to the R1 verification request",
+          "actions": [
+            {
+              "action": "BLOCK_CARD",
+              "route": "L1",
+              "reason": "R2: customer denied the transaction(s) or fraud probability 0.81 exceeds the 0.70 block threshold; exposure $30.91"
+            },
+            {
+              "action": "CREATE_CASE",
+              "route": "auto",
+              "reason": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seq": 67,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "DECIDING",
       "payload": {}
     },
     {
-      "seq": 61,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 68,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "APPROVAL_ROUTING",
       "payload": {}
     },
     {
-      "seq": 62,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 69,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "approval_requested",
       "state": "APPROVAL_ROUTING",
       "payload": {
         "action": "BLOCK_CARD",
         "route": "L1",
-        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $30.91"
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.81 exceeds the 0.70 block threshold; exposure $30.91"
       }
     },
     {
-      "seq": 63,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 70,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -11359,16 +11557,16 @@
       }
     },
     {
-      "seq": 64,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 71,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "EXPLAINING",
       "payload": {}
     },
     {
-      "seq": 65,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 72,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "explanation",
       "state": "EXPLAINING",
@@ -11380,19 +11578,19 @@
             "ev_003: Card-present activity in this window is away from the card's usual region 325 (67 of 470 card-present transactions in the 83 days before this window): 17 regio…",
             "ev_004: Mixed-channel activity (2 online, 57 card-present) with 40 transaction(s) failing two or more identity match checks",
             "ev_005: Transaction is within the cardholder's usual amount range: amount z=-0.4, device z=1.0",
-            "ev_006: Activity shares device profile 032da9e468a30316 with card(s) C00750-K2, X16328-K1, C08299-K1, X22653-K2, X12076-K1, C01104-K2, C04965-K2",
-            "ev_007: Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
-            "ev_008: Shares device profile b6fe0ea969012756 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_009: Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_010: Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_011: Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_012: Shares billing region 231 with 47 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_006: Activity shares device profile b4798e84803d1b7d with card(s) X18982-K1, X16222-K1, C09165-K2, X10761-K1",
+            "ev_007: Activity shares device profile 032da9e468a30316 with card(s) C00750-K2, X16328-K1, C08299-K1, X22653-K2, X12076-K1, C01104-K2, C04965-K2",
+            "ev_008: Shares device profile 84c0d1b1367b7e49 with 23 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_009: Shares device profile b6fe0ea969012756 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_010: Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_011: Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_012: Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
             "ev_013: Shares billing region 512 with 42 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
             "ev_014: Shares billing region 436 with 31 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_015: Shares billing region 122 with 12 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_016: Shares billing region 205 with 32 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_017: Shares billing region 251 with 44 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
-            "ev_018: Shares billing region 420 with 39 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_015: Shares billing region 231 with 47 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_016: Shares billing region 122 with 12 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_017: Shares billing region 226 with 40 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
+            "ev_018: Shares billing region 494 with 26 other cards — too large a group to be a specific fraud ring; likely a common device/region fingerprint",
             "ev_019: Card shares only 2 device profile(s) / billing region(s) with 11 other card(s) -- the kind of overlap a household or a common device produces",
             "ev_020: Prior confirmed fraud case(s) on this card or customer CC-2370 (pattern card_not_present_fraud); cleared case(s) CC-0003",
             "ev_021: Pattern \"account_takeover\" detected with score 0.80 on txn(s) 3536174, 3540126, 3540959, 3551245, 3534824, 3544871, 3536906, 3542730, 3545827, 3538894, 3543188…",
@@ -11401,29 +11599,29 @@
             "ev_024: Similar closed case CC-0591 (score 0.17, cleared): shared card(s) (C00750-K2); similar exposure band (under_100)",
             "ev_025: Similar closed case CC-0862 (score 0.17, cleared): shared card(s) (C01104-K2); similar exposure band (under_100)",
             "ev_026: External email_domain \"gmail.com\": category=common_consumer_webmail, note=Static/mock classification against a small local table — not a live threat-intel API.…",
-            "ev_027: Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 67% across 3 closed case(s), but the community is this card alone, so these a…"
+            "ev_027: Card sits in community comm_C05876-K2 (1 entities) with confirmed-fraud incidence 50% across 2 closed case(s), but the community is this card alone, so these a…"
           ],
-          "why_more_evidence": "Investigation stopped with reason \"Fraud probability 0.70 with six independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external, graph_structure); the leading reading is 0.50 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6).\"",
+          "why_more_evidence": "R1: probability 0.81 on a weak/ambiguous signal was below the 0.70 block threshold, so \"customer_validation\" was requested before any enforcement (no reply is available -- the dataset supplies none and none was assumed: No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.).",
           "why_actions": {
-            "BLOCK_CARD": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $30.91",
+            "BLOCK_CARD": "R2: customer denied the transaction(s) or fraud probability 0.81 exceeds the 0.70 block threshold; exposure $30.91",
             "CREATE_CASE": "R6 / §3a: fraud probability reached 0.30 and a case must be opened"
           },
-          "remaining_uncertainty": "Top hypothesis \"out_of_region_use\" at 0.90 versus legitimate at 0.10; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0003@0.33, CC-2370@0.30, CC-0390@0.17, CC-0591@0.17, CC-0862@0.17).",
+          "remaining_uncertainty": "Top hypothesis \"out_of_region_use\" at 0.81 versus legitimate at 0.19; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0003@0.33, CC-2370@0.30, CC-0390@0.17, CC-0591@0.17, CC-0862@0.17).",
           "what_would_change_the_decision": "Evidence that raises confidence above 0.75 (e.g. a customer confirmation or step-up authentication) would let the recommender act without further verification."
         }
       }
     },
     {
-      "seq": 66,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 73,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "MEMORY_UPDATE",
       "payload": {}
     },
     {
-      "seq": 67,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 74,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "memory_written",
       "state": "MEMORY_UPDATE",
@@ -11432,28 +11630,28 @@
       }
     },
     {
-      "seq": 68,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 75,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "state_entered",
       "state": "DONE",
       "payload": {
-        "stop_reason": "Fraud probability 0.70 with six independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external, graph_structure); the leading reading is 0.50 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6)."
+        "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) with the block recommendation unchanged."
       }
     },
     {
-      "seq": 69,
-      "ts": "2026-09-23T08:41:52.315Z",
+      "seq": 76,
+      "ts": "2026-09-23T10:12:48.729Z",
       "case_id": "HHG-012",
       "type": "done",
       "state": "DONE",
       "payload": {
-        "stop_reason": "Fraud probability 0.70 with six independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external, graph_structure); the leading reading is 0.50 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6)."
+        "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) with the block recommendation unchanged."
       }
     }
   ],
-  "stop_reason": "Fraud probability 0.70 with six independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external, graph_structure); the leading reading is 0.50 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6).",
-  "tool_calls": 14,
-  "tokens": 122,
-  "latency_s": 11.84
+  "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) with the block recommendation unchanged.",
+  "tool_calls": 15,
+  "tokens": 139,
+  "latency_s": 13.06
 }

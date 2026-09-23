@@ -2,8 +2,8 @@
   "case_id": "HHG-014",
   "case": {
     "status": "escalated",
-    "verdict": "uncertain",
-    "fraud_probability": 0.69,
+    "verdict": "fraud",
+    "fraud_probability": 0.9,
     "pattern": "undocumented",
     "pattern_description": "One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes",
     "affected_txn_ids": [
@@ -90,7 +90,7 @@
         "entity_ids": []
       },
       {
-        "claim": "One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device.",
+        "claim": "One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device. In the closed-case history this device signature fired on 4 cases, all confirmed fraud of the undocumented type, and on none of the other 5,561 -- a small sample, so it is reported as strong graph evidence rather than proof",
         "source": "graph",
         "ref": "ev_009",
         "entity_ids": [
@@ -106,71 +106,76 @@
       }
     ],
     "similar_prior_cases": [],
-    "summary": "Investigated card C13487-K1 after trigger; pattern undocumented, top probability 0.69, 5 evidence categories, exposure $74.96. Verdict: uncertain.",
+    "summary": "Investigated card C13487-K1 after trigger; pattern undocumented, top probability 0.90, 5 evidence categories, exposure $74.96. Verdict: fraud.",
     "written_to_graph": true,
     "graph_case_id": "GRAPH-HHG-014"
   },
-  "evidence_requests": [
-    {
-      "type": "customer_validation",
-      "asked_after_step": 41,
-      "assumed_response": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed."
-    }
-  ],
+  "evidence_requests": [],
   "next_best_actions": {
     "initial": [
+      {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $74.96"
+      },
       {
         "action": "CREATE_CASE",
         "route": "auto",
         "reason": "R9: One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes"
       },
       {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R9: coordinated/undocumented pattern; report regardless of exposure"
+      },
+      {
         "action": "ESCALATE_TO_ANALYST",
         "route": "auto",
         "reason": "R9: coordinated abuse across customers needs an analyst"
-      },
-      {
-        "action": "VERIFY_WITH_CUSTOMER",
-        "route": "auto",
-        "reason": "R1: fraud probability 0.69 rests on a single independent signal (device_identity); verify before any block"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "Precautionary monitoring while awaiting the customer's response (R4)"
       }
     ],
     "final": [
       {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $74.96"
+      },
+      {
         "action": "CREATE_CASE",
         "route": "auto",
         "reason": "R9: One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes"
       },
       {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R9: coordinated/undocumented pattern; report regardless of exposure"
+      },
+      {
         "action": "ESCALATE_TO_ANALYST",
         "route": "auto",
         "reason": "R9: coordinated abuse across customers needs an analyst"
-      },
-      {
-        "action": "MONITOR_CARD",
-        "route": "auto",
-        "reason": "R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring (the data records no pending authorization to decline)"
       }
     ],
-    "what_changed": "Asked the cardholder to verify under R1 (customer validation); no reply was received and none was assumed, so R4 (\"no reply\") now governs at fraud probability 0.69: dropped VERIFY_WITH_CUSTOMER. Verification remains outstanding."
+    "what_changed": "nothing"
   },
   "sar": {
-    "file": false,
-    "reason": "",
-    "narrative": "",
-    "subjects": [],
-    "total_amount_usd": 0,
-    "activity_dates": []
+    "file": true,
+    "reason": "Fraud probability 0.90; a report is required",
+    "narrative": "On 2016-11-22 between 2016-11-22 16:11:00 and 2016-11-22 16:11:00, card C13487-K1 belonging to customer C13487 was used for 1 transaction(s) totaling $74.96 ($74.96). Activity occurred entirely online (card-not-present). One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes This is reported because: Fraud probability 0.90; a report is required. Total suspicious amount: $74.96. Card C13487-K1 has been recommended for block and reissue; connected cards have been placed under monitoring where applicable.",
+    "subjects": [
+      "C13487",
+      "C13487-K1"
+    ],
+    "total_amount_usd": 74.96,
+    "activity_dates": [
+      "2016-11-22",
+      "2016-11-22"
+    ]
   },
   "investigation_record": [
     {
       "seq": 0,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "TRIGGERED",
@@ -187,7 +192,7 @@
     },
     {
       "seq": 1,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "CASE_OPENED",
@@ -195,7 +200,7 @@
     },
     {
       "seq": 2,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "CASE_OPENED",
@@ -216,7 +221,7 @@
     },
     {
       "seq": 3,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "CASE_OPENED",
@@ -240,7 +245,7 @@
     },
     {
       "seq": 4,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "INVESTIGATING",
@@ -248,7 +253,7 @@
     },
     {
       "seq": 5,
-      "ts": "2026-09-23T08:39:31.194Z",
+      "ts": "2026-09-23T10:10:29.432Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -269,7 +274,7 @@
     },
     {
       "seq": 6,
-      "ts": "2026-09-23T08:39:31.261Z",
+      "ts": "2026-09-23T10:10:29.495Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -307,7 +312,7 @@
     },
     {
       "seq": 7,
-      "ts": "2026-09-23T08:39:31.261Z",
+      "ts": "2026-09-23T10:10:29.495Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -327,7 +332,7 @@
     },
     {
       "seq": 8,
-      "ts": "2026-09-23T08:39:31.270Z",
+      "ts": "2026-09-23T10:10:29.503Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -416,7 +421,7 @@
     },
     {
       "seq": 9,
-      "ts": "2026-09-23T08:39:31.270Z",
+      "ts": "2026-09-23T10:10:29.503Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -436,7 +441,7 @@
     },
     {
       "seq": 10,
-      "ts": "2026-09-23T08:39:31.278Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -993,7 +998,7 @@
     },
     {
       "seq": 11,
-      "ts": "2026-09-23T08:39:31.279Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1034,7 +1039,7 @@
     },
     {
       "seq": 12,
-      "ts": "2026-09-23T08:39:31.279Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1066,7 +1071,7 @@
     },
     {
       "seq": 13,
-      "ts": "2026-09-23T08:39:31.279Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1099,7 +1104,7 @@
     },
     {
       "seq": 14,
-      "ts": "2026-09-23T08:39:31.279Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1128,7 +1133,7 @@
     },
     {
       "seq": 15,
-      "ts": "2026-09-23T08:39:31.279Z",
+      "ts": "2026-09-23T10:10:29.513Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1145,7 +1150,7 @@
     },
     {
       "seq": 16,
-      "ts": "2026-09-23T08:39:31.293Z",
+      "ts": "2026-09-23T10:10:29.526Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1195,7 +1200,7 @@
     },
     {
       "seq": 17,
-      "ts": "2026-09-23T08:39:31.293Z",
+      "ts": "2026-09-23T10:10:29.527Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1300,7 +1305,7 @@
     },
     {
       "seq": 18,
-      "ts": "2026-09-23T08:39:31.293Z",
+      "ts": "2026-09-23T10:10:29.527Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1317,7 +1322,7 @@
     },
     {
       "seq": 19,
-      "ts": "2026-09-23T08:39:31.303Z",
+      "ts": "2026-09-23T10:10:29.535Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1340,7 +1345,7 @@
     },
     {
       "seq": 20,
-      "ts": "2026-09-23T08:39:31.303Z",
+      "ts": "2026-09-23T10:10:29.535Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1360,7 +1365,7 @@
     },
     {
       "seq": 21,
-      "ts": "2026-09-23T08:39:31.303Z",
+      "ts": "2026-09-23T10:10:29.535Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1377,7 +1382,7 @@
     },
     {
       "seq": 22,
-      "ts": "2026-09-23T08:39:31.314Z",
+      "ts": "2026-09-23T10:10:29.543Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1412,7 +1417,7 @@
     },
     {
       "seq": 23,
-      "ts": "2026-09-23T08:39:31.314Z",
+      "ts": "2026-09-23T10:10:29.543Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1432,7 +1437,7 @@
     },
     {
       "seq": 24,
-      "ts": "2026-09-23T08:39:31.314Z",
+      "ts": "2026-09-23T10:10:29.543Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1450,7 +1455,7 @@
     },
     {
       "seq": 25,
-      "ts": "2026-09-23T08:39:31.320Z",
+      "ts": "2026-09-23T10:10:29.551Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1475,7 +1480,7 @@
     },
     {
       "seq": 26,
-      "ts": "2026-09-23T08:39:31.320Z",
+      "ts": "2026-09-23T10:10:29.551Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1495,7 +1500,7 @@
     },
     {
       "seq": 27,
-      "ts": "2026-09-23T08:39:31.320Z",
+      "ts": "2026-09-23T10:10:29.551Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1527,7 +1532,7 @@
     },
     {
       "seq": 28,
-      "ts": "2026-09-23T08:39:31.327Z",
+      "ts": "2026-09-23T10:10:29.558Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1587,7 +1592,7 @@
     },
     {
       "seq": 29,
-      "ts": "2026-09-23T08:39:31.327Z",
+      "ts": "2026-09-23T10:10:29.558Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1604,7 +1609,7 @@
     },
     {
       "seq": 30,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.604Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1646,7 +1651,7 @@
     },
     {
       "seq": 31,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.604Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1654,7 +1659,7 @@
         "evidence": {
           "id": "ev_009",
           "category": "device_identity",
-          "summary": "One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device.",
+          "summary": "One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device. In the closed-case history this device signature fired on 4 cases, all confirmed fraud of the undocumented type, and on none of the other 5,561 -- a small sample, so it is reported as strong graph evidence rather than proof",
           "entities": [
             {
               "type": "Transaction",
@@ -1679,7 +1684,7 @@
     },
     {
       "seq": 32,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.605Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1693,7 +1698,7 @@
     },
     {
       "seq": 33,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.605Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1721,7 +1726,7 @@
     },
     {
       "seq": 34,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.605Z",
       "case_id": "HHG-014",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1741,7 +1746,7 @@
     },
     {
       "seq": 35,
-      "ts": "2026-09-23T08:39:31.378Z",
+      "ts": "2026-09-23T10:10:29.605Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "ASSESSING",
@@ -1749,20 +1754,20 @@
     },
     {
       "seq": 36,
-      "ts": "2026-09-23T08:39:36.409Z",
+      "ts": "2026-09-23T10:10:34.490Z",
       "case_id": "HHG-014",
       "type": "tool_call",
       "state": "ASSESSING",
       "payload": {
         "tool": "jev_pattern_score",
         "args": {
-          "state": "- (weight 0.20) Pattern \"account_takeover\" detected with score 0.45 on the card's history (5 txn(s)), but it describes card-present activity and the flagged charge was online, so it does not describe the charge under investigation\n- (weight 0.30) Single transaction in the window the bank's model scored 0.3 or higher is not the flagged charge: txn 3478886, a $31.00 card-present purchase in product code W, which this card has used earlier in the window\n- (weight 0.50; supports card_not_present_fraud, card_not_present_new_device, card_testing; contradicts out_of_region_use, account_takeover) Pattern shape: the flagged transaction was card-not-present (online), so the physical card was never presented - if this is fraud it is a card-not-present pattern\n- (weight 0.50; supports card_not_present_new_device; contradicts card_not_present_fraud) Pattern shape: the flagged transaction ran on a device profile this account has not been seen on before, behind a proxy (1 further transaction(s) in the window were also on a new device profile) - if this is fraud it is the new-device card-not-present pattern rather than stolen credentials used on a known device; on its own a new device does not show the charge was unauthorised, since a cardholder shopping from a new phone or browser looks the same\n- (weight 0.70) Mixed-channel activity (2 online, 3 card-present) with 2 transaction(s) failing two or more identity match checks\n- (weight 0.90; supports undocumented; contradicts legitimate) One device (#) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device.\n- (weight 0.20) 3 transaction(s) totaling $142.00 in the last 1440 minutes\n- (weight 0.10) No prior fraud or cleared cases found for this customer or card\n- Shared-entity rings: 0 specific shared device profile(s); 1 shared profile(s) too common to be a ring"
+          "state": "- (weight 0.20) Pattern \"account_takeover\" detected with score 0.45 on the card's history (5 txn(s)), but it describes card-present activity and the flagged charge was online, so it does not describe the charge under investigation\n- (weight 0.30) Single transaction in the window the bank's model scored 0.3 or higher is not the flagged charge: txn 3478886, a $31.00 card-present purchase in product code W, which this card has used earlier in the window\n- (weight 0.50; supports card_not_present_fraud, card_not_present_new_device, card_testing; contradicts out_of_region_use, account_takeover) Pattern shape: the flagged transaction was card-not-present (online), so the physical card was never presented - if this is fraud it is a card-not-present pattern\n- (weight 0.50; supports card_not_present_new_device; contradicts card_not_present_fraud) Pattern shape: the flagged transaction ran on a device profile this account has not been seen on before, behind a proxy (1 further transaction(s) in the window were also on a new device profile) - if this is fraud it is the new-device card-not-present pattern rather than stolen credentials used on a known device; on its own a new device does not show the charge was unauthorised, since a cardholder shopping from a new phone or browser looks the same\n- (weight 0.70) Mixed-channel activity (2 online, 3 card-present) with 2 transaction(s) failing two or more identity match checks\n- (weight 0.90; supports undocumented; contradicts legitimate) One device (#) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes. The flagged charge was made on this device. In the closed-case history this device signature fired on 4 cases, all confirmed fraud of the undocumented type, and on none of the other 5,561 -- a small sample, so it is reported as strong graph evidence rather than proof\n- (weight 0.20) 3 transaction(s) totaling $142.00 in the last 1440 minutes\n- (weight 0.10) No prior fraud or cleared cases found for this customer or card\n- Shared-entity rings: 0 specific shared device profile(s); 1 shared profile(s) too common to be a ring"
         }
       }
     },
     {
       "seq": 37,
-      "ts": "2026-09-23T08:39:36.830Z",
+      "ts": "2026-09-23T10:10:34.894Z",
       "case_id": "HHG-014",
       "type": "tool_result",
       "state": "ASSESSING",
@@ -1772,13 +1777,13 @@
           "ok": true,
           "data": {
             "choice": "card_not_present_new_device",
-            "confidence": 0.71,
+            "confidence": 0.76,
             "probabilities": {
               "card_testing": 0,
-              "card_not_present_fraud": 0.08,
-              "card_not_present_new_device": 0.77,
+              "card_not_present_fraud": 0.05,
+              "card_not_present_new_device": 0.81,
               "out_of_region_use": 0,
-              "account_takeover": 0.15
+              "account_takeover": 0.13
             }
           }
         }
@@ -1786,7 +1791,7 @@
     },
     {
       "seq": 38,
-      "ts": "2026-09-23T08:39:36.830Z",
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "assessment_updated",
       "state": "ASSESSING",
@@ -1795,20 +1800,16 @@
           "hypotheses": [
             {
               "fraud_type": "card_not_present_new_device",
-              "probability": 0.5865,
+              "probability": 0.783,
               "supporting": [
-                "ev_009",
-                "ev_003",
-                "ev_004"
+                "ev_002",
+                "ev_003"
               ],
-              "contradicting": [
-                "ev_001",
-                "ev_007"
-              ]
+              "contradicting": []
             },
             {
               "fraud_type": "account_takeover",
-              "probability": 0.1035,
+              "probability": 0.117,
               "supporting": [],
               "contradicting": [
                 "ev_002"
@@ -1816,232 +1817,76 @@
             },
             {
               "fraud_type": "legitimate",
-              "probability": 0.30999999999999994,
+              "probability": 0.1,
               "supporting": [
-                "ev_001",
-                "ev_007"
+                "ev_006",
+                "ev_010"
               ],
-              "contradicting": []
+              "contradicting": [
+                "ev_009"
+              ]
             }
           ],
-          "risk_level": "HIGH",
-          "risk_score": 0.5,
+          "risk_level": "CRITICAL",
+          "risk_score": 0.45,
           "confidence": 0.65,
           "sufficiency": {
             "sufficient": true,
             "missing": [],
             "stop_reason": "sufficient_evidence"
           },
-          "legit_hypothesis_probability": 0.30999999999999994
+          "legit_hypothesis_probability": 0.1
         },
         "pattern_rule": {
           "rule": "new_device_is_pattern_3",
-          "moved": 0.076,
+          "moved": 0.045,
           "evidence": "ev_003"
-        },
-        "r1_single_signal_cap": {
-          "fraud_probability_from": 0.95,
-          "fraud_probability_to": 0.6900000000000001,
-          "independent_signals": [
-            "device_identity"
-          ]
         }
       }
     },
     {
       "seq": 39,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "state_entered",
-      "state": "EVIDENCE_PLANNING",
-      "payload": {}
-    },
-    {
-      "seq": 40,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "tool_call",
-      "state": "EVIDENCE_PLANNING",
-      "payload": {
-        "tool": "request_evidence",
-        "args": {
-          "type": "customer_validation",
-          "target": {
-            "type": "Customer",
-            "id": "C13487"
-          },
-          "reason": "Separates \"card_not_present_new_device\" (p=0.59) from legitimate (p=0.31) — the decision policy R1 rests on."
-        }
-      }
-    },
-    {
-      "seq": 41,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "evidence_requested",
-      "state": "EVIDENCE_PLANNING",
-      "payload": {
-        "type": "customer_validation",
-        "target": {
-          "type": "Customer",
-          "id": "C13487"
-        },
-        "reason": "Separates \"card_not_present_new_device\" (p=0.59) from legitimate (p=0.31) — the decision policy R1 rests on.",
-        "discrimination_score": 0.7234999999999999,
-        "friction_cost": 2
-      }
-    },
-    {
-      "seq": 42,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "state_entered",
-      "state": "AWAITING_EVIDENCE",
-      "payload": {}
-    },
-    {
-      "seq": 43,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "tool_result",
-      "state": "AWAITING_EVIDENCE",
-      "payload": {
-        "tool": "request_evidence",
-        "result": {
-          "ok": true,
-          "tool": "request_evidence",
-          "as_of": "n/a",
-          "via": "policy",
-          "data": {
-            "request_type": "customer_validation",
-            "responded": false,
-            "response_text": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
-            "evidence": {
-              "id": "ev_resp_0002",
-              "category": "customer_response",
-              "summary": "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
-              "entities": [
-                {
-                  "type": "Customer",
-                  "id": "C13487"
-                }
-              ],
-              "source_tool": "request_evidence",
-              "weight_hint": 0,
-              "supports": [],
-              "contradicts": [],
-              "ts": "2026-09-23T08:39:36.831Z"
-            }
-          },
-          "evidence_refs": [
-            "ev_resp_0002"
-          ],
-          "truncated": false,
-          "latency_ms": 0,
-          "error": null
-        }
-      }
-    },
-    {
-      "seq": 44,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "state_entered",
-      "state": "EVIDENCE_RECEIVED",
-      "payload": {}
-    },
-    {
-      "seq": 45,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "assessment_updated",
-      "state": "EVIDENCE_RECEIVED",
-      "payload": {
-        "assessment": {
-          "hypotheses": [
-            {
-              "fraud_type": "card_not_present_new_device",
-              "probability": 0.5865,
-              "supporting": [
-                "ev_009",
-                "ev_003",
-                "ev_004"
-              ],
-              "contradicting": [
-                "ev_001",
-                "ev_007"
-              ]
-            },
-            {
-              "fraud_type": "account_takeover",
-              "probability": 0.1035,
-              "supporting": [],
-              "contradicting": [
-                "ev_002"
-              ]
-            },
-            {
-              "fraud_type": "legitimate",
-              "probability": 0.30999999999999994,
-              "supporting": [
-                "ev_001",
-                "ev_007"
-              ],
-              "contradicting": []
-            }
-          ],
-          "risk_level": "HIGH",
-          "risk_score": 0.5,
-          "confidence": 0.65,
-          "sufficiency": {
-            "sufficient": true,
-            "missing": [],
-            "stop_reason": "sufficient_evidence"
-          },
-          "legit_hypothesis_probability": 0.30999999999999994
-        },
-        "recommendation_after_request": {
-          "rule": "R4",
-          "reason": "no reply to the R1 verification request",
-          "actions": [
-            {
-              "action": "CREATE_CASE",
-              "route": "auto",
-              "reason": "R9: One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes"
-            },
-            {
-              "action": "ESCALATE_TO_ANALYST",
-              "route": "auto",
-              "reason": "R9: coordinated abuse across customers needs an analyst"
-            },
-            {
-              "action": "MONITOR_CARD",
-              "route": "auto",
-              "reason": "R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring (the data records no pending authorization to decline)"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "seq": 46,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "DECIDING",
       "payload": {}
     },
     {
-      "seq": 47,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 40,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "APPROVAL_ROUTING",
       "payload": {}
     },
     {
-      "seq": 48,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 41,
+      "ts": "2026-09-23T10:10:34.895Z",
+      "case_id": "HHG-014",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "BLOCK_CARD",
+        "route": "L1",
+        "reason": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $74.96"
+      }
+    },
+    {
+      "seq": 42,
+      "ts": "2026-09-23T10:10:34.895Z",
+      "case_id": "HHG-014",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "FILE_REPORT",
+        "route": "L2",
+        "reason": "R9: coordinated/undocumented pattern; report regardless of exposure"
+      }
+    },
+    {
+      "seq": 43,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2051,8 +1896,8 @@
       }
     },
     {
-      "seq": 49,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 44,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2062,27 +1907,16 @@
       }
     },
     {
-      "seq": 50,
-      "ts": "2026-09-23T08:39:36.831Z",
-      "case_id": "HHG-014",
-      "type": "action_result",
-      "state": "APPROVAL_ROUTING",
-      "payload": {
-        "action": "MONITOR_CARD",
-        "result": "EXECUTED"
-      }
-    },
-    {
-      "seq": 51,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 45,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "EXPLAINING",
       "payload": {}
     },
     {
-      "seq": 52,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 46,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "explanation",
       "state": "EXPLAINING",
@@ -2100,28 +1934,29 @@
             "ev_009: One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a…",
             "ev_010: External email_domain \"yahoo.com\": category=common_consumer_webmail, note=Static/mock classification against a small local table — not a live threat-intel API.…"
           ],
-          "why_more_evidence": "R1: probability 0.69 on a weak/ambiguous signal was below the 0.70 block threshold, so \"customer_validation\" was requested before any enforcement (no reply is available -- the dataset supplies none and none was assumed: No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.).",
+          "why_more_evidence": "Investigation stopped with reason \"Fraud probability 0.78 with five independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external); the leading reading is 0.67 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6).\"",
           "why_actions": {
+            "BLOCK_CARD": "R2: customer denied the transaction(s) or fraud probability 0.90 exceeds the 0.70 block threshold; exposure $74.96",
             "CREATE_CASE": "R9: One device (c72bd41105eb39dd) reached 20 different cards in the 30 days to the case (26 uses), 100% of them through an anonymous proxy and 100% presenting as a new device -- coordinated use of a single device across unrelated customers, which none of the five documented patterns describes",
-            "ESCALATE_TO_ANALYST": "R9: coordinated abuse across customers needs an analyst",
-            "MONITOR_CARD": "R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring (the data records no pending authorization to decline)"
+            "FILE_REPORT": "R9: coordinated/undocumented pattern; report regardless of exposure",
+            "ESCALATE_TO_ANALYST": "R9: coordinated abuse across customers needs an analyst"
           },
-          "remaining_uncertainty": "Top hypothesis \"card_not_present_new_device\" at 0.69 versus legitimate at 0.31; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0212@0.08, CC-0521@0.08, CC-0586@0.08, CC-0920@0.08, CC-1574@0.08).",
+          "remaining_uncertainty": "Top hypothesis \"card_not_present_new_device\" at 0.90 versus legitimate at 0.10; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0212@0.08, CC-0521@0.08, CC-0586@0.08, CC-0920@0.08, CC-1574@0.08).",
           "what_would_change_the_decision": "Evidence that raises confidence above 0.75 (e.g. a customer confirmation or step-up authentication) would let the recommender act without further verification."
         }
       }
     },
     {
-      "seq": 53,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 47,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "MEMORY_UPDATE",
       "payload": {}
     },
     {
-      "seq": 54,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 48,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "memory_written",
       "state": "MEMORY_UPDATE",
@@ -2130,28 +1965,28 @@
       }
     },
     {
-      "seq": 55,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 49,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "state_entered",
       "state": "DONE",
       "payload": {
-        "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) and R4 (\"no reply\") governs the final recommendation."
+        "stop_reason": "Fraud probability 0.78 with five independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external); the leading reading is 0.67 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6)."
       }
     },
     {
-      "seq": 56,
-      "ts": "2026-09-23T08:39:36.831Z",
+      "seq": 50,
+      "ts": "2026-09-23T10:10:34.895Z",
       "case_id": "HHG-014",
       "type": "done",
       "state": "DONE",
       "payload": {
-        "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) and R4 (\"no reply\") governs the final recommendation."
+        "stop_reason": "Fraud probability 0.78 with five independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external); the leading reading is 0.67 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6)."
       }
     }
   ],
-  "stop_reason": "Customer verification was requested under R1 and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) and R4 (\"no reply\") governs the final recommendation.",
-  "tool_calls": 12,
-  "tokens": 129,
-  "latency_s": 6.19
+  "stop_reason": "Fraud probability 0.78 with five independent evidence categories (txn_behavior, device_identity, prior_cases, policy_match, external); the leading reading is 0.67 ahead of the next (at least 0.25), and further steps are unlikely to change the decision (README §6).",
+  "tool_calls": 13,
+  "tokens": 124,
+  "latency_s": 6
 }
