@@ -124,6 +124,13 @@ export function recommendActions(
   const crossCustomer =
     Boolean(facts.proxy_device_ring) || facts.patterns.some((p) => p.pattern_id === "coordinated");
   const sar = sarRequired(cs);
+  // R4 ("no reply within 24 hours"): MONITOR_CARD and DECLINE_TRANSACTION.
+  // The policy defines DECLINE_TRANSACTION as declining "the flagged
+  // authorization", and its worked example declines a purchase that had
+  // already cleared, so it applies to the flagged charge (docs/decisions.md).
+  const r4Decline = `R4: no reply to the verification request; decline the flagged authorization${
+    facts.txn?.id ? ` (txn ${facts.txn.id})` : ""
+  } until the cardholder answers`;
   const sarGround = shared
     ? sharedOrigin.reason
     : coordinated
@@ -154,9 +161,10 @@ export function recommendActions(
       // measured and rejected -- even the strictest evidence-only cutoff closed
       // confirmed fraud (docs/decisions.md, 2026-09-23) -- so the case stays
       // open under monitoring rather than closed on a reply nobody gave.
+      add("DECLINE_TRANSACTION", r4Decline);
       add(
         "MONITOR_CARD",
-        `R4: the evidence reads legitimate (fraud probability ${fraudProb.toFixed(2)}) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring (the data records no pending authorization to decline)`,
+        `R4: the evidence reads legitimate (fraud probability ${fraudProb.toFixed(2)}) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring`,
       );
       add("CREATE_CASE", `§3a: evidence was requested from the cardholder; open a case`);
     } else {
@@ -172,13 +180,28 @@ export function recommendActions(
     }
   } else if (fraudProb >= 0.7 || cs.customer_denied) {
     // High conviction OR customer denial → enforce.
+    // Cite the rule that actually applies (README §7): R2 only when the
+    // cardholder disputed, R5 for a card-testing run with a cleared purchase,
+    // otherwise the probability itself -- R1 asks for verification only below
+    // 0.70. The old text cited "R2: customer denied ... or ..." on every block
+    // and "R6" on every case, including model alerts with no dispute and no
+    // shared origin.
     const largestCleared = facts.txn_rows.reduce((m, r) => Math.max(m, r.amount_usd), 0);
-    if (pattern === "card_testing" && largestCleared >= 100) {
-      add("BLOCK_CARD", `R5: card-testing sequence with an ${money(largestCleared)} purchase already cleared; exposure ${money(exposure)}`);
-    } else {
-      add("BLOCK_CARD", `R2: customer denied the transaction(s) or fraud probability ${fraudProb.toFixed(2)} exceeds the 0.70 block threshold; exposure ${money(exposure)}`);
-    }
-    add("CREATE_CASE", `R6 / §3a: fraud probability reached 0.30 and a case must be opened`);
+    const cardTesting = pattern === "card_testing" && largestCleared >= 100;
+    const blockBasis = [
+      cs.customer_denied ? "R2: the cardholder disputed the transaction(s)" : null,
+      cardTesting ? `R5: card-testing sequence with a ${money(largestCleared)} purchase already cleared` : null,
+      !cs.customer_denied && !cardTesting
+        ? `fraud probability ${fraudProb.toFixed(2)} is at or above 0.70, so R1's verify-first step does not apply`
+        : null,
+    ].filter((x): x is string => x !== null);
+    add("BLOCK_CARD", `${blockBasis.join("; ")}; exposure ${money(exposure)}`);
+    add(
+      "CREATE_CASE",
+      cs.customer_denied
+        ? `R2 and §3a: the cardholder disputed a charge; open a case`
+        : `§3a: fraud probability ${fraudProb.toFixed(2)} reached 0.30; open a case`,
+    );
     if (shared) {
       add("MONITOR_CONNECTED_CARDS", `R6: ${sharedOrigin.reason}; connected card(s) ${facts.connected_card_ids.join(", ")}`);
     }
@@ -202,13 +225,9 @@ export function recommendActions(
           : `${signals.length} signals (${signals.join(", ")}) that together stay below the 0.70 block line`;
     if (facts.verification_unanswered) {
       // README §3b: recommend, ask, recommend again. The cardholder was asked
-      // under R1 and no reply came back, so R4 ("no reply") governs now. R4's
-      // DECLINE_TRANSACTION is for *pending* authorizations, and the dataset
-      // records no authorization status to find one by, so none is invented.
-      add(
-        "MONITOR_CARD",
-        `R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring (the data records no pending authorization to decline)`,
-      );
+      // under R1 and no reply came back, so R4 ("no reply") governs now.
+      add("DECLINE_TRANSACTION", r4Decline);
+      add("MONITOR_CARD", `R4: the cardholder has not replied to the R1 verification request; keep the card active under 72-hour monitoring`);
     } else {
       add("VERIFY_WITH_CUSTOMER", `R1: fraud probability ${fraudProb.toFixed(2)} rests on ${basis}; verify before any block`);
       add("MONITOR_CARD", `Precautionary monitoring while awaiting the customer's response (R4)`);

@@ -203,6 +203,16 @@ export async function createEvidenceCollector(): Promise<EvidenceCollector> {
   };
 }
 
+/**
+ * The one construction path for a configured agent: the benchmark runner
+ * (runAgent) and the API's live runs both come through here, so a live demo
+ * run uses the same pattern scorer, alert calibration and graph write-back
+ * as the answers in cases/.
+ */
+export async function createAgentMachine(options: RunAgentOptions): Promise<FraudInvestigationMachine> {
+  return buildMachine(options);
+}
+
 async function buildMachine(options: RunAgentOptions): Promise<FraudInvestigationMachine> {
   const backend = options.backend ?? "fake";
   const mcp = options.mcp ?? createMcpClient(backend);

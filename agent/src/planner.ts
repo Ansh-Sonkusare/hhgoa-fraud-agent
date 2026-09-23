@@ -123,9 +123,18 @@ export function planEvidenceGathering(options: {
           friction_cost: friction,
           score: Math.round((d / friction) * 1e4) / 1e4,
           separates: { a: topFraud?.fraud_type ?? "fraud", b: "legitimate" },
+          // Name the rule that makes the reply matter: R3 needs a confirmation
+          // to close a legitimate reading, R1 needs verification before a block
+          // below 0.70, and above that a reply can only settle the case (§6).
           rationale:
             `Separates "${topFraud?.fraud_type ?? "fraud"}" (p=${topProb.toFixed(2)}) from legitimate ` +
-            `(p=${legitProb.toFixed(2)}) — the decision policy R1 rests on.`,
+            `(p=${legitProb.toFixed(2)}) — ${
+              1 - legitProb <= 0.4
+                ? "R3 closes a legitimate reading only on the cardholder's confirmation"
+                : 1 - legitProb < 0.7
+                  ? "R1 asks for this verification before any block below 0.70"
+                  : "a reply would settle the question (README §6)"
+            }.`,
         });
         break;
       }

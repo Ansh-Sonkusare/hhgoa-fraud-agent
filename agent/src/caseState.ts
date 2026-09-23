@@ -44,6 +44,7 @@ export function buildCaseStateForPolicy(
     exposure_usd: facts.exposure_usd,
     customer_denied: facts.customer_denied,
     customer_confirmed: facts.customer_confirmed,
+    verification_unanswered: facts.verification_unanswered,
     // R10 counts the customer's CARDS with confirmed fraud, not their prior
     // cases. find_prior_cases is scoped to the primary card
     // (investigation.ts), so every case it returns belongs to that one card,

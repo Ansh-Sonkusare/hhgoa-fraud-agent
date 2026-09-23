@@ -727,7 +727,9 @@ export class FraudInvestigationMachine {
     const why =
       this.cachedVerdict === "legitimate"
         ? `under R3 (the evidence reads legitimate, and closing needs the cardholder's confirmation)`
-        : `under R1`;
+        : this.cachedVerdict === "fraud"
+          ? `because a reply would settle the question (README §6; R1's verify-first step applies only below 0.70)`
+          : `under R1`;
     return (
       `Customer verification was requested ${why} and no reply is available in this round (README §5), and none was assumed. ` +
       `No other permitted step can change the decision, so the investigation stops here (README §6) ` +
@@ -766,10 +768,14 @@ export class FraudInvestigationMachine {
     // case handed to an analyst is not pending — it is escalated, whether it
     // got there via an approval route or via R8's ESCALATE_TO_ANALYST (which
     // is agent-executable, so it carries no L1/L2 route of its own).
+    // R4's decline of the flagged authorization (L1) does not escalate the
+    // case: the cardholder's reply is still pending, so it stays `open`.
+    const pendingReplyDecline = (a: NextBestAction) =>
+      a.action === "DECLINE_TRANSACTION" && this.facts.verification_unanswered;
     if (
       recs &&
       recs.actions.some(
-        (a) => a.route === "L1" || a.route === "L2" || a.action === "ESCALATE_TO_ANALYST",
+        (a) => ((a.route === "L1" || a.route === "L2") && !pendingReplyDecline(a)) || a.action === "ESCALATE_TO_ANALYST",
       )
     ) {
       return "escalated";

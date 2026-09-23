@@ -125,6 +125,46 @@ describe("recommendActions", () => {
     expect(after).not.toContain("ALLOW_TRANSACTION");
   });
 
+  it("R4: no reply declines the flagged authorization (L1) and monitors, in both the legitimate and R1 bands", () => {
+    for (const p of [0.3, 0.6]) {
+      const f = baseFacts();
+      f.txn = { type: "Transaction", id: "9900004" };
+      f.rings = [];
+      f.connected_card_ids = [];
+      f.verification_unanswered = true;
+      const recs = recommendActions(f, assess(p, 1 - p), [], p < 0.4 ? "legitimate" : "uncertain");
+      const decline = recs.actions.find((a) => a.action === "DECLINE_TRANSACTION");
+      expect(decline?.route).toBe("L1");
+      expect(decline?.reason).toMatch(/^R4: .*flagged authorization \(txn 9900004\)/);
+      expect(recs.actions.map((a) => a.action)).toContain("MONITOR_CARD");
+      expect(recs.actions.map((a) => a.action)).not.toContain("BLOCK_CARD");
+      expect(recs.actions.find((a) => a.action === "MONITOR_CARD")!.reason).not.toContain("no pending authorization");
+    }
+  });
+
+  it("block and case reasons cite the rule that applies (README §7), not R2/R6 by default", () => {
+    // Model alert, no dispute, no shared origin: no R2, no R6.
+    const alert = baseFacts();
+    alert.rings = [];
+    alert.connected_card_ids = [];
+    const recs = recommendActions(alert, assess(0.84, 0.16, 0.8, "out_of_region_use"), [], "fraud");
+    const block = recs.actions.find((a) => a.action === "BLOCK_CARD")!;
+    const kase = recs.actions.find((a) => a.action === "CREATE_CASE")!;
+    expect(block.reason).toMatch(/fraud probability 0\.84 is at or above 0\.70, so R1's verify-first step does not apply/);
+    expect(block.reason).not.toMatch(/R2|R6/);
+    expect(kase.reason).toMatch(/^§3a: fraud probability 0\.84 reached 0\.30/);
+    expect(kase.reason).not.toContain("R6");
+
+    // Dispute: R2 on both.
+    const dispute = baseFacts();
+    dispute.rings = [];
+    dispute.connected_card_ids = [];
+    dispute.customer_denied = true;
+    const d = recommendActions(dispute, assess(0.84, 0.16, 0.8, "out_of_region_use"), [], "fraud");
+    expect(d.actions.find((a) => a.action === "BLOCK_CARD")!.reason).toMatch(/^R2: the cardholder disputed/);
+    expect(d.actions.find((a) => a.action === "CREATE_CASE")!.reason).toMatch(/^R2 and §3a/);
+  });
+
   it("§3a: a confirmed legitimate close at fraud probability 0.30-0.50 still opens a case", () => {
     const f = baseFacts();
     f.customer_confirmed = true;

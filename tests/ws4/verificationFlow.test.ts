@@ -46,13 +46,16 @@ describe("R1 verification, then R4 on no reply", () => {
     expect(recs.intendedAction!.action).toBe("VERIFY_WITH_CUSTOMER");
   });
 
-  it("after an unanswered request, R4 governs: monitor, keep the case, no second verify, invent no decline", () => {
+  it("after an unanswered request, R4 governs: decline the flagged authorization (L1), monitor, keep the case, no second verify", () => {
     const f = facts(120);
     f.verification_unanswered = true;
     const recs = recommendActions(f, assessment(0.6), [], "uncertain");
     expect(names(recs.actions)).toEqual(expect.arrayContaining(["MONITOR_CARD", "CREATE_CASE"]));
     expect(names(recs.actions)).not.toContain("VERIFY_WITH_CUSTOMER");
-    expect(names(recs.actions)).not.toContain("DECLINE_TRANSACTION");
+    // R4: "MONITOR_CARD and DECLINE_TRANSACTION"; the policy defines the decline
+    // as the flagged authorization and routes it to L1 (a human decides).
+    expect(recs.actions.find((a) => a.action === "DECLINE_TRANSACTION")?.route).toBe("L1");
+    expect(recs.actions.find((a) => a.action === "BLOCK_CARD")).toBeUndefined();
     expect(recs.actions.find((a) => a.action === "MONITOR_CARD")!.reason).toMatch(/^R4: /);
   });
 

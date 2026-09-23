@@ -534,7 +534,9 @@ export function createMcpClient(backend: "fake" | "real", config?: McpClientConf
   if (backend === "fake") return new FakeMcpClient();
   return new RealMcpClient(
     config ?? {
-      url: process.env["TIGERGRAPH_MCP_URL"] ?? "http://127.0.0.1:8000/mcp/",
+      // `||`, not `??`: .env.example ships `TIGERGRAPH_MCP_URL=` (empty), and the
+      // API loads .env, so an empty value must fall back to the local server too.
+      url: process.env["TIGERGRAPH_MCP_URL"] || "http://127.0.0.1:8000/mcp/",
       graphName: process.env["TIGERGRAPH_GRAPH_NAME"],
     },
   );
