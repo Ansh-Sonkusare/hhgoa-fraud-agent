@@ -1339,8 +1339,17 @@ Action gap that remains by design: analysts close cleared alerts with `VERIFY_WI
   flagged amount as "exposure" while `exposure_usd` was 0). `make validate-answers` PASS 20/20.
 - 13 fraud, 6 legitimate, 1 uncertain (was 15 fraud, 5 uncertain, 0 legitimate). HHG-005, -015,
   -019 moved fraud → legitimate; HHG-010, -013, -020 uncertain → legitimate; all six sit at 0.37
-  (flagged charge online on a new device, prior cases present), a band where about a quarter of
-  held-out alerts were fraud, and all six ask the cardholder and stay open. HHG-014 moved
+  (flagged charge online on a new device, prior cases present); held-out alerts with that exact
+  evidence were 11 cleared and 9 fraud, about one in three fraud at a 1:1 weighting (an earlier
+  draft said "a quarter", which was the whole 0.30-0.40 band), and all six ask the cardholder and
+  stay open. HHG-014 moved
   uncertain → fraud (undocumented proxy device ring, R9: case, report, escalation, block).
   HHG-017 stays uncertain at 0.69 (calibrated high, capped by R1 on a single signal).
 - README, blog and demo script updated to iteration 22.
+
+Cutoff check (10:30): the legitimate-verdict cutoff stays at 0.40. Lowering it below 0.37 would
+turn the six benchmark `legitimate` answers into `uncertain` (13/0/7), add R8 escalation on
+HHG-010 and HHG-015, and change no close, block or probability. On the 629 held-out alerts it
+moves cleared-called-legitimate from 69% to 64% and fraud-called-legitimate from 5.9% to 3.6%.
+The user chose to keep 13 fraud / 6 legitimate / 1 uncertain; choosing the cutoff from the
+benchmark answers would also have been tuning to the test set.
