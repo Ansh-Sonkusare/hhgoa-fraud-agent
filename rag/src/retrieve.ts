@@ -6,6 +6,7 @@ import type {
 } from "@hhgoa/contracts";
 import { envelope, NO_AS_OF } from "./envelope.js";
 import type { VectorStore } from "./store/vectorStore.js";
+import { graphIdFor, type GraphVectorScores } from "./store/tigergraphIndex.js";
 import type { CaseFingerprint, CaseMemoryRecord, PolicyChunkRecord } from "./types.js";
 import { findPattern, PATTERNS } from "./patterns.js";
 import { entityOverlapScore, explainOverlap } from "./fingerprint.js";
@@ -38,9 +39,10 @@ export interface ScoredSimilarCase {
 export function makeRetrievePolicy(
   chunkStore: VectorStore<PolicyChunkRecord>,
   embedFn: EmbedFn,
+  graph?: GraphVectorScores,
 ): RetrievePolicy {
   return async (query, pattern_id, k) => {
-    const results = await scorePolicyChunks(chunkStore, embedFn, query, pattern_id, k);
+    const results = await scorePolicyChunks(chunkStore, embedFn, query, pattern_id, k, graph);
 
     // Graph expansion: union required_evidence/permitted_actions across
     // every pattern touched by the seed chunks (directly via pattern_id,
@@ -88,6 +90,36 @@ function describesRuleOfPattern(chunk: PolicyChunkRecord, pattern_id: string): b
   return rules.some((r) => pattern.rule_refs.includes(r));
 }
 
+type ChunkSearch = (k: number, filter?: (r: PolicyChunkRecord) => boolean) => { id: string; record: PolicyChunkRecord; score: number }[];
+
+/**
+ * Top-k over the policy chunks: the local store's own cosine, or the graph's
+ * (`vector_search`) when a graph index is configured. Same filter, same order.
+ * A chunk the graph has no embedding for is an unsynced index, and is raised
+ * rather than silently dropped from retrieval.
+ */
+async function chunkSearcher(
+  chunkStore: VectorStore<PolicyChunkRecord>,
+  queryEmbedding: number[],
+  graph: GraphVectorScores | undefined,
+): Promise<ChunkSearch> {
+  if (!graph) return (k, filter) => chunkStore.search(queryEmbedding, k, filter);
+  const scores = await graph.scoreChunks(queryEmbedding);
+  const records = chunkStore.all();
+  const missing = records.filter((r) => !scores.has(r.chunk_id)).map((r) => r.chunk_id);
+  if (missing.length > 0) {
+    throw new Error(
+      `TigerGraph holds no embedding for ${missing.length} policy chunk(s) (${missing.slice(0, 3).join(", ")}); run \`pnpm --filter @hhgoa/rag sync-graph\``,
+    );
+  }
+  return (k, filter) =>
+    records
+      .filter((r) => !filter || filter(r))
+      .map((r) => ({ id: r.chunk_id, record: r, score: scores.get(r.chunk_id)! }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k);
+}
+
 /**
  * Vector top-k seeds over `PolicyChunk`s, with a `pattern_id` pre-filter
  * (and an unfiltered backfill when the filter over-narrows). Shared by
@@ -100,18 +132,20 @@ export async function scorePolicyChunks(
   query: string,
   pattern_id: string | undefined,
   k: number,
+  graph?: GraphVectorScores,
 ): Promise<ScoredPolicyChunk[]> {
   const [queryEmbedding] = await embedFn([query]);
   const directFilter = pattern_id
     ? (r: PolicyChunkRecord) => r.pattern_id === pattern_id || describesRuleOfPattern(r, pattern_id)
     : undefined;
+  const search = await chunkSearcher(chunkStore, queryEmbedding!, graph);
 
-  let results = chunkStore.search(queryEmbedding!, k, directFilter);
+  let results = search(k, directFilter);
   // A pattern filter can over-narrow (e.g. a pattern with few chunks);
   // fall back to an unfiltered search rather than returning too few
   // seeds for the context builder to work with.
   if (results.length < Math.min(k, 3) && pattern_id) {
-    const backfill = chunkStore.search(queryEmbedding!, k);
+    const backfill = search(k);
     const seen = new Set(results.map((r) => r.id));
     for (const b of backfill) {
       if (results.length >= k) break;
@@ -204,6 +238,7 @@ export async function scoreSimilarCases(
   embedFn: EmbedFn,
   fingerprint: Record<string, unknown>,
   as_of: string,
+  graph?: GraphVectorScores,
 ): Promise<ScoredSimilarCase[]> {
   const asOfMs = Date.parse(as_of);
   if (Number.isNaN(asOfMs)) {
@@ -219,9 +254,21 @@ export async function scoreSimilarCases(
     .filter((r) => Date.parse(r.visible_from) <= asOfMs)
     .filter((r) => r.outcome === "confirmed_fraud" || r.outcome === "cleared");
 
+  // With a graph index the cosine comes from TigerGraph's vector_search over
+  // every FraudCase; eligibility above stays here (see tigergraphIndex.ts).
+  const graphCosine = queryEmbedding && graph ? await graph.scoreCases(queryEmbedding) : null;
+  if (graphCosine) {
+    const missing = eligible.map(graphIdFor).filter((id) => !graphCosine.has(id));
+    if (missing.length > 0) {
+      throw new Error(
+        `TigerGraph holds no embedding for ${missing.length} eligible case(s) (${missing.slice(0, 3).join(", ")}); run \`pnpm --filter @hhgoa/rag sync-graph\``,
+      );
+    }
+  }
+
   const scored = eligible.map((r) => {
     const overlap = entityOverlapScore(queryFingerprint, r.fingerprint);
-    const cosine = queryEmbedding ? cosineSimilarity(queryEmbedding, r.embedding) : 0;
+    const cosine = !queryEmbedding ? 0 : graphCosine ? graphCosine.get(graphIdFor(r))! : cosineSimilarity(queryEmbedding, r.embedding);
     // Weighted per PRD §11's "cosine(summary) + entity-overlap" — equal
     // weight by default; entity overlap alone (no query narrative) still
     // produces a usable ranking, which matters since the contract's
@@ -235,6 +282,7 @@ export async function scoreSimilarCases(
 export function makeRetrieveSimilarCases(
   caseStore: VectorStore<CaseMemoryRecord>,
   embedFn: EmbedFn,
+  graph?: GraphVectorScores,
 ): RetrieveSimilarCases {
   return async (fingerprint, as_of, k) => {
     // The contract's `toolEnvelope` result shape has an `error` field and
@@ -242,7 +290,7 @@ export function makeRetrieveSimilarCases(
     // an unparseable `as_of` (or any other scoring failure) becomes a
     // failing envelope rather than an uncaught rejection.
     try {
-      const scored = await scoreSimilarCases(caseStore, embedFn, fingerprint, as_of);
+      const scored = await scoreSimilarCases(caseStore, embedFn, fingerprint, as_of, graph);
 
       const top = scored.slice(0, k);
       const cases: SimilarCaseRef[] = top.map((t) => ({

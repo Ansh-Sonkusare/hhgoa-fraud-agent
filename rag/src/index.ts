@@ -30,12 +30,15 @@ import {
   type EmbedFn,
 } from "./retrieve.js";
 import { LocalJsonVectorStore, type VectorStore } from "./store/vectorStore.js";
+import { TigerGraphVectorIndex, tigerGraphConnectionFromEnv, type GraphVectorScores } from "./store/tigergraphIndex.js";
 import type { CaseMemoryRecord, PolicyChunkRecord } from "./types.js";
 import { ingestClosedCases } from "./ingestCases.js";
 import { buildRawPolicyChunks, ingestPolicy } from "./ingestPolicy.js";
 import { lookupExternal } from "./externalLookup.js";
 
 export { chunkMarkdown, chunkProse } from "./chunk.js";
+export { TigerGraphVectorIndex, tigerGraphConnectionFromEnv, graphIdFor } from "./store/tigergraphIndex.js";
+export type { GraphVectorScores, TigerGraphConnection } from "./store/tigergraphIndex.js";
 export { approxTokenCount } from "./tokenCount.js";
 export {
   buildFingerprint,
@@ -74,6 +77,7 @@ export {
   type ClosedCaseRow,
   type CasePackRow,
 } from "./sources/closedCases.js";
+export { amountBand } from "./types.js";
 export type {
   AmountBand,
   CaseFingerprint,
@@ -90,6 +94,11 @@ export interface RagRuntimeOptions {
   dataDir?: string;
   /** Injection point for tests; defaults to the real local model via embedBatch. */
   embedFn?: EmbedFn;
+  /**
+   * Where similarity scores come from. Omitted: TigerGraph when
+   * RAG_VECTOR_BACKEND=tigergraph, else the local stores. null forces local.
+   */
+  graph?: GraphVectorScores | null;
 }
 
 export interface AgentBundleArgs {
@@ -147,8 +156,18 @@ export function createRagRuntime(options: RagRuntimeOptions = {}): RagRuntime {
   const caseStore = new LocalJsonVectorStore<CaseMemoryRecord>(
     path.join(dataDir, "case-memory.json"),
   );
-  const retrievePolicy = makeRetrievePolicy(policyStore, embedFn);
-  const retrieveSimilarCases = makeRetrieveSimilarCases(caseStore, embedFn);
+  // RAG_VECTOR_BACKEND=tigergraph: similarity scores come from the graph's
+  // vector_search over PolicyChunk / FraudCase embeddings (rag/src/store/
+  // tigergraphIndex.ts); the local stores keep the records. Default: local.
+  const graph =
+    options.graph !== undefined
+      ? options.graph
+      : process.env["RAG_VECTOR_BACKEND"] === "tigergraph"
+        ? new TigerGraphVectorIndex(tigerGraphConnectionFromEnv())
+        : null;
+  const graphScores = graph ?? undefined;
+  const retrievePolicy = makeRetrievePolicy(policyStore, embedFn, graphScores);
+  const retrieveSimilarCases = makeRetrieveSimilarCases(caseStore, embedFn, graphScores);
 
   const runtime: RagRuntime = {
     policyStore,
@@ -170,12 +189,14 @@ export function createRagRuntime(options: RagRuntimeOptions = {}): RagRuntime {
         args.query,
         args.pattern_id,
         args.k_policy_chunks,
+        graphScores,
       );
       const cases = await scoreSimilarCases(
         caseStore,
         embedFn,
         args.fingerprint,
         args.as_of,
+        graphScores,
       );
       const queryFingerprint = coerceFingerprint(args.fingerprint);
       const pattern = args.pattern_id ? findPattern(args.pattern_id) : undefined;
@@ -204,7 +225,16 @@ export function createRagRuntime(options: RagRuntimeOptions = {}): RagRuntime {
       );
     },
 
-    writeCaseToMemory: async (input) => writeCaseToMemory(caseStore, embedFn, input),
+    writeCaseToMemory: async (input) => {
+      const record = await writeCaseToMemory(caseStore, embedFn, input);
+      // Mirror the embedding onto the case's graph vertex (written just before
+      // by persistCase) so the graph index covers agent-written memory too.
+      if (graph instanceof TigerGraphVectorIndex) {
+        const { missing } = await graph.syncCases([record]);
+        if (missing.length > 0) throw new Error(`writeCaseToMemory: no FraudCase vertex ${missing[0]} to hold the embedding`);
+      }
+      return record;
+    },
 
     getEntityCaseStats: (entity, as_of) => getEntityCaseStats(caseStore, entity, as_of),
 

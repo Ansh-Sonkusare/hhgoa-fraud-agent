@@ -2,14 +2,15 @@
   "name": "@hhgoa/rag",
   "private": true,
   "version": "0.1.0",
-  "description": "WS3: GraphRAG and case memory — chunk+embed policy/pattern/regulatory text, closed-case fingerprinted memory, hybrid retrieval, context_builder, memory write path.",
+  "description": "WS3: GraphRAG and case memory \u2014 chunk+embed policy/pattern/regulatory text, closed-case fingerprinted memory, hybrid retrieval, context_builder, memory write path.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "sync-graph": "tsx scripts/syncGraph.ts"
   },
   "dependencies": {
     "@hhgoa/contracts": "workspace:*",

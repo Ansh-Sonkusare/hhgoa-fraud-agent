@@ -103,7 +103,9 @@ export function explainOverlap(a: CaseFingerprint, b: CaseFingerprint): string {
   if (sharedCards.length > 0) reasons.push(`shared card(s) (${sharedCards.join(", ")})`);
   if (sharedDevices.length > 0) reasons.push(`shared device profile`);
   if (sharedAddresses.length > 0) {
-    reasons.push(`shared billing region (${sharedAddresses.join(", ")})`);
+    // addr1 is loaded as a number, so region 231 arrives as "231.0"; display only.
+    const label = (r: string): string => r.replace(/^(\d+)\.0+$/, "$1");
+    reasons.push(`shared billing region (${sharedAddresses.map(label).join(", ")})`);
   }
   if (a.pattern !== "none" && a.pattern === b.pattern) {
     reasons.push(`same pattern (${a.pattern})`);
