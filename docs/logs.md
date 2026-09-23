@@ -1353,3 +1353,24 @@ HHG-010 and HHG-015, and change no close, block or probability. On the 629 held-
 moves cleared-called-legitimate from 69% to 64% and fraud-called-legitimate from 5.9% to 3.6%.
 The user chose to keep 13 fraud / 6 legitimate / 1 uncertain; choosing the cutoff from the
 benchmark answers would also have been tuning to the test set.
+
+### R7 on busy cards; blocked cleared alerts diagnosed (2026-09-23 ~10:50)
+
+**R7 without the row cap.** `txn_history` returns the 500 newest rows, so on busy cards the
+120-day R7 lookback reached back only 12-13 days and HHG-011 and HHG-018 filed "R7 could not be
+checked". New `checkRecurringByMonthlyWindows` (`agent/src/investigation.ts`): when the capped read
+cannot rule R7 out, it reads only the 26-35-day window before the disputed charge (then before
+each repeat found), splitting a window into 3-day slices if it alone passes the cap. Live check on
+the 8 benchmark disputes, graph only: all 8 now checked, none recurring, so R2 governs all of them
+as before. The busy-card summary says only the monthly windows were read (the first draft
+reported "0 earlier charges in 120 days", which was false for HHG-018's thirteen $39.08 charges).
+Two new tests in `tests/ws4/dispute.test.ts`; ws4+ws5 330/330.
+
+**Blocked cleared alerts (iteration-22 alert replay, 5 of 31).** All five share one profile: the
+flagged charge card-present, on a device the account already knew, with prior cases on the card
+(calibrated 0.81-0.88). In the design set that profile is 20 cleared vs 96 fraud, and the model's
+0.83 band matched 0.85 actual on held-out data, so the probability is right for the evidence.
+The one candidate separator found (the card's billing region shared with too many cards to be a
+ring: 16/20 cleared vs 39/96 fraud in the profile) added nothing on design-set CV (AUC 0.852 ->
+0.854, Brier 0.145 -> 0.146, cleared at >= 0.70 29 -> 28), so no change; the held-out set was not
+consulted.
