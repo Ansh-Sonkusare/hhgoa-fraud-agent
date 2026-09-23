@@ -315,7 +315,9 @@ describe("FraudInvestigationMachine end-to-end (contracts/examples data)", () =>
     const asked = r.answer.evidence_requests;
     expect(asked.length).toBeGreaterThanOrEqual(1);
     for (const q of asked) {
-      expect(q.assumed_response).toMatch(/no .*(reply|outcome|analyst note) was (received|returned)/i);
+      // README §5: the assumption is stated, and it is that nothing came back.
+      expect(q.assumed_response).toMatch(/^Assumed: no (cardholder reply|step-up authentication outcome|analyst note) /);
+      expect(q.assumed_response).toContain("none was invented");
       expect(q.assumed_response).not.toMatch(/confirms|denies|did not make|completed successfully/i);
     }
 

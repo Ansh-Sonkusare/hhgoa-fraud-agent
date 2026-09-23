@@ -731,7 +731,7 @@ export class FraudInvestigationMachine {
           ? `because a reply would settle the question (README §6; R1's verify-first step applies only below 0.70)`
           : `under R1`;
     return (
-      `Customer verification was requested ${why} and no reply is available in this round (README §5), and none was assumed. ` +
+      `Customer verification was requested ${why} and no reply is available in this round (README §5), and none was invented. ` +
       `No other permitted step can change the decision, so the investigation stops here (README §6) ` +
       (this.cachedVerdict === "fraud"
         ? `with the block recommendation unchanged.`

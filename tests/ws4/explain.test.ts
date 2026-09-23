@@ -100,7 +100,8 @@ describe("buildExplanation", () => {
     expect(high).not.toContain("below the 0.70");
     for (const text of [why(0.37, 0.63), why(0.69, 0.31), high]) {
       expect(text).toContain("customer_validation");
-      expect(text).toContain("none was assumed");
+      expect(text).toContain("none was invented");
+      expect(text).not.toContain("none was assumed");
     }
   });
 

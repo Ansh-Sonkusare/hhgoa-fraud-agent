@@ -41,14 +41,18 @@ interface ScriptedOutcome {
 
 
 
-/** What we record having assumed, per request type. No reply is invented. */
+/**
+ * What we record having assumed, per request type (README §5: "state the
+ * assumption you made in the case file's `evidence_requests`"). The
+ * assumption is that nothing came back; no reply content is invented.
+ */
 const NO_REPLY_TEXT: Record<EvidenceRequestInput["type"], string> = {
   customer_validation:
-    "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
+    "Assumed: no cardholder reply within 24 hours (R4). The dataset supplies no reply and none was invented.",
   step_up_auth:
-    "Step-up authentication was requested; no outcome was returned within the investigation window, and none was assumed.",
+    "Assumed: no step-up authentication outcome was returned within the investigation window. The dataset supplies no outcome and none was invented.",
   analyst_info:
-    "Analyst information was requested; no analyst note was returned within the investigation window, and none was assumed.",
+    "Assumed: no analyst note was returned within the investigation window. The dataset supplies no analyst reply and none was invented.",
 };
 
 function buildEvidenceItem(

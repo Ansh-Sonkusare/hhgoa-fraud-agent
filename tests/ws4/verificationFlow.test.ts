@@ -8,7 +8,7 @@ import type { MockScriptEntry } from "../../agent/src/llm.js";
 
 // README §3b: recommend what the evidence supports, ask when the policy calls
 // for it, then recommend again. With no cardholder reply available (§5), R4
-// ("no reply") governs the second recommendation; nothing is assumed about
+// ("no reply") governs the second recommendation; nothing is invented about
 // what the cardholder would have said.
 
 const AS_OF = "2016-11-12T00:35:00Z";
@@ -72,7 +72,7 @@ describe("R1 verification, then R4 on no reply", () => {
     f.verification_unanswered = true;
     const final = recommendActions(f, assessment(0.6), [], "uncertain");
     const text = summarizeChange(initial.actions, final.actions, assessment(0.6), f, [{ type: "customer_validation" }]);
-    expect(text).toContain("no reply was received and none was assumed");
+    expect(text).toContain("no reply was received and none was invented");
     expect(text).toContain("R4");
     expect(text).toContain("dropped VERIFY_WITH_CUSTOMER");
   });

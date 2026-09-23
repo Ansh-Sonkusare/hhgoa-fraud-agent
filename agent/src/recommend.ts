@@ -306,7 +306,7 @@ export function summarizeChange(
     // line 450 wants final to reflect the assumed response -- here, that no
     // reply came back -- so say that instead of a bare "nothing".
     if (asked.length === 0) return "nothing";
-    return `Requested ${asked.join(" and ")}; no reply was received and none was assumed, so the recommendation is unchanged and verification remains outstanding.`;
+    return `Requested ${asked.join(" and ")}; no reply was received and none was invented, so the recommendation is unchanged and verification remains outstanding.`;
   }
   const names = (xs: NextBestAction[]) => new Set(xs.map((a) => a.action));
   const before = names(initial);
@@ -322,7 +322,7 @@ export function summarizeChange(
     return (
       // A legitimate reading asks under R3 (closing needs a confirmation); a
       // mid-band one under R1 (verify before any block).
-      `Asked the cardholder to verify under ${fraudProbability(assessment) <= 0.4 ? "R3" : "R1"} (${asked.join(" and ")}); no reply was received and none was assumed, ` +
+      `Asked the cardholder to verify under ${fraudProbability(assessment) <= 0.4 ? "R3" : "R1"} (${asked.join(" and ")}); no reply was received and none was invented, ` +
       `so R4 ("no reply") now governs at fraud probability ${prob}: ${parts.join("; ")}. Verification remains outstanding.`
     );
   }

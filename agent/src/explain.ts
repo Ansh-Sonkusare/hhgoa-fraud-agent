@@ -58,7 +58,7 @@ export function buildExplanation(options: {
             `question (README §6)`;
     why_more_evidence =
       `${rule}, so "${firstRequest.type}" was requested ` +
-      `(no reply is available -- the dataset supplies none and none was assumed: ` +
+      `(no reply is available -- the dataset supplies none and none was invented: ` +
       `${truncate(firstRequest.assumed_response, 120)}).`;
   } else if (stopReason && stopReason !== "sufficient_evidence") {
     why_more_evidence = `Investigation stopped with reason "${stopReason}"`;
