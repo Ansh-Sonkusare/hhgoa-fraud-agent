@@ -178,12 +178,20 @@ Copy `.env.example` to `.env`. Secrets and connection settings live only in
 - `TIGERGRAPH_HOST`, `TIGERGRAPH_GRAPH_NAME`, `TIGERGRAPH_USERNAME`,
   `TIGERGRAPH_PASSWORD`, `TIGERGRAPH_REST_PORT`, `TIGERGRAPH_GSQL_PORT`.
 - `TIGERGRAPH_MCP_URL` — where the agent connects to the running
-  `tigergraph-mcp` server.
+  `tigergraph-mcp` server; `.env.example` ships this empty, which
+  `agent/src/mcpClient.ts` falls back from to `http://127.0.0.1:8000/mcp/`
+  (see `docs/MCP_TOOLS.md`).
 - `PATTERN_SCORER` (`jev` | `kev` | `none`), with `JEV_API_KEY` / `JEV_URL`
   for the hosted scorer and `KEV_URL` for the (currently untrained) local one.
 - `RAG_VECTOR_BACKEND` (`tigergraph` | `local`) — whether similarity search
   runs as a TigerGraph `vector_search` query or a local adapter.
-- `API_PORT`, `UI_PORT`, `RUN_SOURCE` (`fixture` | `live`).
+- `API_PORT`, `UI_PORT`, `RUN_SOURCE` (`fixture` | `live`). A live demo run
+  (`RUN_SOURCE=live`) builds its agent through the same factory as the
+  benchmark runner (`createAgentMachine`, `agent/src/agentFactory.ts`), so it
+  uses the pattern scorer and writes the case back to TigerGraph exactly like
+  `make run-case`. To run one: `.env` with `TOOLS_BACKEND=real` and
+  `LLM_BACKEND=openai`, then start the API with
+  `RUN_SOURCE=live PATTERN_SCORER=jev RAG_VECTOR_BACKEND=tigergraph pnpm --filter @hhgoa/api start`.
 
 ### Commands
 
@@ -280,7 +288,8 @@ The two replays drew different samples, so compare rates rather than cases.
   closed a false alarm after the cardholder confirmed it; the dataset provides
   no replies and the agent never invents one. So a legitimate reading asks the
   cardholder (`VERIFY_WITH_CUSTOMER`, R3) and, with no reply, stays open under
-  `MONITOR_CARD` (R4) rather than `CLOSE_NO_FRAUD`. Closing on the evidence
+  `DECLINE_TRANSACTION` (declining the flagged authorization) and `MONITOR_CARD`
+  (R4) rather than `CLOSE_NO_FRAUD`. Closing on the evidence
   alone was measured twice and rejected: the best rule on 45 cleared and 69
   fraud replayed alerts closed 6 fraud cases, and the strictest cutoff of a
   model fitted on 605 cases still closed 1 of 388 held-out fraud cases

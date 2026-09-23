@@ -1426,6 +1426,67 @@ reading; HHG-014 is an analyst request, so alert calibration does not apply).
 Found while checking: the §6 stop reason quotes the leading pattern's probability as "Fraud
 probability" (HHG-014: text 0.87, `fraud_probability` 1.00; before: 0.80 vs 0.90). Not fixed yet.
 
+### R4 declines the flagged authorization; API live runs fixed (2026-09-23 12:15)
+
+- **Audit.** Read all 20 regenerated answer files against `docs/DATASET_README.md`'s policy text
+  (Actions table, R1-R6, §3a, §7). Found three mismatches between the answers and the written
+  policy:
+  1. R4 ("no reply within 24 hours") never recommended `DECLINE_TRANSACTION`. The earlier decision
+     (this log, "Unanswered verification is R4") read R4's `DECLINE_TRANSACTION` as needing a
+     *pending-authorization* status the dataset lacks. The policy's own Actions table says
+     otherwise: `DECLINE_TRANSACTION` is "Decline the flagged authorization only," and its own
+     worked example (HHG-017 in the dataset README) recommends it for a purchase that had "already
+     cleared." So it applies to the flagged charge itself, not to a separate pending-authorization
+     record that this dataset never had to begin with.
+  2. `BLOCK_CARD`'s reason cited "R2: customer denied ... or fraud probability exceeds 0.70" on
+     every block, including model alerts nobody disputed.
+  3. `CREATE_CASE`'s reason cited "R6 / §3a" on every block, with no shared-origin connection behind
+     the R6 half.
+- **What changed** (`docs/decisions.md`, "R4 declines the flagged authorization; reasons cite the
+  rule that applies," has the full rationale and code pointers): `policy/src/types.ts` gained
+  `verification_unanswered` on `CaseStateForPolicy`; `policy/src/engine.ts`'s `checkPrerequisites`
+  lets `DECLINE_TRANSACTION` through below the 0.70 gate once that flag is true (R1's verify-first
+  step is then already done), while `BLOCK_CARD` still needs 0.70 or a denial; `agent/src/recommend.ts`
+  now adds `DECLINE_TRANSACTION` (route `L1`) alongside `MONITOR_CARD`/`CREATE_CASE` in both R4
+  branches (legitimate-reading no-reply, and R1-band no-reply), and reasons name whichever rule
+  actually applies (R2 only on a dispute, R5 for card testing, otherwise the probability against
+  R1's 0.70 line; `CREATE_CASE` cites §3a, or "R2 and §3a" on a dispute); `agent/src/planner.ts`'s
+  evidence-request rationale and `agent/src/machine.ts`'s no-reply stop text likewise name R3, R1,
+  or (above 0.70) README §6 instead of a fixed "R1" label. `agent/src/caseState.ts` passes the new
+  flag through. `agent/src/machine.ts`'s `resolveStatus` gained a `pendingReplyDecline` check so a
+  no-reply `DECLINE_TRANSACTION` (route `L1`) doesn't flip the case to `escalated` — the cardholder's
+  reply is still pending, not a human approval, so the case stays `open`.
+- **Checked and left unchanged**, because the policy doesn't require a change:
+  - R5 on HHG-011: the dataset's own worked example only pairs `DECLINE_TRANSACTION`/`STEP_UP_AUTH`
+    with the *initial* R5 recommendation, before a denial arrives; its *final* actions after the
+    denial are a plain block. `recommend.ts`'s block branch already matches that shape.
+  - The extra verification request on HHG-018 (`analyst_info` then `customer_validation`, both
+    unanswered): asking without approval is permitted by §5 regardless of how many requests go out,
+    and the recommendation doesn't change on either reply, so nothing here was a bug.
+- **API live-run fixes.** `api/src/liveRunSource.ts`'s `machineRunner` built
+  `FraudInvestigationMachine` by hand (`new FraudInvestigationMachine({ ..., mcp: createMcpClient(...),
+  providers: await createToolProviders(...), policies: createPolicyAdapters() })`), which skipped
+  the pattern scorer and the case write-back to TigerGraph that the benchmark runner gets through
+  `agent/src/agentFactory.ts`'s `buildMachine`. Added `createAgentMachine` (a thin export wrapping
+  `buildMachine`) to `agentFactory.ts` and switched `machineRunner` to call it, so a live UI run
+  (`RUN_SOURCE=live`) now uses the same construction path as `make run-case`. Separately,
+  `agent/src/mcpClient.ts`'s default-URL fallback used `?? "http://127.0.0.1:8000/mcp/"`, which only
+  catches `undefined` — `.env.example` ships `TIGERGRAPH_MCP_URL=` (empty string), and the API loads
+  `.env`, so a live run with an untouched `.env.example` copy failed to connect. Changed to `||`. A
+  live run of HHG-017 through the API (`TOOLS_BACKEND=real LLM_BACKEND=openai RUN_SOURCE=live
+  PATTERN_SCORER=jev RAG_VECTOR_BACKEND=tigergraph`) was verified end to end before the factory
+  change — 61 events, same verdict/probability/actions as the benchmark answer at the time.
+- **Tests.** `pnpm exec vitest run tests/ws4 tests/ws5 tests/ws6`: 44 files, 370/370 pass.
+  `make test`: 9/9 packages (contracts, agent 280, rag 100, eval 39, gsql 49, plus api/policy/graph/ui).
+  `make lint`: clean.
+- **Answers regenerated** (`--no-cache`, real TigerGraph + real MCP + OpenAI-compatible LLM,
+  `runs/bench-i25-1206`), `make validate-answers`: 20/20 PASS. Verdicts unchanged at 13 fraud / 6
+  legitimate / 1 uncertain. The 7 no-reply cases (HHG-005, -010, -013, -015, -017, -019, -020) now
+  carry `DECLINE_TRANSACTION` (route `L1`) in `next_best_actions.final`, alongside `MONITOR_CARD`
+  and `CREATE_CASE`; every one of them keeps `case.status: "open"`. `affected_txn_ids`,
+  `exposure_usd`, patterns and statuses otherwise unchanged from the iteration-23/bounded-probability
+  run above.
+
 ### Stop-reason probability and bounded fraud_probability (2026-09-23 11:42)
 
 - `agent/src/stopRule.ts`: the §6 stop reason quotes the filed fraud probability and names the

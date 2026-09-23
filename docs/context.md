@@ -108,6 +108,24 @@ With WS2 in `main`, `agent/src/agentFactory.ts`'s `TOOLS_BACKEND=real` throw (pr
   but untrained; its export (`.cache/kev/`) stopped at 1,419/1,584 train states.
 - Code guards after the assessor: `patternRules.ts` (New device ⇒ pattern 3), `singleSignal.ts` (R1:
   one independent fraud signal ⇒ fraud mass capped at 0.69 so verification precedes any block).
+- **R4 ("no reply within 24 hours") now recommends `DECLINE_TRANSACTION`** (route `L1`) alongside
+  `MONITOR_CARD` and `CREATE_CASE`, for every case where the cardholder was asked and didn't reply —
+  reversing the earlier reading that treated `DECLINE_TRANSACTION` as needing a pending-authorization
+  status this dataset lacks (`docs/decisions.md`, "R4 declines the flagged authorization,"
+  2026-09-23). The policy engine (`policy/src/engine.ts`) lets `DECLINE_TRANSACTION` through below
+  0.70 once `verification_unanswered` is true; `BLOCK_CARD` still needs 0.70 or a denial. The case
+  status stays `open` (the reply is pending, not a human approval), even though the action's route is
+  `L1` (`agent/src/machine.ts`'s `resolveStatus`). Reason strings across `agent/src/recommend.ts` now
+  cite the rule that actually applies (R2 only on a dispute, R5 for card testing, §3a for
+  `CREATE_CASE`) instead of a fixed label on every action.
+- **Live UI runs (`RUN_SOURCE=live`) now go through the same agent factory as the benchmark**
+  (`createAgentMachine`, `agent/src/agentFactory.ts`, consumed by `api/src/liveRunSource.ts`), so a
+  live run uses the pattern scorer and writes the case back to TigerGraph — before, the API built the
+  machine by hand and skipped both. To run one: `.env` with `TOOLS_BACKEND=real` and
+  `LLM_BACKEND=openai`, then start the API with `RUN_SOURCE=live PATTERN_SCORER=jev
+  RAG_VECTOR_BACKEND=tigergraph pnpm --filter @hhgoa/api start`. An empty `TIGERGRAPH_MCP_URL` (as
+  `.env.example` ships it) now falls back to `http://127.0.0.1:8000/mcp/` in `agent/src/mcpClient.ts`
+  — it used `??`, which only catches `undefined`, not `.env`'s empty string.
 
 **Measured (backtest on closed cases, leak-free replay at opened_at)**
 - Iteration 17, 20 cases: patterns 10/17 = 58.8%, 0 FN, cleared escalated 1/3.
@@ -121,10 +139,15 @@ With WS2 in `main`, `agent/src/agentFactory.ts`'s `TOOLS_BACKEND=real` throw (pr
 **In flight / next**
 1. Gap analysis by three read-only subagents (cleared alerts, pattern misses, undocumented) →
    implement → tests → one 50-case run (`docs/logs.md`, "Gap analysis dispatched").
-2. Regenerate the 20 benchmark answers with the final setup; `make validate-answers`.
-3. Refresh `submission/BLOG_POST.md` + `demo_script.md`; demo video and social post outstanding.
-4. Working tree has many uncommitted changes (and the root `README.md` deleted — not by Claude);
-   commit when the user asks.
+2. **Done (2026-09-23):** the 20 benchmark answers were regenerated with the R4-decline / reason-
+   citation fixes above; `make validate-answers` passes 20/20. Verdicts unchanged at 13 fraud / 6
+   legitimate / 1 uncertain; the 7 no-reply cases (HHG-005, -010, -013, -015, -017, -019, -020) now
+   carry `DECLINE_TRANSACTION` in `next_best_actions.final`.
+3. `submission/BLOG_POST.md` and `demo_script.md` updated for the R4 change (local only, never
+   committed); the demo script now runs HHG-006 and HHG-017 live, with the HHG-910/920 fixtures as
+   fallback. The social post is drafted in `submission/SOCIAL_POST.md`; the demo video is not
+   recorded and nothing is posted yet.
+4. The R4 / reason-citation / live-run batch is committed and pushed (`af09500..583abcf`).
 
 **Operational rules**: clear `GRAPH-HHG-*` FraudCase vertices before a graded benchmark pass;
 `make verify-graph` drops everything, so `make verify-gsql`/install-queries must follow it; never
