@@ -43,9 +43,21 @@ export function buildExplanation(options: {
   let why_more_evidence: string | null = null;
   const firstRequest = options.evidenceRequests[0];
   if (firstRequest) {
+    // Cite the rule that made the reply matter, with the same bands as the
+    // request's own rationale (planner.ts): R3 needs a confirmation to close a
+    // legitimate reading, R1 needs verification before a block below 0.70, and
+    // at or above 0.70 a reply can only settle the case (§6).
+    const rule =
+      topProb <= 0.4
+        ? `R3: the evidence reads legitimate (fraud probability ${topProb.toFixed(2)}) and R3 closes a ` +
+          `legitimate reading only on the cardholder's confirmation`
+        : topProb < 0.7
+          ? `R1: fraud probability ${topProb.toFixed(2)} is below the 0.70 block threshold and R1 ` +
+            `requires verification before any block`
+          : `Fraud probability ${topProb.toFixed(2)} is at or above 0.70 and a reply would settle the ` +
+            `question (README §6)`;
     why_more_evidence =
-      `R1: probability ${topProb.toFixed(2)} on a weak/ambiguous signal was below the ` +
-      `0.70 block threshold, so "${firstRequest.type}" was requested before any enforcement ` +
+      `${rule}, so "${firstRequest.type}" was requested ` +
       `(no reply is available -- the dataset supplies none and none was assumed: ` +
       `${truncate(firstRequest.assumed_response, 120)}).`;
   } else if (stopReason && stopReason !== "sufficient_evidence") {

@@ -79,17 +79,29 @@ describe("buildExplanation", () => {
     expect(ex.evidence_used).toEqual([`ev_001: ${evidence[0]!.summary}`]);
   });
 
-  it("states why more evidence was requested when an evidence request exists", () => {
-    const ex = buildExplanation({
-      facts: facts(),
-      assessment: assessment(0.82, 0.1, 0.8),
-      evidence,
-      recommendations: noRecommendations(),
-      evidenceRequests: [{ type: "customer_validation", assumed_response: "denied" }],
-      stopReason: "sufficient_evidence",
-    });
-    expect(ex.why_more_evidence).toContain("below the 0.70 block threshold");
-    expect(ex.why_more_evidence).toContain("customer_validation");
+  it("states why more evidence was requested, citing the rule for the probability band", () => {
+    const why = (top: number, legit: number) =>
+      buildExplanation({
+        facts: facts(),
+        assessment: assessment(top, legit, 0.8),
+        evidence,
+        recommendations: noRecommendations(),
+        evidenceRequests: [{ type: "customer_validation", assumed_response: "No reply was received." }],
+        stopReason: "sufficient_evidence",
+      }).why_more_evidence ?? "";
+    // Legitimate reading: R3 needs the cardholder's confirmation to close.
+    expect(why(0.37, 0.63)).toMatch(/^R3: the evidence reads legitimate \(fraud probability 0\.37\)/);
+    // Verification band: R1, below the 0.70 block line.
+    expect(why(0.69, 0.31)).toMatch(/^R1: fraud probability 0\.69 is below the 0\.70 block threshold and R1 requires verification/);
+    // At or above 0.70 it is not "below the block threshold".
+    const high = why(0.82, 0.18);
+    expect(high).toContain("at or above 0.70");
+    expect(high).toContain("README §6");
+    expect(high).not.toContain("below the 0.70");
+    for (const text of [why(0.37, 0.63), why(0.69, 0.31), high]) {
+      expect(text).toContain("customer_validation");
+      expect(text).toContain("none was assumed");
+    }
   });
 
   it("cites the stop reason when no evidence was requested but investigation stopped", () => {
