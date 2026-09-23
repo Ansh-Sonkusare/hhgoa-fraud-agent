@@ -37,3 +37,6 @@ graft/
 # regenerated on demand and they embed case data derived from data/)
 eval/NOTES*.md
 eval/backtest-detail*.json
+
+# Hackathon write-ups (blog, demo script, social post) are kept local and published elsewhere
+submission/
