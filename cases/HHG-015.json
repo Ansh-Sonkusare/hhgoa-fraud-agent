@@ -228,6 +228,11 @@
     ],
     "final": [
       {
+        "action": "DECLINE_TRANSACTION",
+        "route": "L1",
+        "reason": "R4: no reply to the verification request; decline the flagged authorization (txn 3464869) until the cardholder answers"
+      },
+      {
         "action": "CREATE_CASE",
         "route": "auto",
         "reason": "§3a: evidence was requested from the cardholder; open a case"
@@ -235,10 +240,10 @@
       {
         "action": "MONITOR_CARD",
         "route": "auto",
-        "reason": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring (the data records no pending authorization to decline)"
+        "reason": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring"
       }
     ],
-    "what_changed": "Asked the cardholder to verify under R3 (customer validation); no reply was received and none was assumed, so R4 (\"no reply\") now governs at fraud probability 0.37: dropped VERIFY_WITH_CUSTOMER. Verification remains outstanding."
+    "what_changed": "Asked the cardholder to verify under R3 (customer validation); no reply was received and none was assumed, so R4 (\"no reply\") now governs at fraud probability 0.37: added DECLINE_TRANSACTION; dropped VERIFY_WITH_CUSTOMER. Verification remains outstanding."
   },
   "sar": {
     "file": false,
@@ -251,7 +256,7 @@
   "investigation_record": [
     {
       "seq": 0,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "TRIGGERED",
@@ -266,7 +271,7 @@
     },
     {
       "seq": 1,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "CASE_OPENED",
@@ -274,7 +279,7 @@
     },
     {
       "seq": 2,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "CASE_OPENED",
@@ -293,7 +298,7 @@
     },
     {
       "seq": 3,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "CASE_OPENED",
@@ -317,7 +322,7 @@
     },
     {
       "seq": 4,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "INVESTIGATING",
@@ -325,7 +330,7 @@
     },
     {
       "seq": 5,
-      "ts": "2026-09-23T11:36:09.052Z",
+      "ts": "2026-09-23T12:06:30.788Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -344,7 +349,7 @@
     },
     {
       "seq": 6,
-      "ts": "2026-09-23T11:36:09.204Z",
+      "ts": "2026-09-23T12:06:30.861Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -382,7 +387,7 @@
     },
     {
       "seq": 7,
-      "ts": "2026-09-23T11:36:09.204Z",
+      "ts": "2026-09-23T12:06:30.861Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -402,7 +407,7 @@
     },
     {
       "seq": 8,
-      "ts": "2026-09-23T11:36:09.228Z",
+      "ts": "2026-09-23T12:06:30.870Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -479,7 +484,7 @@
     },
     {
       "seq": 9,
-      "ts": "2026-09-23T11:36:09.229Z",
+      "ts": "2026-09-23T12:06:30.871Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -499,7 +504,7 @@
     },
     {
       "seq": 10,
-      "ts": "2026-09-23T11:36:09.252Z",
+      "ts": "2026-09-23T12:06:30.880Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -816,7 +821,7 @@
     },
     {
       "seq": 11,
-      "ts": "2026-09-23T11:36:09.253Z",
+      "ts": "2026-09-23T12:06:30.881Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -853,7 +858,7 @@
     },
     {
       "seq": 12,
-      "ts": "2026-09-23T11:36:09.253Z",
+      "ts": "2026-09-23T12:06:30.881Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -885,7 +890,7 @@
     },
     {
       "seq": 13,
-      "ts": "2026-09-23T11:36:09.253Z",
+      "ts": "2026-09-23T12:06:30.881Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -914,7 +919,7 @@
     },
     {
       "seq": 14,
-      "ts": "2026-09-23T11:36:09.253Z",
+      "ts": "2026-09-23T12:06:30.881Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -931,7 +936,7 @@
     },
     {
       "seq": 15,
-      "ts": "2026-09-23T11:36:09.354Z",
+      "ts": "2026-09-23T12:06:30.994Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -958,7 +963,7 @@
     },
     {
       "seq": 16,
-      "ts": "2026-09-23T11:36:09.354Z",
+      "ts": "2026-09-23T12:06:30.994Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -980,7 +985,7 @@
     },
     {
       "seq": 17,
-      "ts": "2026-09-23T11:36:09.354Z",
+      "ts": "2026-09-23T12:06:30.994Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -997,7 +1002,7 @@
     },
     {
       "seq": 18,
-      "ts": "2026-09-23T11:36:09.384Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1202,7 +1207,7 @@
     },
     {
       "seq": 19,
-      "ts": "2026-09-23T11:36:09.384Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1383,7 +1388,7 @@
     },
     {
       "seq": 20,
-      "ts": "2026-09-23T11:36:09.384Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1512,7 +1517,7 @@
     },
     {
       "seq": 21,
-      "ts": "2026-09-23T11:36:09.384Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1665,7 +1670,7 @@
     },
     {
       "seq": 22,
-      "ts": "2026-09-23T11:36:09.384Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1858,7 +1863,7 @@
     },
     {
       "seq": 23,
-      "ts": "2026-09-23T11:36:09.385Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -1931,7 +1936,7 @@
     },
     {
       "seq": 24,
-      "ts": "2026-09-23T11:36:09.385Z",
+      "ts": "2026-09-23T12:06:31.047Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -1948,7 +1953,7 @@
     },
     {
       "seq": 25,
-      "ts": "2026-09-23T11:36:09.406Z",
+      "ts": "2026-09-23T12:06:31.090Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -1990,7 +1995,7 @@
     },
     {
       "seq": 26,
-      "ts": "2026-09-23T11:36:09.406Z",
+      "ts": "2026-09-23T12:06:31.090Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2025,7 +2030,7 @@
     },
     {
       "seq": 27,
-      "ts": "2026-09-23T11:36:09.406Z",
+      "ts": "2026-09-23T12:06:31.090Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2042,7 +2047,7 @@
     },
     {
       "seq": 28,
-      "ts": "2026-09-23T11:36:09.420Z",
+      "ts": "2026-09-23T12:06:31.119Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2076,7 +2081,7 @@
     },
     {
       "seq": 29,
-      "ts": "2026-09-23T11:36:09.420Z",
+      "ts": "2026-09-23T12:06:31.119Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2096,7 +2101,7 @@
     },
     {
       "seq": 30,
-      "ts": "2026-09-23T11:36:09.421Z",
+      "ts": "2026-09-23T12:06:31.119Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2114,7 +2119,7 @@
     },
     {
       "seq": 31,
-      "ts": "2026-09-23T11:36:09.439Z",
+      "ts": "2026-09-23T12:06:31.169Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2139,7 +2144,7 @@
     },
     {
       "seq": 32,
-      "ts": "2026-09-23T11:36:09.439Z",
+      "ts": "2026-09-23T12:06:31.169Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2159,7 +2164,7 @@
     },
     {
       "seq": 33,
-      "ts": "2026-09-23T11:36:09.439Z",
+      "ts": "2026-09-23T12:06:31.169Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2191,7 +2196,7 @@
     },
     {
       "seq": 34,
-      "ts": "2026-09-23T11:36:09.469Z",
+      "ts": "2026-09-23T12:06:31.183Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2251,7 +2256,7 @@
     },
     {
       "seq": 35,
-      "ts": "2026-09-23T11:36:09.469Z",
+      "ts": "2026-09-23T12:06:31.184Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2268,7 +2273,7 @@
     },
     {
       "seq": 36,
-      "ts": "2026-09-23T11:36:09.583Z",
+      "ts": "2026-09-23T12:06:31.269Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2310,7 +2315,7 @@
     },
     {
       "seq": 37,
-      "ts": "2026-09-23T11:36:09.583Z",
+      "ts": "2026-09-23T12:06:31.269Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "INVESTIGATING",
@@ -2324,7 +2329,7 @@
     },
     {
       "seq": 38,
-      "ts": "2026-09-23T11:36:09.583Z",
+      "ts": "2026-09-23T12:06:31.269Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "INVESTIGATING",
@@ -2352,7 +2357,7 @@
     },
     {
       "seq": 39,
-      "ts": "2026-09-23T11:36:09.583Z",
+      "ts": "2026-09-23T12:06:31.269Z",
       "case_id": "HHG-015",
       "type": "evidence_added",
       "state": "INVESTIGATING",
@@ -2372,7 +2377,7 @@
     },
     {
       "seq": 40,
-      "ts": "2026-09-23T11:36:09.583Z",
+      "ts": "2026-09-23T12:06:31.269Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "ASSESSING",
@@ -2380,7 +2385,7 @@
     },
     {
       "seq": 41,
-      "ts": "2026-09-23T11:36:17.733Z",
+      "ts": "2026-09-23T12:06:36.498Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "ASSESSING",
@@ -2393,7 +2398,7 @@
     },
     {
       "seq": 42,
-      "ts": "2026-09-23T11:36:18.171Z",
+      "ts": "2026-09-23T12:06:36.945Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "ASSESSING",
@@ -2417,7 +2422,7 @@
     },
     {
       "seq": 43,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "assessment_updated",
       "state": "ASSESSING",
@@ -2485,7 +2490,7 @@
     },
     {
       "seq": 44,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EVIDENCE_PLANNING",
@@ -2493,7 +2498,7 @@
     },
     {
       "seq": 45,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "tool_call",
       "state": "EVIDENCE_PLANNING",
@@ -2505,13 +2510,13 @@
             "type": "Customer",
             "id": "C03042"
           },
-          "reason": "Separates \"card_not_present_new_device\" (p=0.37) from legitimate (p=0.63) — the decision policy R1 rests on."
+          "reason": "Separates \"card_not_present_new_device\" (p=0.37) from legitimate (p=0.63) — R3 closes a legitimate reading only on the cardholder's confirmation."
         }
       }
     },
     {
       "seq": 46,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "evidence_requested",
       "state": "EVIDENCE_PLANNING",
@@ -2521,14 +2526,14 @@
           "type": "Customer",
           "id": "C03042"
         },
-        "reason": "Separates \"card_not_present_new_device\" (p=0.37) from legitimate (p=0.63) — the decision policy R1 rests on.",
+        "reason": "Separates \"card_not_present_new_device\" (p=0.37) from legitimate (p=0.63) — R3 closes a legitimate reading only on the cardholder's confirmation.",
         "discrimination_score": 0.7429999999999999,
         "friction_cost": 2
       }
     },
     {
       "seq": 47,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "AWAITING_EVIDENCE",
@@ -2536,7 +2541,7 @@
     },
     {
       "seq": 48,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "tool_result",
       "state": "AWAITING_EVIDENCE",
@@ -2565,7 +2570,7 @@
               "weight_hint": 0,
               "supports": [],
               "contradicts": [],
-              "ts": "2026-09-23T11:36:18.172Z"
+              "ts": "2026-09-23T12:06:36.946Z"
             }
           },
           "evidence_refs": [
@@ -2579,7 +2584,7 @@
     },
     {
       "seq": 49,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EVIDENCE_RECEIVED",
@@ -2587,7 +2592,7 @@
     },
     {
       "seq": 50,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "assessment_updated",
       "state": "EVIDENCE_RECEIVED",
@@ -2633,6 +2638,11 @@
           "reason": "no reply to the R3 verification request",
           "actions": [
             {
+              "action": "DECLINE_TRANSACTION",
+              "route": "L1",
+              "reason": "R4: no reply to the verification request; decline the flagged authorization (txn 3464869) until the cardholder answers"
+            },
+            {
               "action": "CREATE_CASE",
               "route": "auto",
               "reason": "§3a: evidence was requested from the cardholder; open a case"
@@ -2640,7 +2650,7 @@
             {
               "action": "MONITOR_CARD",
               "route": "auto",
-              "reason": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring (the data records no pending authorization to decline)"
+              "reason": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring"
             }
           ]
         }
@@ -2648,7 +2658,7 @@
     },
     {
       "seq": 51,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "DECIDING",
@@ -2656,7 +2666,7 @@
     },
     {
       "seq": 52,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "APPROVAL_ROUTING",
@@ -2664,7 +2674,19 @@
     },
     {
       "seq": 53,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "ts": "2026-09-23T12:06:36.946Z",
+      "case_id": "HHG-015",
+      "type": "approval_requested",
+      "state": "APPROVAL_ROUTING",
+      "payload": {
+        "action": "DECLINE_TRANSACTION",
+        "route": "L1",
+        "reason": "R4: no reply to the verification request; decline the flagged authorization (txn 3464869) until the cardholder answers"
+      }
+    },
+    {
+      "seq": 54,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2674,8 +2696,8 @@
       }
     },
     {
-      "seq": 54,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 55,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "action_result",
       "state": "APPROVAL_ROUTING",
@@ -2685,16 +2707,16 @@
       }
     },
     {
-      "seq": 55,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 56,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "EXPLAINING",
       "payload": {}
     },
     {
-      "seq": 56,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 57,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "explanation",
       "state": "EXPLAINING",
@@ -2717,8 +2739,9 @@
           ],
           "why_more_evidence": "R1: probability 0.37 on a weak/ambiguous signal was below the 0.70 block threshold, so \"customer_validation\" was requested before any enforcement (no reply is available -- the dataset supplies none and none was assumed: No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.).",
           "why_actions": {
+            "DECLINE_TRANSACTION": "R4: no reply to the verification request; decline the flagged authorization (txn 3464869) until the cardholder answers",
             "CREATE_CASE": "§3a: evidence was requested from the cardholder; open a case",
-            "MONITOR_CARD": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring (the data records no pending authorization to decline)"
+            "MONITOR_CARD": "R4: the evidence reads legitimate (fraud probability 0.37) but the cardholder has not replied to the verification request, so the case is not closed; keep the card under 72-hour monitoring"
           },
           "remaining_uncertainty": "Top hypothesis \"card_not_present_new_device\" at 0.37 versus legitimate at 0.63; model confidence 0.65. Uncertainty is driven by a similar closed case (CC-0615@0.30, CC-1313@0.30, CC-3886@0.30, CC-0830@0.08, CC-2331@0.08).",
           "what_would_change_the_decision": "Evidence that raises confidence above 0.75 (e.g. a customer confirmation or step-up authentication) would let the recommender act without further verification."
@@ -2726,16 +2749,16 @@
       }
     },
     {
-      "seq": 57,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 58,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "MEMORY_UPDATE",
       "payload": {}
     },
     {
-      "seq": 58,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 59,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "memory_written",
       "state": "MEMORY_UPDATE",
@@ -2744,8 +2767,8 @@
       }
     },
     {
-      "seq": 59,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 60,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "state_entered",
       "state": "DONE",
@@ -2754,8 +2777,8 @@
       }
     },
     {
-      "seq": 60,
-      "ts": "2026-09-23T11:36:18.172Z",
+      "seq": 61,
+      "ts": "2026-09-23T12:06:36.946Z",
       "case_id": "HHG-015",
       "type": "done",
       "state": "DONE",
@@ -2765,7 +2788,7 @@
     }
   ],
   "stop_reason": "Customer verification was requested under R3 (the evidence reads legitimate, and closing needs the cardholder's confirmation) and no reply is available in this round (README §5), and none was assumed. No other permitted step can change the decision, so the investigation stops here (README §6) with the case left open under monitoring rather than closed (R4 governs the final recommendation).",
-  "tool_calls": 13,
+  "tool_calls": 14,
   "tokens": 128,
-  "latency_s": 10.15
+  "latency_s": 6.76
 }
