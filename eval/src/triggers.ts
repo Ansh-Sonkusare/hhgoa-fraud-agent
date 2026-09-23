@@ -19,6 +19,15 @@ export function buildTrigger(c: BenchmarkCase): Trigger {
         text: c.trigger_text,
       };
     case "analyst_request":
-      return { kind: "analyst_request", entity: { type: "Card", id: c.card_id }, question: c.trigger_text };
+      // Point at the flagged transaction when the row names one: resolving a
+      // Txn still yields its card, customer and identity, whereas resolving
+      // the card alone loses which transaction the analyst is asking about.
+      return {
+        kind: "analyst_request",
+        entity: c.flagged_txn_id
+          ? { type: "Transaction", id: c.flagged_txn_id }
+          : { type: "Card", id: c.card_id },
+        question: c.trigger_text,
+      };
   }
 }

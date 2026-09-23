@@ -17,7 +17,12 @@ export function runModeFromEnv(tools?: string, llm?: string): RunMode {
   const toolsBackend = ((tools ?? env("TOOLS_BACKEND", "real")) === "real" ? "real" : "fake") as "real" | "fake";
   const llmStr = llm ?? env("LLM_BACKEND", "ollama");
   const llmBackend = (llmStr === "ollama" || llmStr === "openai" ? llmStr : "mock") as "mock" | "ollama" | "openai";
-  return { toolsBackend, llmBackend, model: env("OLLAMA_MODEL", "llama3.1") };
+  // Report the model the backend actually calls. The openai client resolves
+  // LLM_MODEL before OLLAMA_MODEL (agent/src/llm.ts); reading only
+  // OLLAMA_MODEL here stamped answer files with a model that never ran.
+  const ollamaModel = env("OLLAMA_MODEL", "llama3.1");
+  const model = llmBackend === "openai" ? env("LLM_MODEL", ollamaModel) : llmBackend === "mock" ? "mock" : ollamaModel;
+  return { toolsBackend, llmBackend, model };
 }
 
 /** Minimal run unit: the machine needs exactly caseId + asOf + trigger (PRD §9.2). */
@@ -54,6 +59,8 @@ export interface RunOneOptions {
   cacheDir?: string;
   /** Absolute timeout for one case (seconds). Default 0 = none. */
   caseTimeoutS?: number;
+  /** Persist the closed case into graph + RAG memory. Backtests pass false. */
+  writeBackCase?: boolean;
 }
 
 function cacheSlug(case_id: string, mode: RunMode): string {
@@ -152,6 +159,7 @@ async function runTarget(target: RunTarget, queryMode: RunMode, opts: RunOneOpti
       trigger: target.trigger,
       backend: mode.toolsBackend,
       llm,
+      writeBackCase: opts.writeBackCase,
     }).then((r: RunResult) => {
       answer = r.answer;
       events = r.events;
@@ -176,6 +184,14 @@ async function runTarget(target: RunTarget, queryMode: RunMode, opts: RunOneOpti
     error = err instanceof Error ? err.message : String(err);
   }
 
+  // A run whose core graph reads failed has nothing to reason from, yet the
+  // agent still emits a well-formed answer built from the trigger alone. With
+  // TigerGraph answering "System Memory in Critical state" every such case
+  // came back card_not_present_fraud in ~8s and was scored as if investigated
+  // (iteration 11, docs/logs.md). Record it as an error so it is neither
+  // scored nor cached.
+  if (!error) error = coreGraphFailure(events);
+
   const latencyMs = Date.now() - started;
   const run: CaseRun = {
     case_id: target.caseId,
@@ -195,6 +211,31 @@ async function runTarget(target: RunTarget, queryMode: RunMode, opts: RunOneOpti
     writeFileSync(cacheFile, JSON.stringify({ answer, events, meta: { latencyMs, toolCalls, tokens }, mode }, null, 2));
   }
   return run;
+}
+
+/**
+ * Graph reads without which a case cannot be investigated: the trigger
+ * resolution (which card) and the card's transaction history.
+ */
+const CORE_GRAPH_TOOLS = new Set(["resolve_trigger", "get_transaction_history"]);
+
+/**
+ * Returns an error message when any core graph read in the run failed, else
+ * null. Reads the `tool_result` events, whose payload is `{ tool, result }`
+ * with `result` a ToolResult envelope.
+ */
+export function coreGraphFailure(events: AgentEvent[]): string | null {
+  const failed: string[] = [];
+  for (const e of events) {
+    if (e.type !== "tool_result") continue;
+    const tool = e.payload["tool"];
+    const result = e.payload["result"] as { ok?: unknown; error?: unknown } | undefined;
+    if (typeof tool !== "string" || !CORE_GRAPH_TOOLS.has(tool)) continue;
+    if (result?.ok === false) {
+      failed.push(`${tool}: ${typeof result.error === "string" ? result.error : "failed"}`);
+    }
+  }
+  return failed.length ? `core graph read failed — ${failed.join("; ")}` : null;
 }
 
 /** Runs one benchmark case-pack entry (trigger derived from its columns). */

@@ -29,12 +29,18 @@ describe("buildTrigger", () => {
     }
   });
 
-  it("maps analyst_request rows to an AnalystRequestTrigger on the card", () => {
+  // Resolves to the flagged TRANSACTION, not the card. AnalystRequestTrigger
+  // has no txn field (frozen contract), so the transaction is carried as the
+  // entity — resolve_trigger walks txn -> card -> customer either way. Going
+  // in on the card left facts.txn unset, so the ±window history sweep had no
+  // anchor and affected_txn_ids came back empty on a case we called fraud,
+  // which the answer format requires to list the flagged transaction.
+  it("maps analyst_request rows to an AnalystRequestTrigger on the flagged transaction", () => {
     const hhg14 = cases.find((c) => c.case_id === "HHG-014")!;
     const t = buildTrigger(hhg14);
     expect(t.kind).toBe("analyst_request");
     if (t.kind === "analyst_request") {
-      expect(t.entity).toEqual({ type: "Card", id: hhg14.card_id });
+      expect(t.entity).toEqual({ type: "Transaction", id: hhg14.flagged_txn_id });
       expect(t.question).toBe(hhg14.trigger_text);
     }
   });

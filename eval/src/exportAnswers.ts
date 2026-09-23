@@ -83,22 +83,30 @@ export function exportAnswerFile(result: RunResult | CaseRun, latencyOverrideMs?
 }
 
 /** Writes the 20 answer files to `cases/` (one JSON per case, README-named). */
-export function writeAnswersDir(runs: CaseRun[], casesDir: string, errorWriter: (id: string, error: string) => void = writeErrorFile): void {
+export function writeAnswersDir(
+  runs: CaseRun[],
+  casesDir: string,
+  errorWriter: (id: string, error: string, casesDir: string) => void = writeErrorFile,
+): void {
   mkdirSync(casesDir, { recursive: true });
   for (const run of runs) {
     if (run.answer) {
       const answer = exportAnswerFile(run);
       writeFileSync(path.join(casesDir, `${run.case_id}.json`), JSON.stringify(answer, null, 2) + "\n", "utf8");
     } else {
-      errorWriter(run.case_id, run.error ?? "no answer produced");
+      errorWriter(run.case_id, run.error ?? "no answer produced", casesDir);
     }
   }
 }
 
-export function writeErrorFile(caseId: string, error: string): void {
+export function writeErrorFile(caseId: string, error: string, casesDir = "cases"): void {
   // Default error marker: a clearly-invalid file so `make validate-answers`
   // flags it loudly instead of silently dropping the case from the count.
-  const out = path.join("cases", `${caseId}.json`);
+  // Must land in the same directory as the successful answers — writing it
+  // to a cwd-relative "cases" instead left the real answer file untouched,
+  // so a failed case silently kept the previous run's result and validated
+  // clean.
+  const out = path.join(casesDir, `${caseId}.json`);
   mkdirSync(path.dirname(out), { recursive: true });
   writeFileSync(
     out,
