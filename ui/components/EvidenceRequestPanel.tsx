@@ -1,5 +1,6 @@
 import { MessageCircleQuestion } from "lucide-react";
 import type { AgentEvent } from "../lib/types";
+import { noRequestExplanation } from "../lib/evidenceRequests";
 import { EmptyState } from "./EmptyState";
 
 interface EvidenceRequestInfo {
@@ -62,7 +63,13 @@ export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
         <MessageCircleQuestion size={14} /> Evidence requests <span className="font-normal normal-case text-slate-400">({requests.length})</span>
       </h2>
       {requests.length === 0 ? (
-        <EmptyState title="No evidence requested" hint="R1/R3-tier requests (customer validation, step-up auth, analyst info) appear here." />
+        <EmptyState
+          title="No evidence requested"
+          hint={
+            noRequestExplanation(events) ??
+            "R1/R3-tier requests (customer validation, step-up auth, analyst info) appear here."
+          }
+        />
       ) : (
         <ul className="space-y-2">
           {requests.map((r) => (
@@ -83,7 +90,7 @@ export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
                 </p>
               ) : r.settled ? (
                 <p className="mt-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                  No reply: {r.response ?? "no response was received, and none was assumed."}
+                  {r.response ?? "Assumed: no response was received, and none was invented."}
                 </p>
               ) : (
                 <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">

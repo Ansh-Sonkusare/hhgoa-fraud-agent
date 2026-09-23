@@ -1,6 +1,21 @@
+import { Fragment } from "react";
 import { Layers } from "lucide-react";
 import type { EvidenceItem } from "../lib/types";
 import { EmptyState } from "./EmptyState";
+
+/** Pattern lists join with "/" and never wrap on their own; offer a break after each slash. */
+function breakAfterSlashes(text: string) {
+  return text.split("/").map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 ? (
+        <>
+          /<wbr />
+        </>
+      ) : null}
+      {part}
+    </Fragment>
+  ));
+}
 
 export function SimilarCasesPanel({
   evidence,
@@ -26,9 +41,9 @@ export function SimilarCasesPanel({
           {ids.map((id) => {
             const overlap = priorCaseEvidence.find((e) => e.entities.some((en) => en.id === id));
             return (
-              <li key={id} className="rounded border border-slate-100 bg-slate-50 p-2 text-sm">
+              <li key={id} className="rounded border border-slate-100 bg-slate-50 p-2 text-sm [overflow-wrap:anywhere]">
                 <p className="font-medium">{id}</p>
-                {overlap ? <p className="text-xs text-slate-500">{overlap.summary}</p> : null}
+                {overlap ? <p className="text-xs text-slate-500">{breakAfterSlashes(overlap.summary)}</p> : null}
               </li>
             );
           })}

@@ -1,108 +1,81 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Network } from "lucide-react";
-import type { AgentEvent, EvidenceItem } from "../lib/types";
+import type { AgentEvent } from "../lib/types";
+import { buildGraph, MAX_CARDS_PER_GROUP } from "../lib/neighborhoodGraph";
 import { EmptyState } from "./EmptyState";
 
 // react-force-graph-2d touches `window`/canvas at import time — must be
 // client-only and lazy, or `next build`'s server render pass crashes.
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
+const ForceGraphView = dynamic(() => import("./ForceGraphView"), { ssr: false });
 
-interface GraphNode {
-  id: string;
-  type: string;
-  label: string;
-  suspicious: boolean;
-}
-interface GraphLink {
-  source: string;
-  target: string;
-  label: string;
-}
-
-const NODE_COLOR: Record<string, string> = {
-  Card: "#2563eb",
-  Transaction: "#7c3aed",
-  Device: "#dc2626",
-  Customer: "#0891b2",
-  ClosedCase: "#64748b",
-  Case: "#334155",
-};
-
-function buildGraph(caseId: string, events: AgentEvent[]): { nodes: GraphNode[]; links: GraphLink[] } {
-  const nodes = new Map<string, GraphNode>();
-  const links: GraphLink[] = [];
-  const root: GraphNode = { id: `Case:${caseId}`, type: "Case", label: caseId, suspicious: true };
-  nodes.set(root.id, root);
-
-  const addNode = (type: string, id: string, suspicious = false) => {
-    const key = `${type}:${id}`;
-    if (!nodes.has(key)) nodes.set(key, { id: key, type, label: id, suspicious });
-    else if (suspicious) nodes.get(key)!.suspicious = true;
-    return key;
-  };
-
-  for (const event of events) {
-    if (event.type === "evidence_added") {
-      const ev = event.payload["evidence"] as EvidenceItem | undefined;
-      if (!ev) continue;
-      const suspicious = ev.category !== "customer_response";
-      for (const entity of ev.entities) {
-        const key = addNode(entity.type, entity.id, suspicious);
-        links.push({ source: root.id, target: key, label: ev.category });
-      }
-    }
-    if (event.type === "tool_result" && event.payload["tool"] === "find_shared_entity_rings") {
-      const rings =
-        (event.payload["rings"] as Array<{ shared_type: string; shared_id: string; card_ids: string[] }> | undefined) ??
-        ((event.payload["result"] as { rings?: Array<{ shared_type: string; shared_id: string; card_ids: string[] }> } | undefined)
-          ?.rings ??
-          []);
-      for (const ring of rings) {
-        const sharedKey = addNode(ring.shared_type, ring.shared_id, true);
-        for (const cardId of ring.card_ids) {
-          const cardKey = addNode("Card", cardId, true);
-          links.push({ source: sharedKey, target: cardKey, label: "shares " + ring.shared_type });
-        }
-      }
-    }
-  }
-
-  return { nodes: [...nodes.values()], links };
-}
+const HEIGHT = 380;
+const LEGEND: Array<[string, string]> = [
+  ["Case", "#334155"],
+  ["Card", "#2563eb"],
+  ["Device", "#ea580c"],
+  ["Address", "#0d9488"],
+  ["EmailDomain", "#f43f5e"],
+  ["Transaction", "#7c3aed"],
+  ["Customer", "#0891b2"],
+  ["ClosedCase", "#64748b"],
+];
 
 export function NeighborhoodGraph({ caseId, events }: { caseId: string; events: AgentEvent[] }) {
   const graph = useMemo(() => buildGraph(caseId, events), [caseId, events]);
+  const hasGraph = graph.links.length > 0;
+
+  // Measure the panel: the canvas must be sized to it, not to the window.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.floor(entry.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasGraph]);
+
+  const present = new Set(graph.nodes.map((n) => n.type));
 
   return (
     <div className="panel">
       <h2 className="panel-title">
         <Network size={14} /> Neighborhood graph
       </h2>
-      {graph.nodes.length <= 1 ? (
+      {!hasGraph ? (
         <EmptyState title="No connected entities yet" hint="Graph evidence (shared devices, rings, cards) appears here." />
       ) : (
-        <div className="h-96 w-full overflow-hidden rounded border border-slate-100">
-          <ForceGraph2D
-            graphData={graph}
-            nodeId="id"
-            nodeLabel="label"
-            nodeColor={(n) => {
-              const node = n as unknown as GraphNode;
-              return node.suspicious ? "#dc2626" : (NODE_COLOR[node.type] ?? "#94a3b8");
-            }}
-            nodeVal={(n) => {
-              const node = n as unknown as GraphNode;
-              return node.type === "Case" ? 8 : 4;
-            }}
-            linkLabel="label"
-            linkColor={() => "#cbd5e1"}
-            width={undefined}
-            height={380}
-          />
-        </div>
+        <>
+          <div ref={wrapRef} className="w-full overflow-hidden rounded border border-slate-100" style={{ height: HEIGHT }}>
+            {width > 0 ? <ForceGraphView graph={graph} width={width} height={HEIGHT} /> : null}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+            {LEGEND.filter(([type]) => present.has(type)).map(([type, color]) => (
+              <span key={type} className="inline-flex items-center gap-1">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                {type}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "#dc2626" }} />
+              flagged
+            </span>
+          </div>
+          {graph.hiddenCards > 0 || graph.hiddenEntities > 0 ? (
+            <p className="mt-1 text-xs text-slate-400">
+              Large shared groups are capped at {MAX_CARDS_PER_GROUP} cards for readability
+              {graph.hiddenCards > 0 ? `: ${graph.hiddenCards} more cards in those groups are not drawn` : ""}
+              {graph.hiddenEntities > 0 ? `; ${graph.hiddenEntities} more entities listed in the evidence are not drawn` : ""}
+              . Hover a node for details; the full lists are in Evidence used.
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   );
