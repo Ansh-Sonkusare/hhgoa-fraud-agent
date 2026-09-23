@@ -209,3 +209,407 @@ Several design/interpretation calls made while implementing `gsql/` (WS2), none 
 **Infra fix alongside this:** `graph/mcp-server/venv` (the tigergraph-mcp Python install) only existed in a disposable leftover worktree with a broken `pip` symlink, and — more importantly — had no `.gitignore` entry at all (a 79MB venv one `git add -A` away from being committed). Rebuilt cleanly in the main tree, added `graph/mcp-server/venv/` to `.gitignore`, and added a committed `graph/mcp-server/.env.example` (non-secret CE demo defaults) since `.env` itself stays gitignored per the existing blanket rule.
 
 **Verification:** `make test` green across all 9 workspace packages (367 tests, unchanged pass count from before this work — nothing regressed), `pnpm --filter @hhgoa/agent typecheck` / `@hhgoa/rag typecheck` / `@hhgoa/policy typecheck` all clean, and a full real run against the live graph + real dataset (HHG-001's trigger) produced a coherent `escalated`/`card_testing`/`fraud_probability: 0.89` result with real resolved entities, real transaction/ring/prior-case evidence, and a real RAG-backed `request_evidence` round — not canned fixture data.
+
+## 2026-09-21 — evidence-layer ring-size gate (the 2026-09-19 `MAX_PLAUSIBLE_RING_SIZE` decision above didn't fully close this)
+
+**Context:** user flagged that all 20 exported benchmark cases (`cases/HHG-*.json`) show `verdict: fraud`, with only two distinct `fraud_probability` values repeating across unrelated cards — implausible given the README's "half the cases are legitimate." Traced to `cases/HHG-001.json`'s own exported evidence still citing the 45-card device-profile ring as `card_testing`-supporting.
+
+**Decided — the evidence-generation path needed its own plausibility gate, separate from the transport-layer one.** Two caps already existed for shared-entity rings, at different layers and for different purposes: `mcpClient.ts`'s `MAX_PLAUSIBLE_RING_SIZE = 50` (drops sentinel/missing-value rings of 100+ cards before they reach the agent at all — the 2026-09-19 decision above) and `sharedOrigin.ts`'s `MAX_CORROBORATING_RING_SIZE = 10` (gates the *policy* decision, `shared_origin_connection`, requiring both a plausible ring size and independent corroboration). Neither reached `agent/src/evidenceBuilder.ts`'s `ringsEvidence()`, which built a `device_identity`/`supports: ["card_testing"]`/weight-0.65 item from *any* ring the transport layer let through — so an 11-to-50-card ring (past the sentinel filter, but well past the 10-card corroboration bar) still read as strong fraud evidence to the assessor and the LLM, even though the policy layer had already correctly decided it doesn't count as a `shared_origin_connection`.
+
+**Why this is a distinct decision from the 2026-09-19 one, not a reversal of it:** that entry decided a 45-card ring should not be dropped outright at the transport layer ("left as-is rather than tuned further without more evidence that it's actually noise"). This doesn't drop it — the fact is still reported. It stops the evidence builder from independently re-asserting "this supports card_testing" for a ring the policy layer already treats as uncorroborated noise, which is the inconsistency that was actually causing the skew.
+
+**Fix:** `ringsEvidence()` now imports `MAX_CORROBORATING_RING_SIZE` from `sharedOrigin.ts`. Rings ≤10 cards: unchanged (`supports: ["card_testing"]`, weight 0.65). Rings >10 cards: `supports: []`, weight 0.15, summary states the group is too large to be a specific fraud ring. Chose to reuse `sharedOrigin.ts`'s existing constant rather than introduce a third threshold, so the evidence layer and the policy layer agree on what "plausible" means by construction, not by two numbers happening to match.
+
+**Verification:** `pnpm --filter @hhgoa/agent typecheck` clean; `tests/ws4/*` 89/89 pass unchanged (the only existing ring-evidence test fixture uses a 2-card ring, below the new branch point). Regenerating the actual 20 case files to confirm the verdict mix improves needs a live TigerGraph, not available at decision time in this sandbox — queued as the next step.
+
+## 2026-09-21 — the real root cause of "all 20 = fraud": the assessor's structured-output schema was never shown to the local model
+
+**Context:** brought up `docker compose` (TigerGraph CE + mcp-server) and reran the full pipeline (`make verify-graph`, `make verify-gsql`, `pnpm --filter @hhgoa/eval run-benchmark -- --no-cache`) to check whether the ring-evidence fix above actually moved the verdict mix. It didn't: still 20/20 `fraud`, still only 2-3 distinct `fraud_probability` values repeating across unrelated cases.
+
+**Found, by direct arithmetic then confirmed by direct probe:** `cases/HHG-002.json`'s hypotheses (`0.846154`/`0.153846`) matched `agent/src/assess.ts`'s `fallbackAssessmentProposal()` formula exactly (`min(0.55, max(0.3, risk_score=0.79)) = 0.55`, normalized over `[0.55, 0.1]`). The real LLM's `structuredCall` (`agent/src/structured.ts`) was silently hitting its fallback on essentially every case — both the first attempt and the one repair retry were failing schema validation, with no thrown error (the fallback path is designed to be silent, PRD §13's "every run completes" guarantee), so the benchmark completed cleanly while quietly running on a deterministic formula the whole time. That formula, by construction, can **never** produce a `legitimate` verdict: the top fraud hypothesis is floored at 0.3 and the `legitimate` hypothesis is a fixed small residual — `evidenceTopPattern` only returns `null` (which would fall back to `"undocumented"`, still non-legitimate) when there's zero supporting evidence at all, which essentially never happens once any evidence has been gathered.
+
+**Root cause, confirmed by directly calling `OpenAiCompatLlmClient` with the real assessor prompt:** the model (`Qwen/Qwen2.5-7B-Instruct-GGUF:Q4_K_M` via local llama.cpp) returned syntactically valid JSON, but **flattened** — `{"fraud_type": [...], "probability": ..., ...}` at the top level — instead of the required `{"hypotheses": [{fraud_type, probability, ...}, ...], risk_level, ...}` shape. `agent/src/prompts.ts`'s `assessSystemPrompt()` described every field in prose but never showed the model the actual JSON structure, so a smaller/quantized local model (unlike a top-tier hosted one) had to guess the nesting and consistently guessed wrong.
+
+**Decided — fix the prompt, not the fallback.** Tightening the fallback formula to sometimes emit `legitimate` would have hidden the real defect (the LLM's structured output was never actually being used) behind a differently-biased guess. Instead, added an explicit example JSON object (concrete `hypotheses` array with two example entries) to `assessSystemPrompt()`. Re-probed directly: the model immediately returned schema-valid output with genuinely mixed probabilities.
+
+**Verification:** `pnpm --filter @hhgoa/agent typecheck` clean; `tests/ws4/*` 89/89 pass unchanged (they use `MockLlmClient`, not the real prompt text). Regenerated all 20 cases twice against the live graph: verdict mix went from 20/20 `fraud` → a genuine mix (12 fraud/3 legitimate/5 uncertain on the first rerun, 14/1/5 on the final clean rerun below) with per-case probabilities that actually vary. `make validate-answers`: PASS, 20/20.
+
+**Separate, real finding surfaced along the way (not fixed, documented as an operational constraint):** the two consecutive `--no-cache` reruns above (done to test this fix) caused `HHG-008`'s own answer to cite its *own* synthetic `graph_case_id` (`GRAPH-HHG-008`, written to the live TigerGraph by the first rerun via `agent/src/persistCase.ts`'s `upsert_case_record` call) as a `similar_prior_cases` entry in the second rerun — a case citing itself as precedent. Root cause: `persistCaseToGraph` writes a real `FraudCase` vertex with `p_opened_at`/`p_closed_at` set to the investigation's own `as_of`, so on a second run of the identical case, `find_prior_cases`'s `visible_from <= as_of` filter is satisfied by the case's own prior write (equal timestamps, not strictly future) rather than excluded by it. This is **not a fresh-graph problem** — running the benchmark once against a freshly loaded graph (`make verify-graph` + `make verify-gsql` before `run-benchmark`) cannot self-reference, since no prior write of that case_id exists yet. Confirmed: `make validate-answers` passed clean, 20/20, no self-reference errors, once the graph was reset and the benchmark run exactly once. **Operational rule going forward: always reset the graph (`make verify-graph` + `make verify-gsql`) before a `run-benchmark` pass intended to produce the graded answer set; don't rerun `run-benchmark` twice against the same live graph state.** A real code fix (excluding the querying case's own id from `find_prior_cases`/bumping `closed_at` past `as_of`) would be needed before the write-back path is safe for a live demo's repeated/re-triggered investigations — left as a follow-up, not done here.
+
+**Also found in this pass (infra, not code):** TigerGraph Community Edition's `discovery_report` and (once, on `HHG-004`) `upsert_case_record` intermittently abort with "System Memory in Critical state. Memory saving mode is only available for Enterprise Edition" under this host's ~15GB RAM budget when heavy whole-graph queries and write-backs run back-to-back. Handled gracefully by existing code (`persistCase.ts` catches the failure and reports `written_to_graph: false` honestly rather than crashing) — not a defect, just a resource ceiling of the free CE image worth knowing about if a live demo repeats heavy operations in quick succession.
+
+**Also fixed alongside this (config, not logic):** `gsql/vitest.config.ts`'s `testTimeout` was 30s; two tests (`community_lookup > synthesizes the community id...`, `discovery_report > discovered community ids and sizes agree with community_lookup`) make 2-3 sequential ~15-20s whole-graph query calls each, so their total runtime legitimately exceeds 30s even though every individual query call succeeds. Bumped to 90s, matching the precedent already set in `eval/vitest.config.ts` for the same class of "real dataset is just slow" test. Verified: both tests pass in isolation and as part of the full `make test` run (9/9 packages green).
+
+## 2026-09-22 — rejected: deriving `fraud_probability` from evidence weights instead of asking the model
+
+**Context:** seven measured iterations established that the local model does not calibrate — it selects `fraud_probability` from whatever numbers appear in its prompt (14 of 20 cases took their value verbatim from prompt text; removing every numeral just moved it to round values on a 0.05 grid). `fraud_probability` is explicitly scored for calibration per the README, so this is a real weakness, and the obvious remedy is to stop asking the model for the number and compute it from the `weight_hint` values the evidence pipeline already carries.
+
+**Built it, then reverted it.** The implementation forced three successive judgment calls, each individually defensible and collectively damning:
+1. Naive summing of supporting weights let HHG-011's 240 ring items swamp an explicit cardholder confirmation — the exact "many weak items = conviction" fallacy the assessor prompt warns the *model* against. Switched to one item per independent evidence category.
+2. Any hypothesis the evidence was silent on then scored exactly 0, handing the leader **precisely 1.00**. Added a smoothing prior.
+3. Three existing tests failed, and reading them showed the failure *was* the point: `"verdict follows the probability bands"` asserts that when the assessor says 0.2, the case reads legitimate. The change let evidence weights override the model's stated judgment and flip it to fraud.
+
+**Decided to keep the model's number.** The end state was a hand-tuned scoring function — arbitrary weights, an arbitrary category rule, an arbitrary prior — replacing one unvalidatable number with another, while breaking documented behaviour. There is no answer key for the 20 cases (README: "We score them against an answer key you don't have"), so I could not demonstrate the replacement was *better*, only different. Shipping it would have been motion disguised as progress.
+
+**What would earn this change:** `eval/backtest.ts` against `closed_cases_history.csv`'s known `confirmed_fraud`/`cleared` outcomes is the only ground truth available to this project, and it has still never been run. A scoring function tuned and validated against that backtest would be defensible; one tuned against a distribution I merely *feel* is wrong is not. Recorded as the next real step for calibration work.
+
+## 2026-09-22 — `shared_rings` gained `min_ring_size` and `window_days`; the seed card is always in its own ring
+
+**Context:** HHG-011's answer file came back at 3.3MB with 1486 evidence items, of which **420 were "rings" containing no card other than the seed** — i.e. devices nobody else had ever used, reported as *"shares device profile X with 1 other cards"* (itself an off-by-one, since `card_ids` includes the seed). The query had no minimum group size and no recency bound, so it returned every device/address/email the card had ever touched rather than, as the README puts it, entities "shared across many cards **in a short window**".
+
+**Decided to filter in GSQL, not in the client.** The recency bound can only be applied where `first_ts` is available, and shipping 1355 groups over the wire to discard 375 of them client-side is waste. `min_ring_size = 2` (the seed plus at least one other card — a group of one is not a ring) and `window_days = 30`, with `0` disabling the window, matching `txn_history.gsql`'s existing convention for `window_hours`. The 30-day default follows the README's own worked example, where a device profile "appears on a closed case from August and on another card this month". Measured on HHG-011's card: 1355 groups → 250, all 375 seed-only groups gone.
+
+**Note this is filtering, not evidence-cutting.** An earlier attempt in the same session to cap ring *evidence items* for prompt space was correctly rejected by the user — ring breadth is signal the README explicitly calls out, and it is scored content in the answer file. The distinction: dropping a group that contains only the seed card removes a degenerate non-result; truncating genuine multi-card rings to fit a context window destroys information. The context window was enlarged instead.
+
+**Bug in the first version, caught by `tests/ws2/txnAndNeighborhood.test.ts`:** the recency filter was applied on the traversal *back* from the shared entity to all cards, which includes the seed card's own edge — so any card that had used a device for longer than `window_days` was silently filtered out of its own ring. Each group is now seeded with the seed card explicitly, bounded by `as_of` only, and the window governs solely which *other* cards join it. That is also the better reading of the hint: a ring is interesting because other cards **converged recently**, not because the seed did.
+
+## Simulated cardholder replies are evidence, not an oracle (2026-09-22)
+
+**Context.** `docs/DATASET_README.md` §5 (lines 159, 271) states that cardholder
+and analyst replies "are not provided" and instructs each team to *simulate* the
+response and record the assumption in `evidence_requests`. Our simulator
+(`policy/src/evidence.ts`) picks between two documented outcomes with
+`sha256(type, target.type, target.id, reason) & 1` — deliberately not a function
+of any hidden fraud label (there is none in the dataset, PRD OQ11). That part is
+correct and stays.
+
+**Problem.** The fabricated reply was then treated as ground truth in two places
+at once:
+
+1. `agent/src/prompts.ts` told the assessor to calibrate to `0.15-0.4` when "the
+   activity fits the cardholder's history, **or they confirmed it**", and
+2. `agent/src/machine.ts:computeVerdict` applied the same reply *again* as an
+   absolute veto (`confirmed` → `legitimate` unless `topProb >= 0.85`).
+
+So a coin flip was counted twice, the second time as an override. Measured on a
+35-case backtest (29 confirmed fraud): every confirmed-fraud case that drew a
+scripted "customer confirms" closed `legitimate` — 6 of 6 — accounting for 6 of
+the 8 false negatives. One of them (CC-4225) had 159 evidence items and another
+(CC-5475) 105; all of it was discarded by the flip. Five false negatives filed a
+probability of *exactly* 0.400, the top of the band the prompt names, which is
+the fingerprint of the first half of the double-count. The control group settles
+it: of the 21 fraud cases where no reply was drawn, 19 were caught (90% recall)
+against 0 of 4 where a confirmation was.
+
+**Decision.** The reply stays simulated and documented, but is weighed as one
+ordinary signal rather than as proof:
+
+- the `or they confirmed it` clause is gone from the calibration band, and the
+  prompt now states plainly that a reply is a simulated assumption which on its
+  own must not overturn graph evidence;
+- `computeVerdict` decides on the probability bands. A *denial* can still
+  promote the uncertain band to `fraud` and downgrades a near-exculpatory
+  clearance to `uncertain`, but a confirmation no longer vetoes anything.
+
+**Why this is not gaming the benchmark.** We are not reading the label — the
+simulator still cannot see it. We are declining to let a figure our own system
+invented outrank evidence read from the graph. README's own worked example
+(line 420) treats a reply as a probability *update* — "Customer denial raised
+probability from 0.72 to 0.86" — not as an override, so this is closer to the
+spec than the veto was. Policy rules R2/R3 continue to key off
+`customer_denied` / `customer_confirmed` for *actions*, which is where the
+README puts them.
+
+**Known limitation.** Because the reply is uncorrelated with truth by
+construction, it can only add noise. Weighing it at all costs some accuracy;
+weighing it as an oracle cost 6 of 8 false negatives. If the graders supply real
+replies, `DatasetResponder` is the seam to fill in.
+
+## Lookback window widened to 168h (2026-09-22)
+
+Cases are opened *after* the fraud episode has run, not during it. Across the
+4665 confirmed-fraud closed cases the oldest fraud transaction is a median 22h
+old at `opened_at`, but p95 is 109h. A 72h sweep fully covers 89.8% of cases;
+168h covers 97.8%. No case has zero fraud transactions inside 72h, so this is a
+recall fix for `affected_txn_ids`, not a verdict fix. CC-1275 was the case that
+exposed it: 13 fraud transactions spanning 07-18 to 07-26 with `as_of` at 07-27,
+of which a 72h window saw 4.
+
+## Multi-stage prompting before Kev; main-LLM context lowered to share the GPU (2026-09-22)
+
+**Decision.** Build the multi-stage prompt flow first and iterate on it. Add Kev
+only if the staged flow still under-performs. When Kev is added, lower the main
+LLM's context window so both models fit in GPU memory at once.
+
+**Why staged prompting first.** `agent/src/prompts.ts` defines seven prompt
+builders and only one is reachable:
+
+| builder | call sites |
+| --- | --- |
+| `assessSystemPrompt` | 1 (`machine.ts:236`) |
+| `systemPrompt` | 0 |
+| `investigatorPrompt` | 0 |
+| `triageSystemPrompt` | 0 |
+| `calibrateSystemPrompt` | 0 |
+| `evidencePlannerSystemPrompt` | 0 |
+| `explainerSystemPrompt` | 0 |
+
+`TRIAGE_JSON_SCHEMA` (`assess.ts:122`) is likewise defined and never used. The
+whole agent is therefore a single assessor call, and the staged flow the code was
+clearly designed for — triage, investigate, plan evidence, assess, explain — was
+never wired up. Two judging criteria reward exactly what is missing: *Agentic
+design and engineering* (15%) covers workflow orchestration and tool use, and
+*Innovation* (15%) covers agentic capability. Wiring the existing builders is
+cheaper than adding a new runtime dependency, so it goes first.
+
+A trap this dead code already set: an earlier fix in this session edited
+`calibrateSystemPrompt` to realign its numeric probability bands with
+`FRAUD_VERDICT_THRESHOLD` (0.7) and to delete "or they confirmed it" from the low
+band. That function is never called, so the edit changed nothing, and the live
+`assessSystemPrompt` still carries the prose form of the same "or they confirmed
+it" clause. It is currently inert only because `SimulatedResponder` no longer
+fabricates a confirmation. **Before editing a prompt, confirm it has a call
+site.**
+
+**Why Kev is a real option and not a detour.** `github.com/jaredpalmer/kev` is a
+family of fine-tunable decision models ("a tiny Jev-like family of decision
+models built on top of Qwen3.5"), sized 0.8B/4B/9B, rank-16 LoRA plus a small
+pointer head, Python with a REST server. It answers `choice`, `noul` (binary) and
+`score` questions and returns a probability distribution over the options. The
+hackathon organiser (Devanshu, TigerGraph DevRel, Discord) confirmed such models
+are allowed: "Great for routing and scoring inside your agent, but you will still
+need an LLM for the actual answers." So Kev may classify and score; the LLM must
+still produce case summaries, SAR narratives and explanations.
+
+It targets a measured weakness. The 20-case leak-free backtest of 2026-09-22
+produced this `fraud_probability` distribution:
+
+```
+0.65 x7   0.75 x3   0.55 x2   0.60 x2   0.619048 x2
+0.45 x1   0.47619 x1   0.590909 x1   0.46875 x1
+```
+
+`0.65` appears seven times, one notch below the 0.70 fraud threshold, so 17 of 20
+verdicts land on `uncertain`. There is no clamp doing this —
+`machine.ts:reconciledProbability` only adjusts on a cardholder denial or
+confirmation, neither of which now occurs — it is a 7B general model anchoring on
+round numbers instead of calibrating. A decision model returning a distribution
+over {five patterns + legitimate} addresses that directly, where more prompt text
+has already failed to.
+
+**Why the main LLM's context must shrink.** The host has 15 GiB total. TigerGraph
+holds ~2.4 GiB steady (and needs far more transiently: `community_components` and
+`discovery_report` failed twice with "System Memory in Critical state" until
+llama-server was stopped). llama-server at `-c 16384` holds ~5.5 GiB. Kev must
+fit alongside, so the plan is to lower `-c` for the main LLM rather than swap
+models in and out per call, and to prefer Kev 0.8B over 4B/9B. The assessor brief
+is the binding constraint on how far `-c` can drop: `.env` notes at least
+`-c 16384` for a ~13k-token brief, so shrinking context requires shrinking the
+brief (staged prompting helps here, since each stage sees less than one
+monolithic brief).
+
+**Status when recorded.** Leak-free 20-case backtest: pattern exact 8/17 = 47.1%
+(8/14 = 57.1% excluding the three `undocumented` cases, which are unpredictable
+by design); false negatives 0/17, down from 27.6%; false positives 3/3 cleared
+cases escalated, which is the open problem and worse than the 50% before. Recall
+is solved; discrimination is not.
+
+## Assessor stage count: single-stage is the default, two-stage is a measured switch
+
+**Decision.** `ASSESSOR_STAGES` defaults to `1` (one structured call that
+classifies and calibrates together). `2` (triage with no numbers, then
+calibration over the survivors) stays implemented and selectable, but is not
+the default.
+
+**Evidence.** Same leak-free 20-case sample, same evidence encodings, same
+model (Qwen2.5-7B Q4_K_M):
+
+| | single-stage (iter 1) | two-stage (iter 1b) |
+|---|---|---|
+| pattern exact (confirmed fraud) | 8/17 = 47.1% | 3/17 = 17.6% |
+| false negatives | 0/17 | 6/17 |
+| decision agreement | 85% | 60% |
+| cleared escalated | 3/3 | 2/3 |
+| latency / case | ~24s | ~31s |
+
+Two-stage was introduced to break the single-call hedge (7 of 20
+probabilities on exactly 0.65). It did break it, at the cost of the judgement
+itself.
+
+**Why two-stage failed, mechanically.** Two failure paths, both structural:
+
+1. Triage could delete every fraud hypothesis. `renderTriageForCalibration`
+   kept only `fits=true` candidates; on a thin brief the 7B marks all fraud
+   patterns `fits=false` and `legitimate` `fits=true` (the exculpatory items
+   give it something to cite). Calibration then never saw a fraud
+   alternative, `finalizeAssessment` read `topFraud?.probability ?? 0`, and
+   the case filed `legitimate`/`none` at probability exactly 0. CC-2247 and
+   CC-2673 did this with 325 and 313 evidence items and recommended
+   `ALLOW_TRANSACTION` + `CLOSE_NO_FRAUD` on confirmed card_testing. Fixed by
+   always handing calibration the best-supported fraud candidate (flagged
+   as un-endorsed); kept, because it is correct for `stages=2` and inert for
+   `stages=1`.
+2. Classification got worse when split. Judging each pattern "on its own
+   merits" (the triage instruction) removed the comparison a single pass
+   makes implicitly; `account_takeover` became the magnet (4 predictions, 1
+   right) and `out_of_region_use` was read as takeover twice. This is not a
+   prompt-wording problem — it is that a 7B model makes a comparative
+   judgement worse in pieces than in one pass.
+
+**What was kept from the two-stage iteration.** Everything independent of the
+split: honest exculpatory encodings (why cleared escalation fell 3/3 → 2/3),
+email rings demoted to descriptive (README line 75: domains, not identity),
+MCP/LLM call timeouts, and the triage guard above.
+
+**Consequence to accept.** The 0.65 hedge that two-stage was meant to fix is
+back. It is the lesser problem: it costs discrimination on cleared cases (the
+"escalate everything" behaviour), not false negatives on confirmed fraud.
+The next lever for the hedge should be on the evidence/encoding side or a
+dedicated scoring model (Kev, per the plan), not another split of the
+assessor call.
+
+**Not chosen.** Lowering the 0.4 `legitimate` threshold to recover the
+two-stage false negatives — that trades them back for false positives, and
+moves the line instead of fixing the evidence.
+
+## Detector thresholds come from the measured gold shape, not the policy text's literal numbers
+
+**Context.** `docs/DATASET_README.md` describes card testing as "three or more tiny
+online authorizations, often under $5, then a larger purchase" and policy R5 says
+"within an hour". Implementing R5 literally (`< $5`, span `<= 1h`, then `> $100`)
+made `detect_patterns` fire on **0 of 16** gold `card_testing` cases: measured over
+the 48h before `opened_at`, "under $5" holds for 2/16, "under $10" for 10/16, and
+no case has its small authorizations inside one hour — they spread across the two
+days. Two of the four follow-on purchases are between $50 and $100. Likewise the
+account-takeover gate required mixed online+in-person activity and a match-flag
+failure spike against the card's own prior baseline; measured on 120 gold cases,
+the spike fires on 4 (90 open with no prior window to baseline against) and mixed
+channel is 51% on gold vs 48% on cleared — no signal.
+
+**Decision.** Detector bars are set to the measured shape of the labelled cases and
+the deviation from the rule text is stated in the query comments and
+`docs/TX_FLAGGING_CRITERIA.md`:
+- `card_testing`: `>= 3` online `< $10` in the 48h episode -> 0.55; a `> $50` online
+  purchase after the last of them -> 0.9. The sequence ("followed by") is kept; the
+  one-hour span is not applied.
+- `account_takeover`: match-flag failure rate `>= 1.0` per transaction over 7d with
+  `>= 3` failing transactions -> 0.8 (71% gold / 26% cleared); any `>= 2` failures
+  -> 0.45. No channel requirement, no baseline requirement.
+
+**Why this is legitimate.** The policy rules are the *analyst's* action thresholds
+(R5 says what to do when card testing is seen); the detector's job is to recognise
+the pattern as it actually occurs in this data. A detector that matches the text
+and misses every labelled instance is not faithful to the spec — the spec's own
+pattern definition ("often under $5") already signals the number is illustrative.
+The labelled cases are prior history, temporally before every benchmark case, so
+measuring them is case memory, not leakage.
+
+**Consequence.** Score tiers are unchanged (`tests/ws2/detectors.test.ts` pins
+them), so the tier test still guards drift. Iteration-3 confusion matrix motivated
+this: `card_testing -> card_not_present_fraud` 3/3 and `account_takeover` 0/3.
+
+## Keep the `undocumented` ring gate at ≥80% anonymous-proxy uses (iteration 10)
+
+Two benchmark-sample `undocumented` cases (CC-3907, CC-4124) are missed: their flagged device is
+shared by 5 and 14 cards but has **zero** anonymous-proxy uses, so the ring rule never fires.
+Measured over all 9 closed `undocumented` cases and ~300 sampled per other pattern
+(30-day device window ending at `as_of`):
+
+| rule | undocumented | cnp_fraud | cnp_new_device | account_takeover | card_testing |
+|---|---|---|---|---|---|
+| ≥5 cards & ≥80% anon-proxy | **4/9** | 0/290 | 0/292 | 0/25 | 0/16 |
+| ≥5 cards | 8/9 | 221/290 | 240/292 | 21/25 | 14/16 |
+| ≥5 cards & ≥30% new | 8/9 | 140/290 | 203/292 | 16/25 | 10/16 |
+
+The proxy rule is the only one with any precision (100%). The non-proxy undocumented rings are
+shaped exactly like ordinary card-not-present rings, which are ~2,500× more common, so loosening
+the gate would label hundreds of CNP cases `undocumented` to catch five. Decision: keep the gate;
+accept those five as undetectable from the graph. The assessor may still call them CNP fraud,
+which is the right family.
+
+## Kev as the pattern scorer: what it is asked, what it sees, what it learns from (2026-09-23)
+
+**Trigger.** Iterations 11b, 12 and 12b missed the Kev bar (pattern 41.2% each, cleared 3/3).
+
+**It answers one question: which of the five documented patterns.** Not fraud-vs-legitimate. In
+`closed_cases_history` every cardholder dispute (4,665) was confirmed fraud and every model alert
+(900) was cleared, so a model trained to separate fraud from legitimate there learns the trigger
+kind. For the same reason the state leaves out the dispute text (`customer_response`) and the R7
+line (runs only on disputes). The LLM keeps the fraud-vs-legitimate judgement.
+
+**`undocumented` is not an option.** One undocumented case closed before the cutoff. The existing
+graph gate (anonymous-proxy ring) still names it; `applyKevPatternScore` leaves an `undocumented`
+hypothesis's mass untouched.
+
+**Temporal split, not the backtest's stratified holdout.** A trained model carries every case it
+learned from. Under the stratified split it would learn outcomes of cases that closed after the
+as_of of cases it is scored on, which PRD §8.1 forbids. Train = confirmed fraud closed before
+2016-09-01; eval and the end-to-end backtest (`BACKTEST_FROM`) = opened on or after it. The
+backtest sample therefore changes from iterations 1–12b, so the current pipeline without Kev is
+re-measured on the new sample before comparing.
+
+**How Kev's answer enters.** `applyKevPatternScore` keeps the LLM's documented-pattern mass D and
+splits D by Kev's distribution; `legitimate` and `undocumented` are unchanged, so fraud probability,
+verdict and risk level are exactly the LLM's. Every narrative field is templated from the final
+assessment, so summary, SAR and explanation name Kev's pattern consistently. Organiser's rule
+(Devanshu): such models are fine "for routing and scoring inside your agent, but you will still need
+an LLM for the actual answers" — Kev scores, the LLM judges fraud and the answer is built from that.
+
+**One renderer for training and inference.** `renderKevState` builds the state from the same
+EvidenceItems the assessor sees; the export stores raw evidence so a renderer change re-renders
+instead of re-gathering.
+
+## RAG similarity scored by TigerGraph; eligibility stays in TypeScript (2026-09-23)
+
+`RAG_VECTOR_BACKEND=tigergraph` makes `retrieve_policy` and `retrieve_similar_cases` take their
+cosine from the installed `vector_search` query over `PolicyChunk.embedding` / `FraudCase.embedding`.
+The graph scores **every** case (`apply_as_of=false`) and `scoreSimilarCases` applies `visible_from
+<= as_of` and the resolved-outcome rule as before. Reason: agent-written memory records are keyed by
+the run's case id while their graph vertex is `GRAPH-<id>`, whose closed_at is the epoch default
+unless the case closed, so a graph-side as_of filter would silently disagree with the tested local
+one. An eligible record with no graph embedding throws (run `sync-graph`) rather than dropping out.
+Local JSON stores remain the source of record text; the graph is the similarity index.
+
+## R1 single-signal guard caps the fraud probability in code (2026-09-23)
+
+docs/DATASET_README.md R1: "If the case rests on a single signal (including a risk score alone) and
+your assessed fraud probability is below 0.70, recommend VERIFY_WITH_CUSTOMER or STEP_UP_AUTH before
+any block." The local assessor defeated the premise: on cleared alert CC-0037 it put p = 1.0 on one
+detector hit weighted 0.33, so the probability never fell below 0.70 and R1 never ran.
+
+Decision: `agent/src/singleSignal.ts` counts independent fraud signals as distinct evidence
+categories holding a fraud-supporting item with weight > 0.2 (pattern-shape items excluded — they
+say which pattern, not whether fraud). With at most one, fraud mass is scaled to 0.69 (just under the
+fraud line), keeping relative pattern weights, and the cap is recorded on `assessment_updated`.
+This follows PRD §9.3 "LLM proposes; assess.ts enforces". It is a rule about evidence diversity taken
+from the policy text, not a threshold tuned to the benchmark: the 0.70 comes from R1 itself.
+Trade-off: a real fraud with one strong signal is now verified before being blocked, which is what
+R1 asks for.
+
+## Pattern 3 is decided by the device flag, in code (2026-09-23)
+
+docs/DATASET_README.md defines card_not_present_new_device as CNP fraud "with the identity record
+marking the device as New for this account". When the flagged online charge is New and the assessor
+names plain card_not_present_fraud, `agent/src/patternRules.ts` moves that mass to the new-device
+pattern (never changes the fraud total or verdict). Held-out check: the New-device shape appears on 0 of
+400 plain-CNP cases. The reverse (known device → plain CNP) is *not* enforced: 19% of new-device cases
+are flagged on a known device with other New-device charges in the case.
+
+## Community incidence is compared with the history at the same as_of (2026-09-23)
+
+A community's confirmed-fraud share of closed cases votes fraud only when it exceeds the share over all
+cases closed by as_of (both computed in `community_lookup.gsql`, temporally filtered). The population
+figure is not printed in evidence, to keep outcome base rates out of the assessor's context.
+
+## Amount-structuring burst is `undocumented`, but R9's action triple needs "across customers" (2026-09-23)
+
+**Context.** Gap analysis (subagent, read-only) found the 9 closed `undocumented` cases form two
+clusters. Cluster A (cross-card anonymous-proxy device ring) was already detected. Cluster B — per
+the analyst notes of the three design-set cases outside the 50-case backtest ("four online purchases
+within forty minutes, each just under $500") — had no detector, so CC-3907/CC-4124 were filed as
+`card_not_present_new_device`.
+
+**Decision.** New `detect_patterns` block emits `undocumented` for ≥4 online charges inside one hour,
+every one in [$400, $500), no other online charge interleaved, amounts spread ≥ $5. Designed on the
+3 design-set cases only (3/3); 0 of 33 closed cases whose episode could fit the band fire, 0 of 900
+cleared. The test-set pair (CC-3907, CC-4124) was checked only after the signature was fixed: both
+match; CC-3035 (cluster A) correctly does not. Evidence weight 0.59 = 3/3 shrunk toward 0.35 with k=5
+(design-set n only). The label gate (`resolvePatternLabel`) now accepts either graph finding.
+
+**R9 scoping.** DATASET_README R9: "coordinated or repeated abuse **across customers**, recommend
+`CREATE_CASE`, `FILE_REPORT`, and `ESCALATE_TO_ANALYST`". The burst is on one card, so R9's triple
+now fires only for cross-customer findings (the proxy ring, or a `coordinated` detector). The burst
+still counts for §3a's report test ("the pattern is coordinated or undocumented"), so a strongly
+suspected burst gets CREATE_CASE + BLOCK_CARD + FILE_REPORT via R2/§3a — which is also exactly the
+`actions_taken` on the three design-set cases. The §3a FILE_REPORT reason now names its real ground
+(shared origin / undocumented / exposure > $1,000) instead of always quoting the shared-origin text.

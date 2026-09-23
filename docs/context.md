@@ -91,11 +91,41 @@ With WS2 in `main`, `agent/src/agentFactory.ts`'s `TOOLS_BACKEND=real` throw (pr
 
 `make test` green across all 9 workspace packages (367 tests), no regressions.
 
-## Next up
+## Current state (2026-09-23 — supersedes the dated sections above, which are history)
 
-In dependency order (see `docs/todo.md`'s STEP 2 recheck section for full per-workstream status):
+**Stack as running now**
+- LLM: local llama.cpp `llama-server`, **Qwen2.5-7B-Instruct Q4_K_M**, `-ngl 99 -c 16384 --load-mode none
+  --cache-ram 0` (`/tmp/hhgoa-run/llama.sh`). `--cache-ram 0` is load-bearing: the default 8 GiB host
+  prompt cache starved TigerGraph (iteration 12 postflight failure). Assessor calls are temperature 0 +
+  JSON-schema constrained; the 7B's pattern pick is still sensitive to small input-text changes.
+- Graph: TigerGraph CE 4.3.0-rc1 (docker `hhgoa-tigergraph`, REST :9000), full real load, all GSQL
+  queries installed (`pnpm --filter @hhgoa/gsql install-queries`). `get_entity_profile` txn branch now
+  returns `ts`; `community_lookup` returns `n_cases` + `population_confirmed_fraud_rate`.
+- RAG: similarity scored in TigerGraph `vector_search` when `RAG_VECTOR_BACKEND=tigergraph` (29
+  PolicyChunk + 5,565 FraudCase embeddings synced via `pnpm --filter @hhgoa/rag sync-graph`).
+- Pattern scorer: **Jev** (TypeSafe hosted, `PATTERN_SCORER=jev`, key in `.env`) re-splits the documented
+  pattern mass; the LLM still owns fraud-vs-legitimate and writes every narrative. Kev (local) is wired
+  but untrained; its export (`.cache/kev/`) stopped at 1,419/1,584 train states.
+- Code guards after the assessor: `patternRules.ts` (New device ⇒ pattern 3), `singleSignal.ts` (R1:
+  one independent fraud signal ⇒ fraud mass capped at 0.69 so verification precedes any block).
 
-1. **Plug the live agent into the API (WS6)** — `api/src/runSource.ts` is `FixtureRunSource` only; needs a `RealRunSource` (or similar) that drives `agent/src/machine.ts`/`agentFactory.runAgent` for real, env-gated, so the 20 case-pack benchmark cases get investigated instead of replayed from fixtures.
-2. **WS7 `eval/`** — not started (`package.json` stub only, no `cases/`, Makefile `run-case`/`run-all`/`validate-answers` are stubs). Needs #1 done first (needs real agent runs to evaluate against the graded answer format).
-3. **WS8 `submission/`** — not started (demo script, write-up). Last, depends on the above actually working end-to-end.
-4. Separately, still open: WS3's own DoD row ("memory write visible in graph") — `rag/`'s vector store is a local adapter, not graph-native; blocked on a WS1→WS2 REQUESTS.md item. `get_wide_features` (local DuckDB) also has no real implementation yet (currently throws under `TOOLS_BACKEND=real`).
+**Measured (backtest on closed cases, leak-free replay at opened_at)**
+- Iteration 17, 20 cases: patterns 10/17 = 58.8%, 0 FN, cleared escalated 1/3.
+- Iteration 17, 50 cases: patterns 32/42 = 76.2% (22/25 on the 30 not iterated on), 0 FN,
+  cleared 4/8 escalated / 3/8 blocked. Chain scripts and logs: `/tmp/hhgoa-run/chain_iter*.sh|log`,
+  scorer `/tmp/hhgoa-run/score.py`.
+- Confound to remember: in the history every dispute is confirmed fraud and (nearly) every model alert
+  is cleared, so the backtest cannot exercise "model alert that is fraud"; fixes must never key on
+  trigger kind.
+
+**In flight / next**
+1. Gap analysis by three read-only subagents (cleared alerts, pattern misses, undocumented) →
+   implement → tests → one 50-case run (`docs/logs.md`, "Gap analysis dispatched").
+2. Regenerate the 20 benchmark answers with the final setup; `make validate-answers`.
+3. Refresh `submission/BLOG_POST.md` + `demo_script.md`; demo video and social post outstanding.
+4. Working tree has many uncommitted changes (and the root `README.md` deleted — not by Claude);
+   commit when the user asks.
+
+**Operational rules**: clear `GRAPH-HHG-*` FraudCase vertices before a graded benchmark pass;
+`make verify-graph` drops everything, so `make verify-gsql`/install-queries must follow it; never
+start a measurement run while changes are still landing; preflight needs MemAvailable ≥ 3 GB.

@@ -27,4 +27,19 @@ What's needed: WS3 (`rag/`) currently runs against a clearly-marked local adapte
 Why: PRD §11's hybrid retrieval step 2 ("GSQL expansion from seed chunks to patterns, required evidence, permitted actions, linked prior cases") and the graph side of "memory write visible in graph" (DoD) both require WS1's loaded schema. WS3's adapter keeps the mocked behavior, including the vector-store `as_of` visibility rule, bit-identical so the swap is mechanical.
 
 Blocking: no for WS3 standalone (local adapter is complete and tested); yes for the graph-native RAG/memory write-back rows of WS3's DoD.
-Resolved: (leave blank until actioned)
+Resolved: partially actioned in commit <COMMIT> (see caveats below — the parts that can break this TigerGraph CE 4.3.0-rc1 build are delivered; the parts that cannot are documented rather than faked).
+
+**What was delivered**
+
+- Items 1-2 (vertex shapes), 3 (edges): the schema-side half was already present when this request was written — `PolicyChunk(id, text, source_doc, pattern_id, embedding LIST<DOUBLE>)` and `FraudCase` with `id, status, verdict, fraud_probability, pattern, pattern_description, exposure_usd, opened_at, closed_at, outcome, summary, source, report_filed, analyst_notes, first_fraud_txn_id, n_txns, embedding`; all five requested edges exist (`DESCRIBES`, `REQUIRES_EVIDENCE`, `SIMILAR_TO`, `ABOUT`, `MATCHES_PATTERN`). See `graph/schema.gsql`.
+- Item 4: `gsql/queries/vector_search.gsql` (installed `vector_search(vertex_type, query_id, k, pattern_id, as_of, apply_as_of, outcome)`): cosine top-k (unit-vector-safe true cosine, `HeapAccum`, `O(N log k)`) over `PolicyChunk` (optional exact `pattern_id`) or `FraudCase` (visible-from equivalence: `apply_as_of=true` keeps `closed_at > epoch && closed_at <= as_of`, which drops open cases — verified 192/5585 `FraudCase`s are open/epoch on the live graph; optional `outcome`).
+- Item 4b: `gsql/queries/get_pattern_profile.gsql` (installed): Pattern fields + `required_evidence` via `REQUIRES_EVIDENCE`.
+- Item 5: `docs/MCP_TOOLS.md` now lists both new tools.
+
+**Caveats / what this CE build cannot do (verified empirically, not assumed)**
+
+- *(Superseded 2026-09-23: a list param CAN be used once copied into a `ListAccum` by a top-level `FOREACH`; `vector_search` now takes `qvec` + `scores_only`, and `rag/src/store/tigergraphIndex.ts` scores policy chunks and case memory in the graph with embeddings synced by `pnpm --filter @hhgoa/rag sync-graph`. Original caveat kept below for history.)* `vector_search` reads the query vector from a seeded vertex's `embedding` ATTRIBUTE (`query_id`), not from a `LIST<DOUBLE>` query param: GSQL rejects every method call on a list parameter ("identifier ... of type list parameter is invalid to call any function"). WS3's `TigerGraphVectorStore` already owns chunk/case embeddings, so it upserts the query embedding once (its `upsert`) then searches.
+- `ALTER VERTEX … ADD ATTRIBUTE` is unsupported on this build (also `CREATE GRAPH` re-runs), so the extra record fields the request lists (`source_kind`, `heading_path`, `token_count` on `PolicyChunk`; `customer_id`, `card_id`, `connected_card_ids`, `visible_from`, `summary_text`, `fingerprint` on `FraudCase`) CANNOT be added in place — they need a full `DROP ALL` + reload via `make verify-graph`, which WS1 will do with WS3 before the graph-native swap. `visible_from` is already covered as `closed_at` + the epoch rule above.
+- `permitted_actions` is NOT graph-backed (no Pattern attribute stores it). WS3 keeps that mapping in `rag/src/patterns.ts` and expands it locally (`retrieve.ts`); `get_pattern_profile` is the graph half (identity + `REQUIRES_EVIDENCE`), documented rather than dropped.
+
+Tests: `tests/ws2/vectorSearch.test.ts` (8 tests, live REST, self-upserting/cleaning synthetic rows) — run via `pnpm --filter @hhgoa/gsql verify`.

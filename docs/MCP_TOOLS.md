@@ -22,9 +22,11 @@ This still requires the TigerGraph container running separately (`docker compose
 | `compute_velocity` | `tigergraph__run_installed_query` | `sample_card_velocity` (WS1, sample) | `run_installed_query({query_name:"sample_card_velocity", params:{card_id, as_of, window_hours}})` |
 | `find_shared_entity_rings` | `tigergraph__run_installed_query` | `sample_link_analysis` (WS1, sample) + `gsql/` (WS2) | `run_installed_query({query_name:"sample_link_analysis", params:{card_id, as_of}})` |
 | `get_baseline_deviation` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"baseline_deviation", params:{...}})` |
-| `detect_patterns` | `tigergraph__run_installed_query` | `gsql/detectors/` (WS2) | `run_installed_query({query_name:"detect_patterns", params:{...}})` |
+| `detect_patterns` | `tigergraph__run_installed_query` | `gsql/queries/detect_patterns.gsql` (WS2) | `run_installed_query({query_name:"detect_patterns", params:{...}})` |
 | `get_community` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"community_lookup", params:{...}})` |
 | `find_prior_cases` | `tigergraph__run_installed_query` | `gsql/` (WS2) | `run_installed_query({query_name:"find_prior_cases", params:{...}})` |
+| `vector_search` | `tigergraph__run_installed_query` | `vector_search` (WS2) | `run_installed_query({query_name:"vector_search", params:{vertex_type:"PolicyChunk", query_id, k, pattern_id, as_of, apply_as_of, outcome, qvec, scores_only}})` — cosine top-k over `PolicyChunk`/`FraudCase`; query vector passed as the `qvec` list param (copied into a `ListAccum` at query top level; falls back to the `query_id` vertex's `embedding` when `qvec` is empty); `scores_only:true` returns ids + scores only. Params since 2026-09-23: `…, outcome, qvec, scores_only` — see `gsql/queries/vector_search.gsql` |
+| `get_pattern_profile` | `tigergraph__run_installed_query` | `get_pattern_profile` (WS2) | `run_installed_query({query_name:"get_pattern_profile", params:{pattern_id}})` — Pattern fields + `REQUIRES_EVIDENCE`; `permitted_actions` is WS3-local (`rag/src/patterns.ts`), not graph-backed |
 | `get_wide_features` | `tigergraph__run_query` (interpreted) | DuckDB (local, not MCP) | per `contracts/tools.ts`; not a graph tool |
 
 General utilities also available through MCP: `tigergraph__get_vertex_count`, `tigergraph__get_edge_count`, `tigergraph__get_graph_schema`, `tigergraph__get_global_schema` (GSQL `LS`), `tigergraph__gsql` (raw GSQL), `tigergraph__list_connections`, `tigergraph__discover_tools`.
