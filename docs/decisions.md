@@ -719,3 +719,17 @@ new device 74% -> 71%. The TypeScript scope reproduces the Python selections on 
 **Not done.** Card testing: 9 cases outside the backtest, and the analysts' rows and the rest are
 both online product-C charges on busy cards; nothing to fit. A separate model per flagged channel
 added about 1 point on design CV and was not worth the second weight table.
+
+## Filed fraud probability never claims certainty (2026-09-23)
+
+`fraudProbability` (`agent/src/assess.ts`) now bounds the filed value to [0.01, 0.99]. The
+assessor filed HHG-014 at 1.00 by putting 0 on the legitimate reading, while the signal behind it
+(the proxy-device ring) has 4 historical cases; certainty is not supported by a finite history,
+and calibration scoring punishes a confident miss hardest. Every policy threshold (0.15, 0.30,
+0.40, 0.70) lies well inside the bounds, so no verdict or action changes; only the reported number
+stops overstating certainty. The bounds are a general guard, not fitted to any case set.
+
+The §6 stop reason (`agent/src/stopRule.ts`) now quotes that same filed probability and names the
+leading pattern's share separately ("Fraud probability 0.99 (leading reading
+card_not_present_new_device at 0.87) ..."). It used to print the leading pattern's share as the
+fraud probability, so the stop reason and `fraud_probability` disagreed (HHG-014: 0.87 vs 1.00).

@@ -1425,3 +1425,16 @@ reading; HHG-014 is an analyst request, so alert calibration does not apply).
 
 Found while checking: the §6 stop reason quotes the leading pattern's probability as "Fraud
 probability" (HHG-014: text 0.87, `fraud_probability` 1.00; before: 0.80 vs 0.90). Not fixed yet.
+
+### Stop-reason probability and bounded fraud_probability (2026-09-23 11:42)
+
+- `agent/src/stopRule.ts`: the §6 stop reason quotes the filed fraud probability and names the
+  leading pattern's share separately (it printed the leading pattern's share as "Fraud
+  probability": HHG-014 0.87 in the text vs 1.00 filed).
+- `agent/src/assess.ts`: `fraudProbability` bounded to [0.01, 0.99]; no policy threshold is near
+  the bounds. Decision in `docs/decisions.md`.
+- Tests: 3 new (ws4 assess + stopRule), ws4+ws5 333/333, `make test` 9/9, `make lint` clean.
+- 20 answers regenerated, `make validate-answers` PASS. Only HHG-009 and HHG-014 changed
+  (1.00 -> 0.99); every verdict, pattern, status, exposure and action identical; every stop reason
+  that quotes a fraud probability now matches `fraud_probability`. Verdicts 13 fraud /
+  6 legitimate / 1 uncertain.
