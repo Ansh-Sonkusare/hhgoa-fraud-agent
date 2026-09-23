@@ -1264,8 +1264,8 @@ longer claim a customer confirmation. Agent tests 266/266.
 
 - Benchmark: all 20 answers regenerated with the current agent
   (`PATTERN_SCORER=jev RAG_VECTOR_BACKEND=tigergraph`, run `runs/bench-final-0839`, 20/20, 0 errors);
-  `make validate-answers` PASS 20/20. 13 fraud (all BLOCK_CARD + CREATE_CASE; HHG-006 also
-  FILE_REPORT as the undocumented amount-structuring burst), 7 uncertain (verify → no reply → R4:
+  `make validate-answers` PASS 20/20. 15 fraud (all BLOCK_CARD + CREATE_CASE; HHG-006 also
+  FILE_REPORT as the undocumented amount-structuring burst), 5 uncertain (verify → no reply → R4:
   CREATE_CASE + MONITOR_CARD, plus ESCALATE_TO_ANALYST on HHG-010 and HHG-014 over $500).
   L1/L2 actions are now recorded PENDING_APPROVAL.
 - Replay fixtures rebuilt from that run, relabelling the case id only: `HHG-910` ← HHG-006
@@ -1274,3 +1274,7 @@ longer claim a customer confirmation. Agent tests 266/266.
   denial from before the no-fabrication fix. `make test` 9/9 packages, `make lint` clean.
 - README, blog post and demo script updated: option B measurement, model-alert replay result
   (32/69 blocked), §3a CREATE_CASE wording, current fixtures.
+
+Correction (09:40): the deliverables entry above first said "13 fraud, 7 uncertain"; a recount of
+`cases/` gives 15 fraud and 5 uncertain (HHG-010, -013, -014, -017, -020). The same wrong count
+went into commit 65ef6ac's message and the blog post; the blog is corrected.
