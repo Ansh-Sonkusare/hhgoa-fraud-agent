@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type {
   EvidenceResponder,
   EvidenceRequestInput,
@@ -20,14 +19,6 @@ import type {
  *     (PRD OQ11) and none is threaded in here even hypothetically.
  */
 
-function deterministicBit(seedParts: string[]): 0 | 1 {
-  const hash = createHash("sha256").update(seedParts.join("|")).digest();
-  // why: a single low-order bit is enough to alternate between two
-  // documented, equally-plausible outcomes per (case, target, type) —
-  // no `any`, just picking a bit out of a Buffer.
-  return (hash[0]! & 1) as 0 | 1;
-}
-
 let evidenceIdCounter = 0;
 function nextEvidenceId(): string {
   evidenceIdCounter += 1;
@@ -47,62 +38,18 @@ interface ScriptedOutcome {
   weight_hint: number;
 }
 
-function scriptCustomerValidation(bit: 0 | 1): ScriptedOutcome {
-  return bit === 0
-    ? {
-        responded: true,
-        response_text:
-          "Customer states they did not make these purchases and still has the card in their possession.",
-        supports: ["fraud"],
-        contradicts: ["legitimate"],
-        weight_hint: 0.75,
-      }
-    : {
-        responded: true,
-        response_text: "Customer confirms they made this purchase themselves.",
-        supports: ["legitimate"],
-        contradicts: ["fraud"],
-        weight_hint: 0.7,
-      };
-}
 
-function scriptStepUpAuth(bit: 0 | 1): ScriptedOutcome {
-  return bit === 0
-    ? {
-        responded: true,
-        response_text:
-          "Step-up authentication (one-time passcode) was not completed within the response window.",
-        supports: ["fraud"],
-        contradicts: ["legitimate"],
-        weight_hint: 0.55,
-      }
-    : {
-        responded: true,
-        response_text: "Step-up authentication completed successfully by the cardholder.",
-        supports: ["legitimate"],
-        contradicts: ["fraud"],
-        weight_hint: 0.6,
-      };
-}
 
-function scriptAnalystInfo(bit: 0 | 1): ScriptedOutcome {
-  return bit === 0
-    ? {
-        responded: true,
-        response_text:
-          "Analyst notes this device profile / region cluster has been flagged on other accounts before.",
-        supports: ["fraud"],
-        contradicts: [],
-        weight_hint: 0.45,
-      }
-    : {
-        responded: true,
-        response_text: "Analyst has no additional signal beyond what the graph already shows.",
-        supports: [],
-        contradicts: [],
-        weight_hint: 0.2,
-      };
-}
+
+/** What we record having assumed, per request type. No reply is invented. */
+const NO_REPLY_TEXT: Record<EvidenceRequestInput["type"], string> = {
+  customer_validation:
+    "No cardholder reply was received within the investigation window; the dataset supplies none, and none was assumed.",
+  step_up_auth:
+    "Step-up authentication was requested; no outcome was returned within the investigation window, and none was assumed.",
+  analyst_info:
+    "Analyst information was requested; no analyst note was returned within the investigation window, and none was assumed.",
+};
 
 function buildEvidenceItem(
   request: EvidenceRequestInput,
@@ -128,26 +75,30 @@ function buildEvidenceItem(
  */
 export class SimulatedResponder implements EvidenceResponder {
   async respond(request: EvidenceRequestInput): Promise<EvidenceResponse> {
-    const bit = deterministicBit([request.type, request.target.type, request.target.id, request.reason]);
-    let outcome: ScriptedOutcome;
-    switch (request.type) {
-      case "customer_validation":
-        outcome = scriptCustomerValidation(bit);
-        break;
-      case "step_up_auth":
-        outcome = scriptStepUpAuth(bit);
-        break;
-      case "analyst_info":
-        outcome = scriptAnalystInfo(bit);
-        break;
-      default: {
-        // Exhaustiveness guard — EvidenceRequestType is a closed zod enum;
-        // this branch only fires if the contract enum grows without this
-        // switch being updated, which we want to fail loudly, not silently.
-        const exhaustive: never = request.type;
-        throw new Error(`SimulatedResponder: unhandled evidence request type ${String(exhaustive)}`);
-      }
-    }
+    // README §5: cardholder and analyst replies "are not provided". The only
+    // truthful thing we can report about an oracle we do not have is that no
+    // reply came back. This used to invent one instead, choosing between two
+    // plausible outcomes with a hash bit of the request fields. That was
+    // deterministic, documented and label-free -- but it was still made up,
+    // and being uncorrelated with the truth by construction it could only add
+    // noise. It was decisive noise: in a 35-case backtest every confirmed-fraud
+    // case that happened to draw "customer confirms" closed legitimate (6 of
+    // 6), throwing away graph evidence that ran to 159 items on one of them.
+    //
+    // Asking is still real work and is still recorded in `evidence_requests`
+    // (README's Answer Format requires the assumption we made), and policy rule
+    // R1 is satisfied by *recommending* VERIFY_WITH_CUSTOMER / STEP_UP_AUTH --
+    // which the agent still does. What we must not do is invent that action's
+    // result and then reason over it. The item below carries no weight and
+    // supports nothing, and the agent drops it rather than counting it as an
+    // evidence category.
+    const outcome: ScriptedOutcome = {
+      responded: false,
+      response_text: NO_REPLY_TEXT[request.type],
+      supports: [],
+      contradicts: [],
+      weight_hint: 0,
+    };
     return {
       request_type: request.type,
       responded: outcome.responded,
