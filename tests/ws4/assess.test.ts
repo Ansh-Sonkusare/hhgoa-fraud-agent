@@ -310,6 +310,22 @@ describe("fraudProbability is the total fraud mass, not the top pattern's share"
   });
 
   it("with no fraud hypothesis, it is 1 - legitimate, never the legitimate mass itself", () => {
-    expect(fraudProbability({ hypotheses: [hyp("legitimate", 1)], legit_hypothesis_probability: 1 })).toBe(0);
+    // Certain-legitimate files the lower bound, never the legitimate mass (1).
+    expect(fraudProbability({ hypotheses: [hyp("legitimate", 1)], legit_hypothesis_probability: 1 })).toBe(0.01);
+  });
+
+  it("never files certainty: all mass on fraud reads 0.99, not 1 (HHG-014)", () => {
+    expect(
+      fraudProbability({
+        hypotheses: [hyp("card_not_present_new_device", 0.87), hyp("account_takeover", 0.13), hyp("legitimate", 0)],
+        legit_hypothesis_probability: 0,
+      }),
+    ).toBe(0.99);
+  });
+
+  it("leaves probabilities inside the bounds unchanged", () => {
+    expect(
+      fraudProbability({ hypotheses: [hyp("card_testing", 0.7), hyp("legitimate", 0.3)], legit_hypothesis_probability: 0.3 }),
+    ).toBeCloseTo(0.7, 10);
   });
 });

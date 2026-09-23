@@ -141,6 +141,39 @@ describe("describeEvaluateStop", () => {
     expect(text).not.toContain("0.75 confidence threshold");
   });
 
+  it("quotes the filed fraud probability and names the leading pattern's share separately", () => {
+    // HHG-014 shape: the fraud mass is split across two patterns and the
+    // legitimate reading got 0. The text used to say "Fraud probability 0.87"
+    // (the leading pattern) while the answer filed 1.00.
+    const assessment = finalizeAssessment(
+      {
+        hypotheses: [
+          { fraud_type: "card_not_present_new_device", probability: 0.87, supporting: [], contradicting: [] },
+          { fraud_type: "account_takeover", probability: 0.13, supporting: [], contradicting: [] },
+          { fraud_type: "legitimate", probability: 0, supporting: [], contradicting: [] },
+        ],
+        risk_level: "CRITICAL",
+        risk_score: 0.5,
+        confidence: 0.65,
+        legit_hypothesis_probability: 0,
+      },
+      [],
+      SUFFICIENT,
+    );
+    const input = {
+      assessment,
+      categories: cats,
+      allCategoriesExhausted: false,
+      intendedAction: allowed,
+      intendedActionAllowed: true,
+      budgetExhausted: false,
+      noDiscriminatingEvidence: false,
+    } as const;
+    const text = describeEvaluateStop(input, evaluateStop(input));
+    expect(text).toContain("Fraud probability 0.99 (leading reading card_not_present_new_device at 0.87)");
+    expect(text).not.toContain("Fraud probability 0.87");
+  });
+
   it("customer denial has its own branch wording under a sufficient stop", () => {
     const input = {
       assessment: assess(0.9, 0.1, 0.8),

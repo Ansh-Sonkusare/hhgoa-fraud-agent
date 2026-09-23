@@ -233,9 +233,24 @@ export function fraudProbability(assessment: Pick<Assessment, "hypotheses" | "le
   const fraudMass = assessment.hypotheses
     .filter((h) => h.fraud_type !== "legitimate")
     .reduce((s, h) => s + h.probability, 0);
-  if (fraudMass > 0) return Math.min(1, Math.max(0, fraudMass));
+  if (fraudMass > 0) return boundProbability(fraudMass);
   const legit = assessment.legit_hypothesis_probability;
-  return typeof legit === "number" ? Math.min(1, Math.max(0, 1 - legit)) : 0;
+  return boundProbability(typeof legit === "number" ? 1 - legit : 0);
+}
+
+/**
+ * The filed probability never claims certainty. It is an estimate from a
+ * finite history (the proxy-device ring behind HHG-014 has 4 historical
+ * cases), so 0 and 1 are not supported by the evidence; the assessor filed
+ * HHG-014 at 1.00 by putting 0 on the legitimate reading. Every policy
+ * threshold (0.15, 0.30, 0.40, 0.70) lies well inside these bounds, so no
+ * decision changes; only the reported number stops overstating certainty.
+ */
+export const MIN_FRAUD_PROBABILITY = 0.01;
+export const MAX_FRAUD_PROBABILITY = 0.99;
+
+function boundProbability(p: number): number {
+  return Math.min(MAX_FRAUD_PROBABILITY, Math.max(MIN_FRAUD_PROBABILITY, p));
 }
 
 export function legitHypothesis(assessment: Pick<Assessment, "hypotheses">): Hypothesis | null {

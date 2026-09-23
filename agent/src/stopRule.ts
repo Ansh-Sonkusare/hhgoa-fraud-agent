@@ -1,5 +1,5 @@
 import type { Assessment, EvidenceCategory, NextBestAction } from "@hhgoa/contracts";
-import { legitHypothesis, topFraudHypothesis } from "./assess.js";
+import { fraudProbability, legitHypothesis, topFraudHypothesis } from "./assess.js";
 
 /**
  * Stop rule (PRD §9.5). Decides, after each assessment, whether the current
@@ -146,13 +146,18 @@ export function describeEvaluateStop(
     // Name the condition that actually held. This used to say "clears the 0.75
     // confidence threshold" whichever one did, including on cases that stopped
     // at p = 0.69 on the probability lead alone.
-    const p = top?.probability ?? 0;
+    // Quote the same fraud probability the answer files (total fraud mass),
+    // and name the leading pattern's share separately. This used to print the
+    // leading pattern's probability as "Fraud probability": HHG-014 read 0.87
+    // in the stop reason and 1.00 in `fraud_probability`.
+    const p = fraudProbability(input.assessment);
+    const leading = top ? ` (leading reading ${top.fraud_type} at ${top.probability.toFixed(2)})` : "";
     const held =
       input.assessment.confidence >= MIN_CONFIDENCE
         ? `assessment confidence ${input.assessment.confidence.toFixed(2)} is at least ${MIN_CONFIDENCE}`
         : `the leading reading is ${lead.toFixed(2)} ahead of the next (at least ${MIN_PROBABILITY_LEAD})`;
     return (
-      `Fraud probability ${p.toFixed(2)} with ${numberWord(cats)} independent evidence ` +
+      `Fraud probability ${p.toFixed(2)}${leading} with ${numberWord(cats)} independent evidence ` +
       `categories ${formatCategories(input.categories)}; ${held}, and further steps are unlikely to change ` +
       `the decision (README §6).`
     );
