@@ -623,7 +623,8 @@ none assumed") and treats the unanswered request as what it is — no reply — 
 final recommendation. This cannot reproduce the analysts' CLOSE_NO_FRAUD on cleared alerts,
 which followed a real confirmation; that gap is accepted rather than closed with an invented reply.
 R4's DECLINE_TRANSACTION applies to pending authorizations; the dataset has no authorization
-status, so it is not recommended and the reason says why.
+status, so it is not recommended and the reason says why. *(Superseded 2026-09-23: see "R4
+declines the flagged authorization" below.)*
 
 ## Episode scope: risk-scored same-channel charges, 2h lookback (2026-09-23)
 
@@ -733,3 +734,34 @@ The §6 stop reason (`agent/src/stopRule.ts`) now quotes that same filed probabi
 leading pattern's share separately ("Fraud probability 0.99 (leading reading
 card_not_present_new_device at 0.87) ..."). It used to print the leading pattern's share as the
 fraud probability, so the stop reason and `fraud_probability` disagreed (HHG-014: 0.87 vs 1.00).
+
+## R4 declines the flagged authorization; reasons cite the rule that applies (2026-09-23)
+
+An audit of the 20 answers against `docs/DATASET_README.md` found three places where the answers
+did not follow the written policy:
+
+- **R4 ("no reply within 24 hours") left out `DECLINE_TRANSACTION`.** The earlier decision read
+  "for pending authorizations" as needing an authorization status the data lacks. The policy
+  itself answers this: its action table defines `DECLINE_TRANSACTION` as "Decline the flagged
+  authorization only", and its worked example recommends it for a purchase that had "already
+  cleared". So on an R4 case the agent now recommends declining the flagged authorization (L1,
+  a team lead decides) alongside `MONITOR_CARD`. The policy engine let this through only once the
+  cardholder has been asked (`verification_unanswered`): R1's "verify first" is then done.
+  `BLOCK_CARD` still needs 0.70 or a denial. The case stays `open`, since the reply is pending.
+- **Reasons cited rules that did not apply** (§7: "Cite the rule number"). Every block said
+  "R2: customer denied ... or probability exceeds 0.70", including model alerts nobody disputed;
+  every case said "R6 / §3a" without a shared origin; the verification request and stop reason
+  said "R1" at probabilities above 0.70, where R1 does not apply. Each now names the rule that
+  holds: R2 for a dispute, R5 for card testing with a cleared purchase, otherwise the probability
+  against R1's 0.70 line; §3a for the case (R2 and §3a on a dispute); R3, R1 or §6 for why the
+  cardholder was asked.
+
+Checked and left unchanged, because the policy does not require a change: R5 on HHG-011 (the
+worked example's final actions for card testing with a cleared purchase are a block without
+`DECLINE_TRANSACTION`/`STEP_UP_AUTH`), and the extra verification request on HHG-018 (asking is
+permitted without approval, §5).
+
+Separately, API live runs (`RUN_SOURCE=live`) now build the agent through the same factory as
+the benchmark (`createAgentMachine`), so a live demo run uses the pattern scorer and writes the
+case to TigerGraph; before, the API assembled the agent itself and skipped both. An empty
+`TIGERGRAPH_MCP_URL` in `.env` now falls back to the local MCP server instead of failing.
