@@ -154,6 +154,25 @@ describe("LiveRunSource (WS6)", () => {
     expect(handle.received[0]?.asOf).toBe("2016-12-05T01:55:28Z");
   });
 
+  it("has the answer stored by the time subscribers see DONE", async () => {
+    // The real runner emits DONE and only then returns the answer (after
+    // write-back); the UI fetches the answer the moment DONE arrives.
+    const events = makeAgentEvents();
+    const runner: LiveRunner = async (opts, onEvent) => {
+      for (const event of events) onEvent({ ...event, case_id: opts.caseId });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { answer: fixtureAnswer as NonNullable<typeof fixtureAnswer> };
+    };
+    const source = new LiveRunSource({ runner });
+    const answerAtDone: Array<unknown> = [];
+    source.subscribe("HHG-001", (e) => {
+      if (e.type === "done") answerAtDone.push(source.getRecording("HHG-001")?.answer ?? null);
+    });
+    await waitFor(() => answerAtDone.length === 1);
+    expect(answerAtDone[0]).not.toBeNull();
+    expect(source.getStatus("HHG-001")).toBe("done");
+  });
+
   it("start is idempotent while running or done", async () => {
     const handle = makeRunner();
     const source = new LiveRunSource({ runner: handle.runner });

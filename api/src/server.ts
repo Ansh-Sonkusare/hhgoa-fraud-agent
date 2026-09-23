@@ -81,14 +81,26 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       return summarize(entry, "fixture_demo");
     });
     const fromAdhoc = [...adhocTriggers.values()].map((t) => {
+      // Show the ids the user actually submitted; the three trigger kinds carry
+      // them in different fields (risk_score: txn/card, customer_report:
+      // customer + txn_ids, analyst_request: entity).
+      const trigger = t.trigger as {
+        kind?: string;
+        txn_id?: string;
+        txn_ids?: string[];
+        card_id?: string;
+        customer_id?: string;
+        risk_score?: number;
+        entity?: { type?: string; id?: string };
+      };
       const entry: CasePackEntry = {
         case_id: t.case_id,
         opened_at: t.created_at,
-        trigger_type: ((t.trigger as { kind?: string })?.kind as CasePackEntry["trigger_type"]) ?? "risk_score",
-        flagged_txn_id: "",
-        card_id: "",
-        customer_id: "",
-        risk_score: null,
+        trigger_type: (trigger?.kind as CasePackEntry["trigger_type"]) ?? "risk_score",
+        flagged_txn_id: trigger?.txn_id ?? trigger?.txn_ids?.[0] ?? "",
+        card_id: trigger?.card_id ?? (trigger?.entity?.type === "Card" ? (trigger.entity.id ?? "") : ""),
+        customer_id: trigger?.customer_id ?? "",
+        risk_score: typeof trigger?.risk_score === "number" ? trigger.risk_score : null,
         trigger_text: 'Ad-hoc trigger submitted via the UI\'s "new trigger" form.',
       };
       return summarize(entry, "adhoc");

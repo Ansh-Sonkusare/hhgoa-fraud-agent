@@ -11,10 +11,20 @@ const KINDS: { kind: TriggerType; label: string; icon: typeof Eye; hint: string 
   { kind: "analyst_request", label: "Analyst request", icon: Eye, hint: "An analyst opens an investigation." },
 ];
 
+// Real triggers from the dataset's case pack (HHG-001, HHG-006, HHG-014), so an
+// example submitted as-is investigates ids that exist in the graph.
 const EXAMPLES: Record<TriggerType, Record<string, string>> = {
-  risk_score: { txnId: "3514030", cardId: "C11891-K1", riskScore: "0.79" },
-  customer_report: { customerId: "C1001234", txnId: "3514030", text: "I didn't make these purchases" },
-  analyst_request: { cardId: "C11891-K1", question: "Is this card part of a larger fraud ring?" },
+  risk_score: { txnId: "3514030", cardId: "C12382-K1", riskScore: "0.61" },
+  customer_report: {
+    customerId: "C07297",
+    txnId: "3476682",
+    text: "I never made this $482.12 purchase. Please check my card.",
+  },
+  analyst_request: {
+    cardId: "C13487-K1",
+    question:
+      "Several cards this month show purchases from the same unusual device profile. Review transaction 3478561 and look for related activity.",
+  },
 };
 
 export function NewTriggerForm({ onCreated }: { onCreated: (caseId: string) => void }) {

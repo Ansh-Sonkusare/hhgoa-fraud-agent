@@ -210,16 +210,29 @@ export class LiveRunSource implements RunSource, LiveFeed {
   }
 
   private async run(unit: LiveRunUnit, run: RunningCase): Promise<void> {
+    // Hold the agent's DONE event until the answer is stored. The server
+    // announces stream_done on that event and the UI fetches the answer right
+    // then; the runner only returns the answer after DONE is emitted, so
+    // forwarding DONE immediately let the UI read a null answer.
+    const held: { done: AgentEvent | null } = { done: null };
     try {
       const result = await this.runner(
         { caseId: unit.caseId, asOf: unit.asOf, trigger: unit.trigger },
-        (event) => this.push(unit.caseId, event),
+        (event) => {
+          if (event.type === "done") {
+            held.done = event;
+            return;
+          }
+          this.push(unit.caseId, event);
+        },
       );
       run.answer = result.answer;
       run.status = "done";
     } catch (error) {
       run.error = error instanceof Error ? error.message : String(error);
       run.status = "error";
+    } finally {
+      if (held.done) this.push(unit.caseId, held.done);
     }
   }
 

@@ -9,15 +9,19 @@ interface EvidenceRequestInfo {
   reason: string;
   discrimination_score: number | null;
   response: string | null;
+  /** false when the tool reported that no reply arrived (the dataset supplies none). */
+  responded: boolean;
   settled: boolean;
 }
 
 /**
  * Renders the evidence-request lifecycle (PRD §9.6 / J6 demo beat): what the
- * agent asked for, who it asked, and — once the (simulated) response arrives
- * as the tool_result to `request_evidence` — what it assumed the response
- * was. "Settled" means the response has arrived, so the panel can say the
- * request is no longer blocking the decision.
+ * agent asked for, who it asked, and — once the `request_evidence` tool_result
+ * arrives — what came back. The dataset supplies no cardholder or analyst
+ * replies, so the result normally says no reply was received and none was
+ * assumed; the panel shows exactly that rather than an "assumed" answer.
+ * "Settled" means the tool has returned, so the request no longer blocks the
+ * decision.
  */
 export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
   const requests: EvidenceRequestInfo[] = [];
@@ -34,16 +38,19 @@ export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
             ? (event.payload["discrimination_score"] as number)
             : null,
         response: null,
+        responded: false,
         settled: false,
       });
     }
     if (event.type === "tool_result" && event.payload["tool"] === "request_evidence") {
+      // The tool result is the standard envelope; the reply fields sit under `data`.
       const result = event.payload["result"] as
-        | { responded?: boolean; response_text?: string }
+        | { data?: { responded?: boolean; response_text?: string } }
         | undefined;
       const lastOpen = [...requests].reverse().find((r) => !r.settled);
       if (lastOpen) {
-        lastOpen.response = String(result?.response_text ?? result?.responded ?? "");
+        lastOpen.responded = result?.data?.responded === true;
+        lastOpen.response = result?.data?.response_text ?? null;
         lastOpen.settled = true;
       }
     }
@@ -70,9 +77,13 @@ export function EvidenceRequestPanel({ events }: { events: AgentEvent[] }) {
                 </p>
               ) : null}
               <p className="text-xs text-slate-500">{r.reason}</p>
-              {r.settled ? (
+              {r.settled && r.responded ? (
                 <p className="mt-1 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
-                  Assumed response: {r.response}
+                  Response: {r.response ?? "received"}
+                </p>
+              ) : r.settled ? (
+                <p className="mt-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                  No reply: {r.response ?? "no response was received, and none was assumed."}
                 </p>
               ) : (
                 <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
