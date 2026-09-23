@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Trigger } from "@hhgoa/contracts";
+import type { EvidenceItem, Trigger } from "@hhgoa/contracts";
+import { independentFraudSignals } from "@hhgoa/agent";
 import { loadClosedCases, type ClosedCase } from "./dataset.js";
 import { runOneTarget, type CaseRun, runModeFromEnv, preflight } from "./runner.js";
 import { computeMetrics, renderMetricsTable, scoreRun, type ScoredRun } from "./metrics.js";
@@ -128,14 +129,69 @@ export function targetFromClosedCase(c: ClosedCase, _index: number): { trigger: 
   throw new Error(`backtest: ${c.case_id}'s analyst note does not say how the case opened`);
 }
 
+/**
+ * BACKTEST_AS_ALERT=1 replays each confirmed-fraud dispute as the model alert it
+ * could have been, to test the one case the faithful replay cannot: a model
+ * alert that is really fraud (the history has none, see targetFromClosedCase).
+ * Every input is real data -- the disputed transaction, its own risk_score from
+ * the bank's model, and as_of = that transaction's own timestamp plus
+ * ALERT_OPEN_DELAY_H, the most common gap between a transaction and its alert
+ * in the 900 historical model alerts (1-8 h, mode 3 h). No cardholder dispute
+ * reaches the agent. Transactions the model scored below
+ * BACKTEST_ALERT_MIN_SCORE (default 0.5; the benchmark's alerts are 0.52-0.90)
+ * would never have raised an alert, so those cases are skipped.
+ */
+const ALERT_OPEN_DELAY_H = 3;
+
+interface TxnFacts { ts: string; risk_score: number }
+
+async function txnFacts(txnId: string): Promise<TxnFacts | null> {
+  const host = env("TIGERGRAPH_HOST", "http://localhost:9000").replace(/\/$/, "");
+  const graph = env("TIGERGRAPH_GRAPH_NAME", "hhgoa_fraud");
+  const auth = `Basic ${Buffer.from(`${env("TIGERGRAPH_USERNAME", "tigergraph")}:${env("TIGERGRAPH_PASSWORD", "")}`).toString("base64")}`;
+  const res = await fetch(`${host}/graph/${graph}/vertices/Txn/${encodeURIComponent(txnId)}`, {
+    headers: { authorization: auth },
+    signal: AbortSignal.timeout(30_000),
+  });
+  const body = (await res.json()) as { error?: boolean; results?: { attributes: { ts: string; risk_score: number } }[] };
+  const a = body.results?.[0]?.attributes;
+  return body.error || !a ? null : { ts: a.ts, risk_score: a.risk_score };
+}
+
+function plusHours(ts: string, h: number): string {
+  const d = new Date(`${ts.replace(" ", "T")}Z`);
+  d.setUTCHours(d.getUTCHours() + h);
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+async function alertReplay(c: ClosedCase): Promise<{ trigger: Trigger; asOf: string } | null> {
+  const txn = c.first_fraud_txn_id || c.txn_ids[0] || "";
+  if (!txn) return null;
+  const t = await txnFacts(txn);
+  if (!t || t.risk_score < Number(env("BACKTEST_ALERT_MIN_SCORE", "0.5"))) return null;
+  return {
+    trigger: { kind: "risk_score", txn_id: txn, card_id: c.card_id || undefined, risk_score: t.risk_score },
+    asOf: plusHours(t.ts, ALERT_OPEN_DELAY_H),
+  };
+}
+
 /** Runs the backtest batch and returns scored runs + metrics. */
 export async function runBacktestSample(sample: ClosedCase[], opts: { noCache?: boolean } = {}): Promise<{ runs: ScoredRun[]; caseRuns: CaseRun[]; labelMap: Map<string, ClosedCase> }> {
   const labelMap = new Map(sample.map((c) => [c.case_id, c]));
   const caseRuns: CaseRun[] = [];
   for (let i = 0; i < sample.length; i++) {
     const c = sample[i]!;
-    const { trigger } = targetFromClosedCase(c, i);
-    process.stdout.write(`[${i + 1}/${sample.length}] backtest ${c.case_id} (${c.outcome}) as_of=${c.opened_at}\n`);
+    let { trigger } = targetFromClosedCase(c, i);
+    let asOf = c.opened_at;
+    if (env("BACKTEST_AS_ALERT", "") === "1" && trigger.kind === "customer_report") {
+      const alert = await alertReplay(c);
+      if (!alert) {
+        process.stdout.write(`[${i + 1}/${sample.length}] skip ${c.case_id}: flagged txn scored below the alert threshold\n`);
+        continue;
+      }
+      ({ trigger, asOf } = alert);
+    }
+    process.stdout.write(`[${i + 1}/${sample.length}] backtest ${c.case_id} (${c.outcome}, ${trigger.kind}) as_of=${asOf}\n`);
     // Never persist during a backtest: the closed cases we score against live
     // in the same graph, so writing synthetic records mid-sample lets later
     // cases read earlier ones back as real prior cases.
@@ -143,11 +199,11 @@ export async function runBacktestSample(sample: ClosedCase[], opts: { noCache?: 
     // retries, a case timeout) is run again after a pause instead of being
     // scored as a failure: BACKTEST_CASE_RETRIES more attempts (default 2).
     const retries = Number(env("BACKTEST_CASE_RETRIES", "2"));
-    let run = await runOneTarget({ caseId: c.case_id, asOf: c.opened_at, trigger }, { ...opts, writeBackCase: false });
+    let run = await runOneTarget({ caseId: c.case_id, asOf, trigger }, { ...opts, writeBackCase: false });
     for (let attempt = 1; run.error && attempt <= retries; attempt++) {
       process.stdout.write(`  error: ${run.error} -- retrying (${attempt}/${retries}) in 30s\n`);
       await new Promise((r) => setTimeout(r, 30_000));
-      run = await runOneTarget({ caseId: c.case_id, asOf: c.opened_at, trigger }, { ...opts, noCache: true, writeBackCase: false });
+      run = await runOneTarget({ caseId: c.case_id, asOf, trigger }, { ...opts, noCache: true, writeBackCase: false });
     }
     caseRuns.push(run);
     if (run.error) process.stdout.write(`  error: ${run.error}\n`);
@@ -187,7 +243,9 @@ export async function backtest(opts: { sample?: number; seed?: number; holdOut?:
   const exclude = excludePath
     ? new Set(readFileSync(excludePath, "utf8").split("\n").map((l) => l.trim()).filter(Boolean))
     : new Set<string>();
-  const pool = holdout.filter((c) => (!from || c.opened_at >= from) && !exclude.has(c.case_id));
+  // BACKTEST_OUTCOME keeps only one outcome (e.g. confirmed_fraud with BACKTEST_AS_ALERT).
+  const outcome = env("BACKTEST_OUTCOME", "");
+  const pool = holdout.filter((c) => (!from || c.opened_at >= from) && !exclude.has(c.case_id) && (!outcome || c.outcome === outcome));
   const drawn = sampleHoldout(pool, opts.sample ?? Number(env("BACKTEST_SAMPLE", "10")), seed + 1);
   // BACKTEST_SHARD="i/n" runs every n-th case of the drawn sample starting at
   // i, so n processes can split one sample between them (the graph and scorer
@@ -253,6 +311,11 @@ ${table}`;
       evidence_total: c?.evidence?.length ?? 0,
       evidence_by_source: byCat,
       actions: (r.answer?.next_best_actions?.final ?? []).map((a: { action: string }) => a.action),
+      independent_signals: independentFraudSignals(
+        r.events.filter((e) => e.type === "evidence_added").map((e) => e.payload["evidence"] as EvidenceItem),
+      ),
+      fraud_probability_before_r1_cap:
+        (r.events.filter((e) => e.type === "assessment_updated").map((e) => e.payload["r1_single_signal_cap"] as { fraud_probability_from?: number } | undefined).find(Boolean)?.fraud_probability_from) ?? null,
       error: r.error,
     };
   });
