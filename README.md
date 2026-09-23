@@ -265,7 +265,17 @@ regression.
   Closing them requires a cardholder reply confirming the transaction, and the
   dataset does not provide customer or analyst replies. The agent never
   invents one; a cleared alert ends as verify-then-monitor rather than
-  `CLOSE_NO_FRAUD`.
+  `CLOSE_NO_FRAUD`. We measured the alternative of assuming a confirmation
+  from the evidence: on 69 fraud cases replayed as model alerts plus 45 real
+  cleared alerts, the best rule would close 24 of 39 cleared alerts but also
+  6 of 37 fraud cases. No rule closed zero fraud, so it was not adopted
+  (`docs/decisions.md`).
+- **Fraud that arrives as a model alert is often held for verification rather
+  than blocked.** The history has no model alert that turned out to be fraud,
+  so we replayed confirmed fraud disputes as the alerts they could have been:
+  the agent blocked 32 of 69 (46%) and kept 36 open under verification and
+  monitoring. None had its transaction allowed; one (fraud probability 0.15)
+  was closed as legitimate with monitoring.
 - **Account takeover and out-of-region use are sometimes confused.** On the
   evidence the agent can see, some cases have no feature combination that
   separates the two patterns; this is measured as an irreducible error on
@@ -275,11 +285,13 @@ regression.
   short bursts.
 - **The Jev pattern scorer sends case evidence to TypeSafe's hosted API.** Kev,
   the local alternative, is wired into the code path but not yet trained.
-- **`CREATE_CASE` is recommended on cleared alerts.** `docs/DATASET_README.md`
-  §3a calls for opening a case whenever fraud probability reaches 0.30, which
-  includes some cleared alerts; the analysts' historical `actions_taken`
-  records never list `CREATE_CASE` for those, so this shows up as a
-  disagreement against history even though it follows the written policy.
+- **`CREATE_CASE` on cleared alerts follows the written policy, not the
+  history.** `docs/DATASET_README.md` §3a opens a case whenever fraud
+  probability reaches 0.30 or evidence is requested, and the agent requests
+  cardholder verification on every uncertain alert. The analysts' records list
+  `VERIFY_WITH_CUSTOMER|CLOSE_NO_FRAUD` with no case on all 900 cleared cases.
+  We follow §3a deliberately, so a comparison against those records counts it
+  as a disagreement.
 
 ## Further reading
 

@@ -1236,3 +1236,41 @@ F1 against `actions_taken` fell (0.87 → 0.78 fresh) by construction: the score
 `final`, VERIFY_WITH_CUSTOMER now sits in `initial` (it was asked), and §3a's CREATE_CASE now
 appears on cleared alerts, which the analysts' records never list. Remaining exposure misses are
 long card-testing episodes (CC-2394: 65 txns over weeks, CC-2247: 71) and OOR over-counts.
+
+### Option B measurement — model-alert replay (08:26–08:34, 3 processes, 0 errors)
+
+New backtest mode `BACKTEST_AS_ALERT=1` (eval/src/backtest.ts): a confirmed-fraud dispute is
+replayed as a model alert on its own disputed transaction, with that transaction's real risk
+score, as_of = txn ts + 3 h, and no dispute text; transactions scored below 0.5 are skipped.
+Detail rows now carry `independent_signals` and the pre-cap probability.
+
+| | Fraud replayed as alerts (69) | Real cleared alerts (45) |
+|---|---|---|
+| Verdict fraud (blocked) | 32 | 6 |
+| Verdict uncertain (verify → R4 monitor) | 36 | 39 |
+| Verdict legitimate | 1 (CC-1072, p 0.15, monitored) | 0 |
+| 0 independent fraud signals | 16 | 25 |
+
+Among non-fraud verdicts, the best rule for assuming "cardholder confirms" (0 signals and
+new-device pattern) would close 24/39 cleared and 6/37 fraud. No zero-miss rule, so option B was
+not adopted (docs/decisions.md). This is also the first measurement of fraud arriving as a model
+alert: under the current agent, 46% are blocked and 52% stay open under verification.
+
+Same batch: L1/L2 actions now stay PENDING_APPROVAL (were reported EXECUTED right after the
+approval request); §3a CREATE_CASE added to the low-probability no-pattern close; R3 reasons no
+longer claim a customer confirmation. Agent tests 266/266.
+
+### Deliverables refresh (08:39–08:50)
+
+- Benchmark: all 20 answers regenerated with the current agent
+  (`PATTERN_SCORER=jev RAG_VECTOR_BACKEND=tigergraph`, run `runs/bench-final-0839`, 20/20, 0 errors);
+  `make validate-answers` PASS 20/20. 13 fraud (all BLOCK_CARD + CREATE_CASE; HHG-006 also
+  FILE_REPORT as the undocumented amount-structuring burst), 7 uncertain (verify → no reply → R4:
+  CREATE_CASE + MONITOR_CARD, plus ESCALATE_TO_ANALYST on HHG-010 and HHG-014 over $500).
+  L1/L2 actions are now recorded PENDING_APPROVAL.
+- Replay fixtures rebuilt from that run, relabelling the case id only: `HHG-910` ← HHG-006
+  (clear fraud, BLOCK_CARD + FILE_REPORT pending approval), `HHG-920` ← HHG-017 (ambiguous:
+  evidence requested, no reply, R4). The old ambiguous fixture still held a simulated customer
+  denial from before the no-fabrication fix. `make test` 9/9 packages, `make lint` clean.
+- README, blog post and demo script updated: option B measurement, model-alert replay result
+  (32/69 blocked), §3a CREATE_CASE wording, current fixtures.

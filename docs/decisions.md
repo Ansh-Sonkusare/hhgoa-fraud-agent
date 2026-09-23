@@ -632,3 +632,31 @@ score scopes an episode the case is already about; it never decides a verdict (R
 to look, never a verdict"). The lookback before the flagged charge is kept despite costing ~2
 points on the history, because the history's alignment of alert and first fraud charge is a
 property of how the backtest replays disputes, and the README warns it need not hold.
+
+## Assumed cardholder confirmation (option B): measured, not adopted (2026-09-23)
+
+The user preferred closing cleared alerts as `CLOSE_NO_FRAUD` under R3 with an assumed
+confirmation (DATASET_README §5 permits simulating replies), on one condition: it must close no
+fraud. That condition could not be met, so the honest no-reply path (R4) stays.
+
+Why it cannot be checked on the history alone: every one of the 4,665 confirmed-fraud cases was
+opened by a cardholder report and every one of the 900 cleared cases by a model alert, so the
+history has no model alert that turned out to be fraud, which is exactly where an assumed
+confirmation would act (11 of the 20 benchmark cases are model alerts). The backtest's new
+`BACKTEST_AS_ALERT=1` mode replays fraud disputes as the alerts they could have been: the real
+disputed transaction, its own risk score, as_of three hours after it (the modal alert delay), no
+dispute text.
+
+Result on 69 fraud cases replayed as alerts plus 45 real cleared alerts, none used before: among
+cases the agent did not call fraud, the best available rule (no independent fraud signal and a
+new-device pattern) would close 24 of 39 cleared alerts and 6 of 37 fraud cases. No rule reached
+zero. An earlier search over 540 held-out evidence sets found the best zero-fraud rule covered 7
+of 150 cleared cases on the same data it was searched on, which is too small to trust.
+
+`CREATE_CASE` on cleared alerts follows §3a ("whenever you request evidence") over the analysts'
+records (900 of 900 cleared cases list `VERIFY_WITH_CUSTOMER|CLOSE_NO_FRAUD` with no case). The
+benchmark is scored against the written policy; our own action scorer should credit §3a.
+
+Related fixes in the same batch: the low-probability "no pattern" close now opens a case when
+p >= 0.30 (§3a), its reasons no longer claim customer records support the close, and L1/L2
+actions stay PENDING_APPROVAL for a human instead of being reported executed.
