@@ -157,6 +157,50 @@ describe("customer_report trigger", () => {
   });
 });
 
+describe("R7 on a card too busy for the 500-row history (HHG-011, HHG-018)", () => {
+  const toMs = (s: string) => Date.parse(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
+  /** The 120-day read returns the 500 newest rows; an hours read returns every row in its window. */
+  function busyCatalog(extra: ReturnType<typeof row>[]) {
+    const fillers = Array.from({ length: 499 }, (_, i) => row(`f${i}`, 0.01 + i * 0.02, 1.23));
+    const all = [row("3530164", 0), ...fillers, ...extra];
+    const hourReads: number[] = [];
+    const catalog = fakeCatalog({
+      resolve_trigger: () => ({ txn: { type: "Transaction", id: "3530164" }, card: { type: "Card", id: "C08623-K2" }, customer: { type: "Customer", id: "C08623" }, identity: null }),
+      get_transaction_history: (_c, w, asOf) => {
+        const { days, hours } = w as { days?: number; hours?: number };
+        const end = toMs(asOf as string);
+        const span = (days ?? 0) * DAY + (hours ?? 0) * 3_600_000;
+        if (hours) hourReads.push(hours);
+        const rows = all
+          .filter((r) => Date.parse(r.ts) <= end && Date.parse(r.ts) >= end - span)
+          .sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+        return { rows: rows.slice(0, 500) };
+      },
+    });
+    return { catalog, hourReads };
+  }
+
+  it("reads only the monthly windows and finds the repeat the capped history hid", async () => {
+    const facts = createFacts("HHG-R7-busy", AS_OF, dispute);
+    const { catalog } = busyCatalog([row("a", 30), row("b", 61)]);
+    await runStandardGather(createGatherRuntime({ catalog, facts, asOf: AS_OF }));
+    expect(facts.dispute_recurring).toBe(true);
+    expect(facts.customer_denied).toBe(false);
+  });
+
+  it("rules R7 out from the windows and says only the windows were read", async () => {
+    const facts = createFacts("HHG-R7-busy-none", AS_OF, dispute);
+    const seen: EvidenceItem[] = [];
+    const { catalog } = busyCatalog([row("x", 20), row("y", 45)]);
+    const g = { ...createGatherRuntime({ catalog, facts, asOf: AS_OF }), onEvidence: async (e: EvidenceItem) => { seen.push(e); } };
+    await runStandardGather(g);
+    expect(facts.customer_denied).toBe(true);
+    const r7 = seen.find((e) => e.summary.startsWith("R7"))!;
+    expect(r7.summary).toMatch(/^R7 checked and does not apply: no charge of the same amount and product code falls 26-35 days before the disputed charge/);
+    expect(r7.summary).toContain("only those monthly windows were read");
+  });
+});
+
 describe("recommendActions for disputes", () => {
   it("R7: verifies and warns, never blocks", () => {
     const f = createFacts("HHG-R7", AS_OF, dispute);

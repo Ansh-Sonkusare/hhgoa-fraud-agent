@@ -17,8 +17,9 @@ import type { EntityRef, ResolveTriggerData, SharedEntityRing, Trigger } from "@
  * (confirmed live: the server exposes no per-contract-tool-named MCP tools —
  * see docs/MCP_TOOLS.md) at WS2's installed query names, and transforms each
  * query's raw JSON into the exact contract shape. Every test in `tests/ws4/`
- * runs against `FakeMcpClient`; `RealMcpClient` is exercised by
- * `tests/ws4/realMcpClient.live.test.ts` against the live graph.
+ * runs against `FakeMcpClient`; `RealMcpClient` is exercised against the live
+ * graph by every real-backend run (`make run-case`, `make run-all`, the eval
+ * backtest), via `createMcpClient("real")` in agent/src/agentFactory.ts.
  *
  * The server wraps every tool result as a single `content[0].text` block:
  * a fenced ```json {"success", "data":{"result":[...]}, "error"?} ``` block

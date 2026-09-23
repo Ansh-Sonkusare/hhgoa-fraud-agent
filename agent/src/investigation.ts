@@ -672,7 +672,12 @@ const TXN_HISTORY_ROW_CAP = 500;
 
 export type RecurringCheck =
   | { status: "recurring"; months: number; matches: number }
-  | { status: "not_recurring"; matches: number }
+  | {
+      status: "not_recurring";
+      matches: number;
+      /** Set when only the monthly windows were read (busy card): the step whose window had no repeat. */
+      windowStep?: number;
+    }
   | { status: "unchecked"; reason: string };
 
 type HistoryRowWithProduct = Pick<TransactionHistoryRow, "txn_id" | "ts" | "amount_usd"> & {
@@ -737,6 +742,66 @@ export function checkRecurringCharge(
   return { status: "not_recurring", matches: same.length };
 }
 
+const DAY_MS = 86_400_000;
+/** A card too busy for one 9-day read is read in 3-day slices. */
+const R7_SLICE_HOURS = 72;
+
+/**
+ * R7 on a card too busy for the 500-row history: instead of the whole
+ * lookback, read only the window each monthly step could land in (26-35 days
+ * before the current step), so the row cap never cuts the pattern off. One
+ * read per step, or three 3-day slices when a step's window alone passes the
+ * cap; the first step with no match rules R7 out. HHG-011 and HHG-018 used to
+ * file "R7 could not be checked" because their 500 newest rows reached back
+ * only 12-13 days.
+ */
+async function checkRecurringByMonthlyWindows(
+  g: GatherRuntime,
+  card: EvidenceEntityRef,
+  flagged: HistoryRowWithProduct,
+): Promise<RecurringCheck> {
+  const stepHours = (R7_MONTH_MAX_DAYS - R7_MONTH_MIN_DAYS) * 24;
+  const read = async (endMs: number, hours: number): Promise<HistoryRowWithProduct[] | null> => {
+    const res = await g.catalog.get_transaction_history(card, { hours }, shiftAsOf(g.asOf, (parseToolTs(g.asOf) - endMs) / 3_600_000));
+    if (!res.ok) return null;
+    return (res.data as { rows?: HistoryRowWithProduct[] }).rows ?? [];
+  };
+  let cursor = parseToolTs(flagged.ts);
+  let months = 0;
+  let matches = 0;
+  for (let step = 0; step < R7_MIN_PRIOR_MONTHS; step++) {
+    const end = cursor - R7_MONTH_MIN_DAYS * DAY_MS;
+    let rows = await read(end, stepHours);
+    if (rows && rows.length >= TXN_HISTORY_ROW_CAP) {
+      rows = [];
+      for (let h = 0; h < stepHours; h += R7_SLICE_HOURS) {
+        const slice = await read(end - h * 3_600_000, R7_SLICE_HOURS);
+        if (!slice || slice.length >= TXN_HISTORY_ROW_CAP) {
+          return { status: "unchecked", reason: `the card has more than ${TXN_HISTORY_ROW_CAP} transactions in a 3-day slice of the month before the disputed charge` };
+        }
+        rows.push(...slice);
+      }
+    }
+    if (!rows) return { status: "unchecked", reason: "the transaction history call failed" };
+    const from = cursor - R7_MONTH_MAX_DAYS * DAY_MS;
+    const hits = rows
+      .filter(
+        (r) =>
+          r.product_cd === flagged.product_cd &&
+          Math.abs(r.amount_usd - flagged.amount_usd) < 0.005 &&
+          parseToolTs(r.ts) >= from &&
+          parseToolTs(r.ts) <= end,
+      )
+      .map((r) => parseToolTs(r.ts))
+      .sort((a, b) => b - a);
+    matches += hits.length;
+    if (hits.length === 0) return { status: "not_recurring", matches, windowStep: step };
+    cursor = hits[0]!;
+    months += 1;
+  }
+  return { status: "recurring", months, matches };
+}
+
 /**
  * A customer_report trigger is the cardholder's own statement that they did
  * not make the charge -- the case pack's trigger text reads "I never made this
@@ -766,6 +831,10 @@ async function dispute(g: GatherRuntime): Promise<void> {
     if (res.ok) {
       const rows = ((res.data as { rows?: HistoryRowWithProduct[] }).rows ?? []);
       check = checkRecurringCharge(rows, txnId, rows.length >= TXN_HISTORY_ROW_CAP);
+      const flagged = rows.find((r) => r.txn_id === txnId);
+      if (check.status === "unchecked" && rows.length >= TXN_HISTORY_ROW_CAP && flagged?.product_cd) {
+        check = await checkRecurringByMonthlyWindows(g, f.primary_card, flagged);
+      }
     } else {
       check = { status: "unchecked", reason: "the transaction history call failed" };
     }
@@ -793,6 +862,9 @@ async function dispute(g: GatherRuntime): Promise<void> {
   let summary: string;
   if (check.status === "recurring") {
     summary = `R7 applies: the disputed charge repeats ${check.months} earlier monthly charge(s) on this card (${basis}). A forgotten recurring charge is not fraud, so the card must not be blocked.`;
+  } else if (check.status === "not_recurring" && check.windowStep !== undefined) {
+    const from = check.windowStep === 0 ? "the disputed charge" : `the earlier repeat found ${check.windowStep} month(s) back`;
+    summary = `R7 checked and does not apply: no charge of the same amount and product code falls ${R7_MONTH_MIN_DAYS}-${R7_MONTH_MAX_DAYS} days before ${from}. The card is too busy for its ${TXN_HISTORY_ROW_CAP}-row history to cover ${R7_LOOKBACK_DAYS} days, so only those monthly windows were read (${basis}). R2 governs the dispute.`;
   } else if (check.status === "not_recurring") {
     summary = `R7 checked and does not apply: ${check.matches} earlier charge(s) of the same amount and product code in ${R7_LOOKBACK_DAYS} days, none forming a monthly cadence (${basis}). R2 governs the dispute.`;
   } else {
