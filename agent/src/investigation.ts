@@ -30,6 +30,7 @@ import {
   type ProxyDeviceRing,
 } from "./evidenceBuilder.js";
 import { assessSharedOrigin, MAX_CORROBORATING_RING_SIZE } from "./sharedOrigin.js";
+import { EPISODE_LOOKBACK_HOURS, EPISODE_MIN_SCORE, TINY_ONLINE_USD, episodeScore, priorRegions, type EpisodeRow } from "./episodeModel.js";
 
 /**
  * The run-local investigation state the machine accumulates as tools are
@@ -335,50 +336,38 @@ export function shiftAsOf(asOf: string, hours: number): string {
 }
 
 /**
- * Which transactions belong to the fraud episode (README: affected_txn_ids is
- * "every transaction you believe is part of the same fraud episode, including
- * the flagged one"; exposure is their summed amount).
- *
- * Measured on 2,406 held-out confirmed-fraud closed cases (none of the 100
- * backtest cases), against the analysts' own episode transactions:
- * - the old rule (any "suspicious" charge within 2h either side of the flagged
- *   one) got exposure within 25% on 57% of cases and missed half the episode
- *   (recall 0.49);
- * - the flagged charge plus every same-channel charge with risk_score >= 0.3
- *   from 2h before it up to as_of gets 68%, recall 0.75, and puts exposure on
- *   the right side of the $1,000 report line (R2, 3a) on 95% of cases.
- * The risk score only scopes an episode the case is already about; it never
- * decides the verdict. The lookback is deliberate: in this history every
- * episode starts at the flagged charge (a 0h lookback scores 70%), but the
- * README says the flagged charge "is not necessarily where the fraud started",
- * so the scope still reaches back before it. Longer lookbacks only add
- * ordinary spending here (6h: 67%, 24h: 62%).
- *
- * Tiny online charges (under $5) stay in as well: R5's card-testing probes
- * score low but belong to the episode, as in the README's own card-testing
- * example, and adding them costs nothing measurable on the held-out cases.
+ * Which transactions belong to the fraud episode. The default scope keeps the
+ * flagged charge and every row from two hours before it that the episode model
+ * scores as belonging (episodeModel.ts, which records how it was measured),
+ * plus tiny online probes on an online episode: R5's card-testing probes score
+ * low but belong to the episode, as in the README's own card-testing example.
  *
  * Undocumented activity is scoped by channel and product code instead: the
- * structuring bursts and the proxy-device ring score low, so the risk filter
- * drops them (0 of 6 held-out undocumented cases within 25%, against 5 of 6).
+ * structuring bursts and the proxy-device ring score low, so a risk-driven
+ * scope drops them (0 of 6 held-out undocumented cases within 25%, against 5
+ * of 6).
  */
-const EPISODE_LOOKBACK_HOURS = 2;
-const EPISODE_MIN_RISK = 0.3;
-
 export function scopeEpisode(
   rows: readonly TransactionHistoryRow[],
   flagged: TransactionHistoryRow,
   mode: "default" | "undocumented",
 ): TransactionHistoryRow[] {
-  const fromMs = Date.parse(flagged.ts) - EPISODE_LOOKBACK_HOURS * 3_600_000;
+  const fromMs = parseToolTs(flagged.ts) - EPISODE_LOOKBACK_HOURS * 3_600_000;
+  const candidate = (r: TransactionHistoryRow) => r.txn_id !== flagged.txn_id && parseToolTs(r.ts) >= fromMs;
+  if (mode === "undocumented") {
+    return rows.filter(
+      (r) =>
+        r.txn_id === flagged.txn_id ||
+        (candidate(r) && r.channel === flagged.channel && r.product_cd === flagged.product_cd),
+    );
+  }
+  const prior = priorRegions(rows as readonly EpisodeRow[], flagged as EpisodeRow);
   return rows.filter(
     (r) =>
       r.txn_id === flagged.txn_id ||
-      (Date.parse(r.ts) >= fromMs &&
-        r.channel === flagged.channel &&
-        (mode === "undocumented"
-          ? r.product_cd === flagged.product_cd
-          : r.risk_score >= EPISODE_MIN_RISK || (r.channel === "online" && r.amount_usd < CARD_TESTING_SMALL_NOISE))),
+      (candidate(r) &&
+        (episodeScore(r as EpisodeRow, flagged as EpisodeRow, prior) >= EPISODE_MIN_SCORE ||
+          (flagged.channel === "online" && r.channel === "online" && r.amount_usd < TINY_ONLINE_USD))),
   );
 }
 
